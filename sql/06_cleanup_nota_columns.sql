@@ -8,6 +8,11 @@
 USE medios;
 
 ALTER TABLE notas_prensa
+    DROP FOREIGN KEY notas_prensa_ibfk_2,
+    DROP FOREIGN KEY notas_prensa_ibfk_3,
+    DROP FOREIGN KEY notas_prensa_ibfk_4;
+
+ALTER TABLE notas_prensa
     DROP INDEX idx_nota_estado,
     DROP INDEX idx_nota_categoria,
     DROP COLUMN CategoriaId,
