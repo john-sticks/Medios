@@ -1,4 +1,4 @@
-name: Validate and deploy production
+name: Build and publish production image
 
 on:
   push:
@@ -8,10 +8,6 @@ on:
 
 permissions:
   contents: read
-
-concurrency:
-  group: production
-  cancel-in-progress: false
 
 jobs:
   validate:
@@ -34,35 +30,19 @@ jobs:
       - name: Build production image
         run: docker build --tag medios:validate .
 
-  deploy:
-    name: Deploy production
-    if: github.event_name == 'push'
-    needs: validate
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Connect to production tailnet
-        uses: tailscale/github-action@v4
+      - name: Log in to Docker Hub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:github-actions
-          ping: icia-monitoreo
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
 
-      - name: Configure SSH
+      - name: Publish production image
+        if: github.event_name == 'push'
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
-          SSH_KNOWN_HOSTS: ${{ secrets.PROD_SSH_KNOWN_HOSTS }}
+          IMAGE: johnsticks/medios
         run: |
-          install -d -m 700 ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/id_ed25519 ~/.ssh/known_hosts
-
-      - name: Deploy main
-        run: |
-          ssh -i ~/.ssh/id_ed25519 \
-            -o BatchMode=yes \
-            -o StrictHostKeyChecking=yes \
-            server@icia-monitoreo \
-            'cd /opt/medios/source && git fetch origin main && git merge --ff-only origin/main && bash scripts/deploy-production.sh'
+          docker tag medios:validate "$IMAGE:${GITHUB_SHA}"
+          docker tag medios:validate "$IMAGE:latest"
+          docker push "$IMAGE:${GITHUB_SHA}"
+          docker push "$IMAGE:latest"
