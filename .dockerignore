@@ -1,0 +1,13 @@
+**/bin/
+**/obj/
+.git/
+.github/
+.claude/
+.playwright-mcp/
+.env
+.env.*
+!.env.example
+*.user
+*.suo
+*.log
+publish_output/
