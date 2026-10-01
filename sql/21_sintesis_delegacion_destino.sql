@@ -1,5 +1,6 @@
 -- Visibilidad in-app por delegación al informar una síntesis consolidada
 ALTER TABLE sintesis
+    ADD COLUMN CanalTodosRoles TINYINT(1) NOT NULL DEFAULT 0 AFTER DelegacionId,
     ADD COLUMN CanalTodasDelegaciones TINYINT(1) NOT NULL DEFAULT 0 AFTER CanalTodosRoles;
 
 CREATE TABLE IF NOT EXISTS sintesis_delegacion_destino (
