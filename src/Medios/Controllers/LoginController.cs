@@ -29,6 +29,17 @@ namespace Medios.Controllers
             ?? HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString()
             ?? "";
 
+        private static string NormalizeCerberusRole(string? role)
+        {
+            return role?.ToUpper().Trim() switch
+            {
+                "ADMINISTRADOR" or "DESARROLLADOR" => "DESARROLLADOR",
+                "SUPERVISOR" or "ANALISTA" or "MEDIOS" => "MEDIOS",
+                "OPERADOR" or "CONSULTOR" or "ESTRATEGICO" or "DELEGACION" => "DELEGACION",
+                _ => "DELEGACION"
+            };
+        }
+
         [HttpGet]
         public IActionResult Index(string? msg = null)
         {
@@ -64,7 +75,8 @@ namespace Medios.Controllers
                 return View();
             }
 
-            var rolAuth = user.Rol.ToUpper().Trim();
+            var rolCerberus = user.Rol.ToUpper().Trim();
+            var rolAuth = NormalizeCerberusRole(rolCerberus);
             var rolesConAutorizacion = new[] { "MEDIOS", "DELEGACION" };
 
             // Autorización aprobada del usuario (rol efectivo, delegación y ámbito asignados por el admin)
@@ -92,6 +104,7 @@ namespace Medios.Controllers
                 new Claim("Legajo", user.Legajo),
                 new Claim("Telefono", user.Telefono),
                 new Claim("Usuario", Usuario),
+                new Claim("RolCerberus", rolCerberus),
                 // Identidad real: se preserva sin tocar a través de cualquier simulación MOCK
                 // (ver MockSwitchController), para poder restaurarla al salir y para trazabilidad.
                 new Claim("UsuarioReal", Usuario),
