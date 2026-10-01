@@ -24,4 +24,4 @@ services:
       - ./uploads:/app/wwwroot/uploads
 
     ports:
-      - "${MEDIOS_PORT:-5102}:8009"
+      - "${MEDIOS_BIND_ADDRESS:-127.0.0.1}:${MEDIOS_PORT:-5102}:8009"
