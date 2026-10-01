@@ -1,4 +1,18 @@
 SET NAMES utf8mb4;
+
+CREATE TABLE portales_prensa (
+    Id INT NOT NULL AUTO_INCREMENT,
+    Nombre VARCHAR(120) NOT NULL,
+    Url VARCHAR(255) NOT NULL,
+    Region VARCHAR(100) NULL,
+    PartidoId INT NULL,
+    Activo TINYINT(1) NOT NULL DEFAULT 1,
+    PRIMARY KEY (Id),
+    INDEX idx_portal_partido (PartidoId),
+    CONSTRAINT fk_portal_partido
+        FOREIGN KEY (PartidoId) REFERENCES Partidos(idPartido) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO portales_prensa (Nombre, Url, Region, PartidoId) VALUES
 ('0221',                  'https://www.0221.com.ar/',               'AMBA / Provinciales', 55),
 ('El Dia',                'https://www.eldia.com/',                  'AMBA / Provinciales', 55),
