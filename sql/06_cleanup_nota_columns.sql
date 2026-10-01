@@ -8,17 +8,17 @@
 USE medios;
 
 ALTER TABLE notas_prensa
-    DROP INDEX  IF EXISTS idx_nota_estado,
-    DROP INDEX  IF EXISTS idx_nota_categoria,
-    DROP COLUMN IF EXISTS CategoriaId,
-    DROP COLUMN IF EXISTS PartidoId,
-    DROP COLUMN IF EXISTS LocalidadId,
-    DROP COLUMN IF EXISTS Titulo,
-    DROP COLUMN IF EXISTS Texto,
-    DROP COLUMN IF EXISTS Fuente,
-    DROP COLUMN IF EXISTS Link,
-    DROP COLUMN IF EXISTS EsRepercusion,
-    DROP COLUMN IF EXISTS EstadoRevision,
-    DROP COLUMN IF EXISTS MotivoDescarte,
-    DROP COLUMN IF EXISTS OperadorRevision,
-    DROP COLUMN IF EXISTS FechaRevision;
+    DROP INDEX idx_nota_estado,
+    DROP INDEX idx_nota_categoria,
+    DROP COLUMN CategoriaId,
+    DROP COLUMN PartidoId,
+    DROP COLUMN LocalidadId,
+    DROP COLUMN Titulo,
+    DROP COLUMN Texto,
+    DROP COLUMN Fuente,
+    DROP COLUMN Link,
+    DROP COLUMN EsRepercusion,
+    DROP COLUMN EstadoRevision,
+    DROP COLUMN MotivoDescarte,
+    DROP COLUMN OperadorRevision,
+    DROP COLUMN FechaRevision;
