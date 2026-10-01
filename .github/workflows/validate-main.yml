@@ -1,0 +1,31 @@
+name: Validate main
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore Medios.sln
+
+      - name: Build
+        run: dotnet build Medios.sln --configuration Release --no-restore
+
+      - name: Build production image
+        run: docker build --tag medios:validate .

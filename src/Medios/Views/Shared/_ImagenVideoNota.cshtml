@@ -1,0 +1,109 @@
+@{
+    var imagenUrl = ViewData["ImagenUrl"] as string;
+    var videoUrl  = ViewData["VideoUrl"] as string;
+    var suf       = ViewData["Sufijo"] as string ?? "";
+    var extras    = ViewData["ImagenesExtra"] as IEnumerable<string> ?? Array.Empty<string>();
+}
+<div class="row">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label>
+                Imagen principal (URL)
+                <small class="text-muted">— la representativa; se descarga y reduce en el servidor</small>
+            </label>
+            <input type="text" name="imagenUrl" id="notaImagenUrl@(suf)" class="form-control" maxlength="2000"
+                   value="@imagenUrl" placeholder="Se completa al importar desde URL (o pegá una)" />
+            <div style="margin-top:6px;">
+                <img id="notaImagenPreview@(suf)" src="@imagenUrl" alt=""
+                     style="max-width:100%; max-height:170px; border:1px solid #ddd; border-radius:4px; @(string.IsNullOrWhiteSpace(imagenUrl) ? "display:none;" : "")" />
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="form-group">
+            <label>Video (URL) <small class="text-muted">— enlace externo (YouTube, Instagram, etc.)</small></label>
+            <input type="url" name="videoUrl" id="notaVideoUrl@(suf)" class="form-control" maxlength="2000"
+                   value="@videoUrl" placeholder="https://..." />
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-12">
+        <div class="form-group">
+            <label>
+                Imágenes adicionales
+                <small class="text-muted">— opcional, se cargan a mano</small>
+                <button type="button" class="btn btn-xs btn-default" id="btnAddImg@(suf)" style="margin-left:8px;">
+                    <i class="fa fa-plus"></i> Agregar imagen
+                </button>
+            </label>
+            <div id="extrasCont@(suf)">
+                @foreach (var ex in extras)
+                {
+                    <div class="extra-img-row" style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                        <input type="text" name="imagenesExtra" class="form-control input-sm extra-img-url"
+                               value="@ex" maxlength="2000" placeholder="https://..." style="flex:1;" />
+                        <img class="extra-img-prev" src="@ex" style="height:40px; border:1px solid #ddd; border-radius:3px;" />
+                        <button type="button" class="btn btn-xs btn-danger extra-img-del"><i class="fa fa-times"></i></button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        var suf = '@suf';
+        var inp = document.getElementById('notaImagenUrl' + suf);
+        var prev = document.getElementById('notaImagenPreview' + suf);
+        // Espejo opcional debajo del mapa (si el formulario lo incluye)
+        var bajoMapa = document.getElementById('previewBajoMapa' + suf);
+        if (inp && prev) {
+            function refrescar() {
+                var v = inp.value.trim();
+                if (v) { prev.src = v; prev.style.display = ''; }
+                else { prev.style.display = 'none'; }
+                if (bajoMapa) {
+                    if (v) bajoMapa.innerHTML = '<div style="font-size:11px;color:#888;margin:6px 0 2px;">' +
+                        '<i class="fa fa-image"></i> Imagen de la nota</div>' +
+                        '<img src="' + v + '" style="max-width:100%; max-height:170px; border:1px solid #ddd; border-radius:4px;" ' +
+                        'onerror="this.style.display=\'none\'" />';
+                    else bajoMapa.innerHTML = '';
+                }
+            }
+            inp.addEventListener('input', refrescar);
+            prev.onerror = function () { prev.style.display = 'none'; };
+        }
+
+        var cont = document.getElementById('extrasCont' + suf);
+        var btn = document.getElementById('btnAddImg' + suf);
+
+        function nuevaFila(valor) {
+            var row = document.createElement('div');
+            row.className = 'extra-img-row';
+            row.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:6px;';
+            row.innerHTML =
+                '<input type="text" name="imagenesExtra" class="form-control input-sm extra-img-url" maxlength="2000" placeholder="https://..." style="flex:1;" />' +
+                '<img class="extra-img-prev" style="height:40px; border:1px solid #ddd; border-radius:3px; display:none;" />' +
+                '<button type="button" class="btn btn-xs btn-danger extra-img-del"><i class="fa fa-times"></i></button>';
+            cont.appendChild(row);
+            if (valor) { row.querySelector('.extra-img-url').value = valor; }
+            enlazar(row);
+        }
+
+        function enlazar(row) {
+            var url = row.querySelector('.extra-img-url');
+            var img = row.querySelector('.extra-img-prev');
+            url.addEventListener('input', function () {
+                var v = url.value.trim();
+                if (v) { img.src = v; img.style.display = ''; } else { img.style.display = 'none'; }
+            });
+            img.onerror = function () { img.style.display = 'none'; };
+            row.querySelector('.extra-img-del').addEventListener('click', function () { row.remove(); });
+        }
+
+        // Enlazar las filas pre-existentes (al editar)
+        if (cont) cont.querySelectorAll('.extra-img-row').forEach(enlazar);
+        if (btn) btn.addEventListener('click', function () { nuevaFila(''); });
+    })();
+</script>

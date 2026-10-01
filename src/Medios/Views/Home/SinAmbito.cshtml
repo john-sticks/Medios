@@ -1,0 +1,66 @@
+@{
+    ViewData["Title"] = "Acceso pendiente";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Medios — Acceso pendiente</title>
+    <link rel="stylesheet" href="/adminlte/css/AdminLTE.min.css" />
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <style>
+        body {
+            background: #ecf0f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .card-sinambito {
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 2px 12px rgba(0,0,0,.15);
+            padding: 40px 36px 32px;
+            max-width: 460px;
+            width: 100%;
+            text-align: center;
+        }
+        .icon-circle {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: #f39c12;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        .icon-circle i {
+            font-size: 32px;
+            color: #fff;
+        }
+        h2 { font-size: 22px; margin-bottom: 10px; }
+        p  { color: #666; font-size: 15px; line-height: 1.6; }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+</head>
+<body>
+    <div class="card-sinambito">
+        <div class="icon-circle">
+            <i class="fa fa-lock"></i>
+        </div>
+        <h2>Cuenta sin ámbito asignado</h2>
+        <p>
+            Tu usuario está aprobado pero todavía no tiene un ámbito ni delegación asignados.<br/>
+            Contactá con el administrador del sistema para que complete tu configuración.
+        </p>
+        <hr style="margin: 24px 0;" />
+        <a href="/Login" class="btn btn-primary" style="min-width:160px;">
+            <i class="fa fa-sign-in"></i> Volver al login
+        </a>
+    </div>
+</body>
+</html>

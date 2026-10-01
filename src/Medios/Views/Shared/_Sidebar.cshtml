@@ -1,0 +1,9 @@
+@inject Medios.Security.MenuXmlService MenuService
+@{
+    var menu = MenuService.GetMenu(User);
+}
+
+<ul class="sidebar-menu" data-widget="tree">
+    <li class="header">MENÚ</li>
+    @await Html.PartialAsync("_SidebarItems", menu)
+</ul>

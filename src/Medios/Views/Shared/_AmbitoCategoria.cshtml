@@ -1,0 +1,97 @@
+@* Partial: selector Ámbito + Categoría.
+   Parámetros vía ViewData:
+     "AmbitoPrefix"   : prefijo de IDs (ej. "Ses", "An", "Eb")
+     "Categorias"     : IEnumerable<CategoriaNoticia>
+     "CatIdInicial"   : int (0 para nuevo, valor existente para edición)
+     "AmbitoInicial"  : string? (opcional, valor existente de AmbitoNota)
+   Genera:
+     - hidden  name="ambitoNota"   id="hAmbito{p}"
+     - hidden  name="categoriaId"  id="hCatId{p}"
+     - col-md-3: select Ámbito id="selAmbito{p}"
+     - col-md-3: select Categoría id="selCat{p}" (siempre visible, opcional)
+
+   Categoría es siempre opcional (Nacional/Provincial no llevan categoría; Partido puede no
+   llevarla). Partido/Localidad/Dirección (fuera de este partial, en el formulario que lo
+   incluye) solo son obligatorios cuando Ámbito = "Partido" — este script busca un elemento
+   con id "selPartido{p}"/"inputDireccion{p}" o, si no existe, "selPartido"/"inputDireccion"
+   (convención usada por los formularios que no prefijan el id) y alterna su atributo
+   required según el Ámbito elegido.
+*@
+@using Medios.Entities
+@{
+    var p        = ViewData["AmbitoPrefix"] as string ?? "";
+    var cats     = ViewData["Categorias"] as IEnumerable<CategoriaNoticia> ?? Enumerable.Empty<CategoriaNoticia>();
+    var catId    = (int)(ViewData["CatIdInicial"] ?? 0);
+    var ambitoIn = ViewData["AmbitoInicial"] as string ?? "";
+}
+
+<input type="hidden" name="ambitoNota"  id="hAmbito@(p)" />
+<input type="hidden" name="categoriaId" id="hCatId@(p)" />
+
+<div class="col-md-3">
+    <div class="form-group">
+        <label>Ámbito <span class="text-red">*</span></label>
+        <select id="selAmbito@(p)" class="form-control" required>
+            <option value="">— Seleccioná —</option>
+            <option value="Nacional">Nacional</option>
+            <option value="Provincial">Provincial</option>
+            <option value="Partido">Partido</option>
+        </select>
+    </div>
+</div>
+
+<div class="col-md-3">
+    <div class="form-group">
+        <label>Categoría</label>
+        <select id="selCat@(p)" class="form-control">
+            <option value="">— Ninguna —</option>
+            @foreach (var cat in cats.Where(c => c.Id != 1 && c.Id != 2).OrderBy(c => c.Orden))
+            {
+                <option value="@cat.Id">@cat.Nombre</option>
+            }
+        </select>
+    </div>
+</div>
+
+<script>
+(function () {
+    function init() {
+        var selAmbito = document.getElementById('selAmbito@(p)');
+        var selCat    = document.getElementById('selCat@(p)');
+        var hAmbito   = document.getElementById('hAmbito@(p)');
+        var hCatId    = document.getElementById('hCatId@(p)');
+        var selPartido = document.getElementById('selPartido@(p)') || document.getElementById('selPartido');
+        var inputDireccion = document.getElementById('inputDireccion@(p)') || document.getElementById('inputDireccion');
+        if (!selAmbito || !selCat || !hAmbito || !hCatId) return;
+
+        function sync() {
+            hAmbito.value = selAmbito.value;
+            hCatId.value  = selCat.value;
+            // Partido/Dirección solo son obligatorios para Ámbito "Partido" — Nacional/Provincial no los llevan.
+            var esPartido = selAmbito.value === 'Partido';
+            if (selPartido) selPartido.required = esPartido;
+            if (inputDireccion) inputDireccion.required = esPartido;
+        }
+
+        selAmbito.addEventListener('change', sync);
+        selCat.addEventListener('change', sync);
+
+        // Pre-inicializar al editar
+        var ambitoIn = '@ambitoIn';
+        var catIdIn  = @catId;
+        if (ambitoIn) {
+            selAmbito.value = ambitoIn;
+        }
+        if (catIdIn) {
+            selCat.value = catIdIn;
+        }
+        sync();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>

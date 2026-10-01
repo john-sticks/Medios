@@ -1,0 +1,319 @@
+@using Medios.Entities
+@model List<SesionPrensa>
+
+@{
+    ViewData["Title"] = "Bandeja de Síntesis";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var consolidadas = ViewBag.SintesisConsolidadas as List<Sintesis> ?? new();
+    var informadas   = ViewBag.SintesisInformadas   as List<Sintesis> ?? new();
+    var delegaciones = ViewBag.Delegaciones as List<Delegacion> ?? new();
+    var divisionMediosId = ViewBag.DivisionMediosId as int?;
+
+    // SesionPrensa y Sintesis son entidades distintas: Remitidas/Procesando/Finalizadas
+    // recorren el ciclo de SesionPrensa; Consolidadas/Informadas son Sintesis ya generadas
+    // (ViewBag, separado). Una sesión Consolidada no vuelve a contarse acá — ya está
+    // representada por su Sintesis en el tab "Consolidadas".
+    // Los Borradores propios de MEDIOS (notas cargadas vía "Nueva Nota") también vienen en
+    // Model — GetBandejaAnalistaAsync ya los trae vía el parámetro usuarioBorradores — pero
+    // antes no se mostraban en ningún tab. "Publicar" los convierte en su propia Sintesis
+    // (ConvertirASintesisAsync) y pasan a Remitida.
+    int remitidasCount = 0, procesandoCount = 0, finalizadasCount = 0, borradoresCount = 0;
+    foreach (var s in Model)
+    {
+        if (s.Estado == "Remitida")
+        {
+            var revisadas = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Descartada" or "Finalizada");
+            if (revisadas > 0) procesandoCount++; else remitidasCount++;
+        }
+        else if (s.Estado == "Finalizada")
+        {
+            finalizadasCount++;
+        }
+        else if (s.Estado == "Borrador")
+        {
+            borradoresCount++;
+        }
+    }
+}
+
+<!-- Filtros -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-default collapsed-box">
+            <div class="box-header with-border" style="cursor:pointer;" data-widget="collapse">
+                <h3 class="box-title"><i class="fa fa-filter"></i> Filtros</h3>
+                <div class="box-tools"><button class="btn btn-box-tool"><i class="fa fa-plus"></i></button></div>
+            </div>
+            <div class="box-body" style="display:none;">
+                <form method="get" asp-controller="Sesion" asp-action="Bandeja" class="form-inline" style="gap:8px;flex-wrap:wrap;display:flex;">
+                    <div class="form-group">
+                        <label style="margin-right:4px;">Delegación</label>
+                        <select name="delegacionId" class="form-control input-sm">
+                            <option value="">Todas</option>
+                            @foreach (var d in delegaciones)
+                            {
+                                <option value="@d.Id" selected="@(ViewBag.FiltroDelegacionId?.ToString() == d.Id.ToString())">@d.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-right:4px;">Turno</label>
+                        <select name="turno" class="form-control input-sm">
+                            @foreach (var t in ViewBag.Turnos as string[])
+                            {
+                                <option value="@t" selected="@(ViewBag.FiltroTurno == t)">@(t == "" ? "Todos" : t)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-right:4px;">Desde</label>
+                        <input type="date" name="fechaDesde" class="form-control input-sm" value="@ViewBag.FiltroFechaDesde" />
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-right:4px;">Hasta</label>
+                        <input type="date" name="fechaHasta" class="form-control input-sm" value="@ViewBag.FiltroFechaHasta" />
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+                    <a href="/Sesion/Bandeja" class="btn btn-default btn-sm">Limpiar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title">
+                    <button type="button" class="btn btn-sm btn-default" id="tabBorradores" onclick="mostrarTab('borradores')">
+                        <i class="fa fa-pencil"></i> Borradores
+                        @if (borradoresCount > 0) { <span class="badge bg-red">@borradoresCount</span> }
+                    </button>
+                    <button type="button" class="btn btn-sm btn-warning" style="margin-left:4px;" id="tabRemitidas" onclick="mostrarTab('remitidas')">
+                        <i class="fa fa-inbox"></i> Remitidas
+                        <span class="badge" style="background:rgba(255,255,255,0.3);">@remitidasCount</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabProcesando" onclick="mostrarTab('procesando')">
+                        <i class="fa fa-spinner"></i> Procesando
+                        @if (procesandoCount > 0) { <span class="badge bg-yellow">@procesandoCount</span> }
+                    </button>
+                    <button type="button" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabFinalizadas" onclick="mostrarTab('finalizadas')">
+                        <i class="fa fa-flag-checkered"></i> Finalizadas
+                        @if (finalizadasCount > 0) { <span class="badge bg-navy">@finalizadasCount</span> }
+                    </button>
+                    <button type="button" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabConsolidadas" onclick="mostrarTab('consolidadas')">
+                        <i class="fa fa-object-group"></i> Consolidadas
+                        @if (consolidadas.Count > 0) { <span class="badge" style="background:#605ca8;">@consolidadas.Count</span> }
+                    </button>
+                    <button type="button" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabInformadas" onclick="mostrarTab('informadas')">
+                        <i class="fa fa-send"></i> Informadas
+                        @if (informadas.Count > 0) { <span class="badge bg-teal">@informadas.Count</span> }
+                    </button>
+                </h3>
+                <div class="box-tools pull-right">
+                    <a href="/Sintesis/Consolidar" class="btn btn-sm btn-success">
+                        <i class="fa fa-object-group"></i> Ir a Consolidar
+                    </a>
+                </div>
+            </div>
+
+            <div class="box-body">
+
+                <!-- ── Remitidas / Procesando / Finalizadas (SesionPrensa) ─────────── -->
+                <div id="secSesiones">
+                    <table class="table table-hover" style="margin-bottom:0;">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th><th>Turno</th><th>Delegación</th>
+                                <th>Notas</th><th>Estado</th><th>Remitida</th><th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in Model.OrderByDescending(x => x.Fecha).ThenBy(x => x.Turno))
+                            {
+                                var aprobadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Finalizada");
+                                var agregadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision == "Agregada");
+                                var revisadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Descartada" or "Finalizada");
+                                string? progreso = s.Estado == "Remitida" ? (revisadas > 0 ? "procesando" : "remitida")
+                                    : s.Estado == "Finalizada" ? "finalizada"
+                                    : s.Estado == "Borrador" ? "borrador"
+                                    : null; // Consolidada: ya está representada por su Sintesis en "Consolidadas"
+                                if (progreso == null) { continue; }
+                                var badgeEstado = s.Estado switch { "Remitida" => "bg-yellow", "Finalizada" => "bg-navy", "Borrador" => "bg-red", _ => "bg-gray" };
+                                <tr data-progreso="@progreso">
+                                    <td><strong>@s.Fecha.ToString("dd/MM/yyyy")</strong></td>
+                                    <td>@s.Turno</td>
+                                    <td>@(s.Delegacion?.Nombre ?? "División Medios")</td>
+                                    <td>
+                                        <span class="badge bg-blue">@s.Notas.Count</span>
+                                        @if (aprobadas > 0) { <span class="badge bg-green">@aprobadas apro.</span> }
+                                        @if (agregadas > 0) { <span class="badge bg-purple">@agregadas agr.</span> }
+                                    </td>
+                                    <td><span class="label @badgeEstado">@s.Estado</span></td>
+                                    <td>@if (s.FechaRemision.HasValue) { <small>@s.FechaRemision.Value.ToString("dd/MM HH:mm")</small> }</td>
+                                    <td class="text-right" style="white-space:nowrap;">
+                                        <a href="/Sesion/Detalle/@s.Id" class="btn btn-xs btn-primary"><i class="fa fa-eye"></i> Ver</a>
+                                        <a href="/Sesion/ExportarExcel/@s.Id" class="btn btn-xs btn-success" title="Excel"><i class="fa fa-file-excel-o"></i></a>
+                                        @if (s.Estado == "Remitida")
+                                        {
+                                            <form method="post" asp-controller="Sesion" asp-action="FinalizarSesion" style="display:inline;margin-left:2px;">
+                                                <input type="hidden" name="id" value="@s.Id" />
+                                                <button type="submit" class="btn btn-xs btn-navy" onclick="return confirm('¿Finalizar esta síntesis? Las notas sin atender no se podrán revisar después.')">
+                                                    <i class="fa fa-flag-checkered"></i> Finalizar
+                                                </button>
+                                            </form>
+                                        }
+                                        @if (s.Estado == "Borrador")
+                                        {
+                                            <form method="post" asp-controller="Sesion" asp-action="GenerarPdf" style="display:inline;margin-left:2px;">
+                                                <input type="hidden" name="id" value="@s.Id" />
+                                                <button type="submit" class="btn btn-xs btn-danger" onclick="return confirm('¿Publicar este borrador como síntesis? Genera el PDF y ya no vas a poder agregarle más notas.')">
+                                                    <i class="fa fa-send"></i> Publicar
+                                                </button>
+                                            </form>
+                                        }
+                                        @if (s.Estado == "Finalizada" && divisionMediosId.HasValue && s.DelegacionId == divisionMediosId)
+                                        {
+                                            <form method="post" asp-controller="Sesion" asp-action="RevertirFinalizada" style="display:inline;margin-left:2px;">
+                                                <input type="hidden" name="id" value="@s.Id" />
+                                                <button type="submit" class="btn btn-xs btn-default" title="Volver a Borrador para editarla"
+                                                        onclick="return confirm('¿Volver esta síntesis a Borrador? Se elimina el PDF generado y las notas vuelven a poder editarse.')">
+                                                    <i class="fa fa-undo"></i> Volver a Borrador
+                                                </button>
+                                            </form>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                    @if (remitidasCount + procesandoCount + finalizadasCount + borradoresCount == 0)
+                    {
+                        <p class="text-muted" style="margin-top:10px;">
+                            <i class="fa fa-info-circle"></i> No hay sesiones en borrador, remitidas, en proceso o finalizadas en este momento.
+                        </p>
+                    }
+                </div>
+
+                <!-- ── Consolidadas (Sintesis) ─────────────────────────────────── -->
+                <div id="secConsolidadas" style="display:none;">
+                    @if (!consolidadas.Any())
+                    {
+                        <p class="text-muted"><i class="fa fa-info-circle"></i> No hay síntesis consolidadas pendientes de informar.</p>
+                    }
+                    else
+                    {
+                        <p class="text-muted" style="font-size:12px; margin-bottom:10px;">
+                            <i class="fa fa-info-circle"></i>
+                            Síntesis consolidadas generadas, pendientes de ser informadas a los destinatarios.
+                        </p>
+                        <table class="table table-hover" style="margin-bottom:0;">
+                            <thead>
+                                <tr><th>Fecha</th><th>Turno</th><th>Notas</th><th>Estado</th><th>Generada</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var sc in consolidadas.OrderByDescending(x => x.Fecha))
+                                {
+                                    var estadoBadge = sc.Estado == "Generada" ? "bg-green" : "bg-gray";
+                                    <tr>
+                                        <td><strong>@sc.Fecha.ToString("dd/MM/yyyy")</strong></td>
+                                        <td>@sc.Tipo</td>
+                                        <td><span class="badge bg-blue">@sc.NotasIncluidas.Count</span></td>
+                                        <td><span class="label @estadoBadge">@sc.Estado</span></td>
+                                        <td><small>@sc.FechaCreacion.ToString("dd/MM HH:mm")</small></td>
+                                        <td class="text-right" style="white-space:nowrap;">
+                                            <a href="/Sintesis/Detalle/@sc.Id" class="btn btn-xs btn-primary"><i class="fa fa-eye"></i> Ver</a>
+                                            <a href="/Sintesis/Informar/@sc.Id" class="btn btn-xs btn-info" style="margin-left:4px;">
+                                                <i class="fa fa-send"></i> Informar
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+
+                <!-- ── Informadas (Sintesis) ───────────────────────────────────── -->
+                <div id="secInformadas" style="display:none;">
+                    @if (!informadas.Any())
+                    {
+                        <p class="text-muted">No hay síntesis informadas.</p>
+                    }
+                    else
+                    {
+                        <table class="table table-hover" style="margin-bottom:0;">
+                            <thead>
+                                <tr><th>Fecha</th><th>Turno</th><th>Notas</th><th>Informada el</th><th></th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var si in informadas.OrderByDescending(x => x.Fecha))
+                                {
+                                    <tr>
+                                        <td><strong>@si.Fecha.ToString("dd/MM/yyyy")</strong></td>
+                                        <td>@si.Tipo</td>
+                                        <td><span class="badge bg-blue">@si.NotasIncluidas.Count</span></td>
+                                        <td><small>@si.FechaGeneracion?.ToString("dd/MM/yyyy HH:mm")</small></td>
+                                        <td class="text-right" style="white-space:nowrap;">
+                                            <a href="/Sintesis/Detalle/@si.Id" class="btn btn-xs btn-default"><i class="fa fa-eye"></i> Ver</a>
+                                            <a href="/Sintesis/Informar/@si.Id" class="btn btn-xs btn-info" style="margin-left:4px;" title="Volver a elegir canales / reenviar">
+                                                <i class="fa fa-pencil"></i> Editar
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+$(function () {
+    var TABS = {
+        borradores:   { sel: 'tr[data-progreso="borrador"]',   tab: '#tabBorradores',   cls: 'btn-danger',  sesiones: true },
+        remitidas:    { sel: 'tr[data-progreso="remitida"]',   tab: '#tabRemitidas',    cls: 'btn-warning', sesiones: true },
+        procesando:   { sel: 'tr[data-progreso="procesando"]', tab: '#tabProcesando',   cls: 'btn-warning', sesiones: true },
+        finalizadas:  { sel: 'tr[data-progreso="finalizada"]', tab: '#tabFinalizadas',  cls: 'btn-primary', sesiones: true },
+        consolidadas: { tab: '#tabConsolidadas', cls: 'btn-info',    sesiones: false, div: '#secConsolidadas' },
+        informadas:   { tab: '#tabInformadas',   cls: 'btn-success', sesiones: false, div: '#secInformadas' }
+    };
+
+    window.mostrarTab = function (key) {
+        var t = TABS[key] || TABS.remitidas;
+        $('#tabBorradores,#tabRemitidas,#tabProcesando,#tabFinalizadas,#tabConsolidadas,#tabInformadas')
+            .removeClass('btn-primary btn-warning btn-info btn-success btn-danger').addClass('btn-default');
+        $(t.tab).removeClass('btn-default').addClass(t.cls);
+
+        $('#secConsolidadas, #secInformadas').hide();
+        if (t.sesiones) {
+            $('#secSesiones').show();
+            $('tr[data-progreso]').hide();
+            $(t.sel).show();
+        } else {
+            $('#secSesiones').hide();
+            $(t.div).show();
+        }
+        history.replaceState(null, '', key === 'remitidas' ? location.pathname : '#' + key);
+    };
+
+    var hash = window.location.hash.replace('#', '');
+    mostrarTab(TABS[hash] ? hash : 'remitidas');
+});
+</script>
+}

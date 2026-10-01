@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nivel 15: MEDIOS (absorbe ex-SUPERVISOR, ex-ANALISTA y las tareas del ex-ADMINISTRADOR) -->
+<permisos>
+  <navigation>
+    <page title="Inicio" icon="fa fa-home" href="~/home" />
+    <group title="Síntesis" icon="fa fa-file-text">
+      <page title="Mis Borradores" icon="fa fa-pencil-square-o" href="~/sesion/mias" />
+      <page title="Bandeja" icon="fa fa-inbox" href="~/sesion/bandeja" />
+      <page title="Consolidar" icon="fa fa-object-group" href="~/sintesis/consolidar" />
+      <page title="Generadas" icon="fa fa-check-square-o" href="~/sintesis/listado" />
+      <page title="Publicadas" icon="fa fa-newspaper-o" href="~/sintesis/publicadas" />
+    </group>
+    <group title="Notas" icon="fa fa-newspaper-o">
+      <page title="Nueva Nota" icon="fa fa-plus-circle" href="~/nota/nueva" />
+      <page title="Búsqueda" icon="fa fa-search" href="~/notabuscador" />
+    </group>
+    <group title="Consulta" icon="fa fa-search-plus">
+      <page title="Traza" icon="fa fa-sitemap" href="~/traza" />
+      <page title="Hechos Criminales" icon="fa fa-shield" href="~/hechos/listado" />
+      <page title="Análisis" icon="fa fa-bar-chart" href="~/analisis" />
+    </group>
+    <group title="Administración" icon="fa fa-cogs">
+      <group title="Estructura" icon="fa fa-sitemap">
+        <page title="Delegaciones" icon="fa fa-building" href="~/delegacion/listado" />
+        <page title="Carátulas y Modalidades" icon="fa fa-gavel" href="~/caratula/listado" />
+        <page title="Categorías" icon="fa fa-tags" href="~/categoria/listado" />
+        <page title="Partidos" icon="fa fa-map-o" href="~/partido/listado" />
+      </group>
+      <page title="Autorizaciones" icon="fa fa-id-card" href="~/autorizacion/listado" />
+      <page title="Prompt IA" icon="fa fa-magic" href="~/configuracion/promptia" />
+      <page title="Configuración Mail" icon="fa fa-envelope" href="~/configuracion/mail" />
+    </group>
+    <page title="Portales" icon="fa fa-globe" href="~/portales/listado" />
+  </navigation>
+  <notnavigation>
+    <page href="~/home/noautorizado" />
+    <page href="~/home/miperfil" />
+    <page href="~/autorizacion/pendiente" />
+    <page href="~/autorizacion/solicitud" />
+    <page href="~/autorizacion/imprimir" />
+    <page href="~/sesion/bandeja" />
+    <page href="~/sesion/detalle" />
+    <page href="~/sesion/finalizarsesion" />
+    <page href="~/sesion/marcarfinalizada" />
+    <page href="~/sesion/agregarnotaanalista" />
+    <page href="~/sesion/eliminarnotaagregada" />
+    <page href="~/sesion/descargarPdf" />
+    <page href="~/sesion/mias" />
+    <page href="~/sesion/nueva" />
+    <page href="~/sesion/agregar-nota" />
+    <page href="~/sesion/agregarnotaexistente" />
+    <page href="~/sesion/eliminarborrador" />
+    <page href="~/sesion/eliminarnota" />
+    <page href="~/sesion/notassinremitir" />
+    <page href="~/sesion/eliminarnotasinremitir" />
+    <page href="~/sesion/agregarnotaactualizada" />
+    <page href="~/sesion/cambiarborrador" />
+    <page href="~/sesion/generarpdf" />
+    <page href="~/sesion/revertirfinalizada" />
+    <page href="~/sesion/remitir" />
+    <page href="~/sesion/exportarexcel" />
+    <page href="~/sesion/localidadesbypartido" />
+    <page href="~/sesion/modalidadesbycaratula" />
+    <page href="~/auditoria" />
+    <page href="~/scraping/listado" />
+    <page href="~/sincronizacion" />
+    <page href="~/sincronizacion/capturar" />
+    <page href="~/nota/nueva" />
+    <page href="~/nota/editar" />
+    <page href="~/nota/editarborrador" />
+    <page href="~/nota/ampliar" />
+    <page href="~/nota/editarsinremitir" />
+    <page href="~/nota/listado" />
+    <page href="~/nota/agregarlibre" />
+    <page href="~/nota/eliminarlibre" />
+    <page href="~/nota/editarlibre" />
+    <page href="~/nota/generarsintesisia" />
+    <page href="~/nota/sugerircaratula" />
+    <page href="~/nota/scrapearurl" />
+    <page href="~/sintesis/listado" />
+    <page href="~/sintesis/consolidar" />
+    <page href="~/sintesis/informar" />
+    <page href="~/sintesis/revertirconsolidar" />
+    <page href="~/sintesis/notasnacprov" />
+    <page href="~/sintesis/detalle" />
+    <page href="~/sintesis/descargarpdf" />
+    <page href="~/hechos/detalle" />
+    <page href="~/hechos/nuevo" />
+    <page href="~/delegacion/editar" />
+    <page href="~/categoria/editar" />
+    <page href="~/categoria/eliminar" />
+    <page href="~/partido/editar" />
+    <page href="~/caratula/editarcaratula" />
+    <page href="~/caratula/eliminarcaratula" />
+    <page href="~/caratula/editarmodalidad" />
+    <page href="~/caratula/eliminarmodalidad" />
+    <page href="~/configuracion/mailprueba" />
+    <page href="~/scraping/editar" />
+    <page href="~/scraping/eliminar" />
+    <page href="~/scraping/probar" />
+    <page href="~/portales/nuevo" />
+    <page href="~/portales/editar" />
+    <page href="~/portales/eliminar" />
+    <page href="~/mockswitch" />
+    <page href="~/notabuscador/detalle" />
+    <page href="~/notabuscador/buscarparaRelacionar" />
+    <page href="~/traza/detalle" />
+    <page href="~/traza/sintesis" />
+    <page href="~/sincronizacion/generar" />
+    <page href="~/sincronizacion/guardarconfig" />
+    <page href="~/sincronizacion/capturarconfirmar" />
+    <page href="~/sincronizacion/guardarsajson" />
+  </notnavigation>
+  <permissions>
+    <permission name="VER_SESIONES" />
+    <permission name="CREAR_SESION" />
+    <permission name="REMITIR_SESION" />
+    <permission name="VER_SESIONES_PROPIAS" />
+    <permission name="VER_NOTAS_LIBRES" />
+    <permission name="REVISAR_SESION" />
+    <permission name="ANALIZAR_SESION" />
+    <permission name="APROBAR_NOTA" />
+    <permission name="DESCARTAR_NOTA" />
+    <permission name="MODIFICAR_NOTA" />
+    <permission name="AMPLIAR_NOTA" />
+    <permission name="CREAR_NOTA_DIVISION" />
+    <permission name="VER_SINTESIS" />
+    <permission name="CREAR_SINTESIS" />
+    <permission name="MODIFICAR_SINTESIS" />
+    <permission name="GENERAR_PDF" />
+    <permission name="VER_HECHOS" />
+    <permission name="CREAR_HECHO" />
+    <permission name="EDITAR_HECHO" />
+    <permission name="VER_ANALISIS" />
+    <permission name="VER_AUDITORIA" />
+    <permission name="VER_AUTORIZACIONES" />
+    <permission name="APROBAR_AUTORIZACION" />
+    <permission name="RECHAZAR_AUTORIZACION" />
+    <permission name="ADMINISTRAR_CATALOGOS" />
+    <permission name="ADMINISTRAR_DELEGACIONES" />
+    <permission name="ADMINISTRAR_CONFIGURACION" />
+    <permission name="BUSCAR_NOTAS" />
+    <permission name="VER_TRAZA" />
+    <permission name="RELACIONAR_NOTAS" />
+    <permission name="VER_PORTALES" />
+    <permission name="GESTIONAR_PORTALES" />
+    <permission name="USAR_IA" />
+    <permission name="VER_SINCRONIZACION" />
+  </permissions>
+</permisos>

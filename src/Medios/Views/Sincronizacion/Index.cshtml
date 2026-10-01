@@ -1,0 +1,121 @@
+@using Medios.Entities
+@{
+    ViewData["Title"] = "Sincronización";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var root = (string)(ViewBag.Root ?? "");
+    var rootDefecto = (string)(ViewBag.RootPorDefecto ?? "");
+    var puedeConfigurar = (bool)(ViewBag.PuedeConfigurar ?? false);
+    var sintesis = ViewBag.Sintesis as List<Sintesis> ?? new List<Sintesis>();
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-info">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-cloud-upload"></i> Sincronización a la nube</h3>
+            </div>
+            <div class="box-body">
+                <p class="text-muted" style="font-size:12px;">
+                    <i class="fa fa-info-circle"></i>
+                    Genera en el servidor la estructura de carpetas y los archivos <code>datos.json</code> de cada
+                    síntesis consolidada y sus notas (con imágenes), lista para subir a Google Drive.
+                    Estructura: <code>INTELIGENCIA/AAAA/MM/DD/{SINTESIS,NOTAS}/…</code>.
+                    <strong>Todavía no se conecta a Drive</strong> — solo se genera localmente.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-5">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-folder-open"></i> Carpeta de sincronización</h3>
+            </div>
+            <div class="box-body">
+                @if (puedeConfigurar)
+                {
+                    <form method="post" asp-action="GuardarConfig">
+                        <div class="form-group">
+                            <label>Ruta raíz en el servidor</label>
+                            <input type="text" name="root" class="form-control" value="@root"
+                                   placeholder="@rootDefecto" />
+                            <small class="text-muted">
+                                Carpeta donde se escribe el árbol <code>INTELIGENCIA/…</code>.
+                                Dejala vacía para usar el valor por defecto (<code>@rootDefecto</code>).
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="fa fa-save"></i> Guardar carpeta
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <p style="margin:0;"><strong>Ruta actual:</strong></p>
+                    <p><code>@root</code></p>
+                    <small class="text-muted">Solo Medios puede cambiar la carpeta.</small>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <div class="box box-success">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-file-text"></i> Síntesis consolidadas</h3>
+            </div>
+            <div class="box-body no-padding">
+                @if (!sintesis.Any())
+                {
+                    <p style="padding:14px; margin:0;" class="text-muted">No hay síntesis consolidadas para sincronizar.</p>
+                }
+                else
+                {
+                    <table class="table table-condensed table-hover" style="margin:0;">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Estado</th>
+                                <th class="text-center">Notas</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in sintesis)
+                            {
+                                <tr>
+                                    <td>@s.Fecha.ToString("dd/MM/yyyy")</td>
+                                    <td>@s.Tipo</td>
+                                    <td>
+                                        <span class="label label-@(s.Estado == "Informada" ? "success" : "info")">@s.Estado</span>
+                                    </td>
+                                    <td class="text-center">@s.NotasIncluidas.Count</td>
+                                    <td class="text-right">
+                                        <form method="post" asp-action="Generar" style="display:inline">
+                                            <input type="hidden" name="sintesisId" value="@s.Id" />
+                                            <button type="submit" class="btn btn-xs btn-success">
+                                                <i class="fa fa-cloud-upload"></i> Generar estructura
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>

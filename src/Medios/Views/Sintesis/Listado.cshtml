@@ -1,0 +1,272 @@
+@using Medios.Entities
+@model List<Sintesis>
+
+@{
+    ViewData["Title"] = "Síntesis";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var puedeCrear = User.IsInRole("MEDIOS");
+    var puedeModificar = puedeCrear || User.IsInRole("DELEGACION");
+    var puedeRemitir = puedeCrear || User.IsInRole("DELEGACION");
+    var esDelegacion = User.IsInRole("DELEGACION");
+    var notasRechazadasGlobal = esDelegacion
+        ? (ViewBag.NotasRechazadas as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>())
+        : Enumerable.Empty<dynamic>();
+
+    // Clasificación de síntesis para solapas (solo DELEGACION)
+    static string Clasificar(Sintesis s) {
+        if (s.Estado == "Borrador") return "borrador";
+        if (s.Estado == "Generada") return "generada";
+        var notas = s.NotasIncluidas;
+        if (!notas.Any()) return "remitida";
+
+        // Solo mover a Aprobada/Desaprobada cuando la sesión fue Finalizada por Medios
+        var sesionRevisada = notas.Any(sn => sn.Nota?.Sesion?.Estado == "Finalizada"
+                                          || sn.Nota?.Sesion?.Estado == "Consolidada");
+        if (!sesionRevisada) return "remitida";
+
+        // Sesión revisada → siempre "aprobada" (notas rechazadas se ven en solapa Descartadas)
+        return "aprobada";
+    }
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title">Síntesis de Prensa</h3>
+                @if (puedeCrear)
+                {
+                    <div class="box-tools">
+                        <a href="/Sintesis/Consolidar" class="btn btn-primary btn-sm">
+                            <i class="fa fa-object-group"></i> Consolidar Síntesis
+                        </a>
+                    </div>
+                }
+            </div>
+            @if (esDelegacion)
+            {
+                <div class="box-header" style="padding:8px 15px; border-bottom:1px solid #f4f4f4;">
+                    @{
+                        var cntGenerada    = Model.Count(s => Clasificar(s) == "generada");
+                        var cntRemitida    = Model.Count(s => Clasificar(s) == "remitida");
+                        var cntAprobada    = Model.Count(s => Clasificar(s) == "aprobada");
+                        var cntDescartadas = notasRechazadasGlobal.Count(); // notas individuales rechazadas
+                        var cntBorrador    = Model.Count(s => Clasificar(s) == "borrador");
+                    }
+                    <a href="#" class="btn btn-sm btn-default tab-sint active-tab" data-tab="todas">
+                        <i class="fa fa-list"></i> Todas <span class="badge">@Model.Count</span>
+                    </a>
+                    @if (cntBorrador > 0)
+                    {
+                        <a href="#" class="btn btn-sm btn-default tab-sint" data-tab="borrador" style="margin-left:4px;">
+                            <i class="fa fa-pencil"></i> Borrador <span class="badge bg-gray">@cntBorrador</span>
+                        </a>
+                    }
+                    <a href="#" class="btn btn-sm btn-default tab-sint" data-tab="generada" style="margin-left:4px;">
+                        <i class="fa fa-file-pdf-o"></i> Generadas <span class="badge bg-light-blue">@cntGenerada</span>
+                    </a>
+                    <a href="#" class="btn btn-sm btn-default tab-sint" data-tab="remitida" style="margin-left:4px;">
+                        <i class="fa fa-send"></i> Remitidas <span class="badge bg-orange">@cntRemitida</span>
+                    </a>
+                    <a href="#" class="btn btn-sm btn-default tab-sint" data-tab="aprobada" style="margin-left:4px;">
+                        <i class="fa fa-check"></i> Aprobadas <span class="badge bg-green">@cntAprobada</span>
+                    </a>
+                    <a href="#" class="btn btn-sm btn-default tab-sint" data-tab="descartada" style="margin-left:4px;">
+                        <i class="fa fa-times"></i> Descartadas <span class="badge bg-red">@cntDescartadas</span>
+                    </a>
+                </div>
+            }
+            <div class="box-body">
+                @if (!Model.Any())
+                {
+                    <p class="text-muted">No hay síntesis generadas aún.</p>
+                }
+                else
+                {
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Estado</th>
+                                <th>Notas</th>
+                                <th>Generada</th>
+                                <th>Operador</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in Model)
+                            {
+                                var estadoClass = s.Estado switch {
+                                    "Borrador"  => "label-default",
+                                    "Generada"  => "bg-light-blue",
+                                    "Remitida"  => "bg-orange",
+                                    _           => "label-default"
+                                };
+                                var totalNotas    = s.NotasIncluidas.Count;
+                                var aprobadas     = s.NotasIncluidas.Count(sn => sn.Nota?.VersionActual?.EstadoRevision == "Aprobada");
+                                var descartadas   = s.NotasIncluidas.Count(sn => sn.Nota?.VersionActual?.EstadoRevision == "Descartada"
+                                    || (sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir" && !string.IsNullOrEmpty(sn.Nota.VersionActual.MotivoDescarte)));
+                                var actualizadas  = s.NotasIncluidas.Count(sn => sn.Nota?.VersionActualId != sn.NotaVersionId);
+                                var esAprobada    = Clasificar(s) == "aprobada";
+                                <tr data-clase="@Clasificar(s)">
+                                    <td><strong>@s.Fecha.ToString("dd/MM/yyyy")</strong></td>
+                                    <td>@s.Tipo</td>
+                                    <td><span class="label @estadoClass">@s.Estado</span></td>
+                                    <td>
+                                        <span class="badge bg-blue" title="@totalNotas notas">@totalNotas</span>
+                                        @if (!esDelegacion || esAprobada)
+                                        {
+                                            @if (aprobadas > 0)   { <span class="badge bg-green" title="@aprobadas aprobadas">@aprobadas apro.</span> }
+                                            @if (descartadas > 0) { <span class="badge bg-red"   title="@descartadas descartadas">@descartadas desc.</span> }
+                                            @if (!esDelegacion && actualizadas > 0){ <span class="badge bg-orange" title="@actualizadas con nueva versión">@actualizadas act.</span> }
+                                        }
+                                    </td>
+                                    <td>@s.FechaGeneracion?.ToString("dd/MM HH:mm")</td>
+                                    <td><small>@s.OperadorGenera</small></td>
+                                    <td>
+                                        <a href="/Sintesis/Detalle/@s.Id" class="btn btn-default btn-xs">
+                                            <i class="fa fa-eye"></i> Ver
+                                        </a>
+                                        @if (!string.IsNullOrEmpty(s.PDFPath))
+                                        {
+                                            <a href="/Sintesis/DescargarPdf/@s.Id" class="btn btn-danger btn-xs">
+                                                <i class="fa fa-file-pdf-o"></i> PDF
+                                            </a>
+                                        }
+                                        @if (puedeRemitir && s.Estado == "Generada")
+                                        {
+                                            <form method="post" action="/Sintesis/Remitir" style="display:inline"
+                                                  onsubmit="return confirm('¿Remitir síntesis? Esta acción no puede deshacerse.')">
+                                                <input type="hidden" name="id" value="@s.Id" />
+                                                <button type="submit" class="btn btn-warning btn-xs">
+                                                    <i class="fa fa-send"></i> Remitir
+                                                </button>
+                                            </form>
+                                        }
+                                        @if (puedeModificar && s.Estado != "Remitida")
+                                        {
+                                            <form method="post" action="/Sintesis/ConvertirABorrador"
+                                                  style="display:inline"
+                                                  onsubmit="return confirm('¿Convertir a borrador? Se perderá el PDF generado.')">
+                                                <input type="hidden" name="id" value="@s.Id" />
+                                                <button type="submit" class="btn btn-warning btn-xs">
+                                                    <i class="fa fa-pencil"></i> Modificar
+                                                </button>
+                                            </form>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (esDelegacion)
+{
+    var notasRechazadas = notasRechazadasGlobal;
+    <div id="panelDescartadas" style="display:none;" class="row">
+        <div class="col-md-12">
+            <div class="box box-danger">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><i class="fa fa-times-circle"></i> Notas rechazadas por Medios</h3>
+                </div>
+                <div class="box-body no-padding">
+                    @if (!notasRechazadas.Any())
+                    {
+                        <div style="padding:20px;" class="text-muted">No hay notas rechazadas.</div>
+                    }
+                    else
+                    {
+                        @foreach (var item in notasRechazadas)
+                        {
+                            var v = item.Nota.VersionActual;
+                            <div style="border-bottom:1px solid #f0f0f0; padding:12px 16px;">
+                                <div style="margin-bottom:4px;">
+                                    <small class="text-muted">
+                                        <i class="fa fa-file-text-o"></i>
+                                        Síntesis @item.SintesisTipo — @item.SintesisFecha.ToString("dd/MM/yyyy")
+                                    </small>
+                                </div>
+                                <strong>@v?.Titulo</strong>
+                                <div style="background:#f2dede; border-left:3px solid #a94442; padding:6px 10px; margin:6px 0; font-size:12px; color:#a94442;">
+                                    <i class="fa fa-times-circle"></i> <strong>Motivo:</strong> @v?.MotivoDescarte
+                                </div>
+                                <div style="font-size:12px; color:#888;">
+                                    @if (v?.Partido != null) { <span>@v.Partido.Nombre</span> }
+                                    @if (!string.IsNullOrEmpty(v?.Fuente)) { <span class="text-muted" style="margin-left:8px;">(@v.Fuente)</span> }
+                                </div>
+                                <div style="margin-top:6px;">
+                                    <a href="/NotaBuscador/Detalle/@item.Nota.Id?versionId=@item.NotaVersionId" class="btn btn-xs btn-default" target="_blank">
+                                        <i class="fa fa-eye"></i> Ver nota
+                                    </a>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (esDelegacion)
+{
+@section Scripts {
+    <script>
+        $(function () {
+            // Activar "Todas" al cargar
+            activarTab($('.tab-sint[data-tab="todas"]'));
+
+            $('.tab-sint').on('click', function (e) {
+                e.preventDefault();
+                activarTab($(this));
+            });
+
+            function activarTab($btn) {
+                var tab = $btn.data('tab');
+
+                // Resetear todos los botones a su estilo original
+                $('.tab-sint').each(function () {
+                    $(this).removeClass('btn-primary btn-success btn-danger btn-warning active-tab');
+                    $(this).addClass('btn-default');
+                });
+
+                // Aplicar estilo activo según tipo
+                $btn.removeClass('btn-default');
+                if (tab === 'aprobada')    $btn.addClass('btn-success active-tab');
+                else if (tab === 'descartada') $btn.addClass('btn-danger active-tab');
+                else if (tab === 'generada')    $btn.addClass('btn-info active-tab');
+                else if (tab === 'remitida')    $btn.addClass('btn-warning active-tab');
+                else                            $btn.addClass('btn-primary active-tab');
+
+                // Filtrar filas / mostrar panel
+                if (tab === 'descartada') {
+                    // Tab descartadas: ocultar tabla, mostrar panel de notas rechazadas
+                    $('tr[data-clase]').hide();
+                    $('#panelDescartadas').show();
+                } else {
+                    $('#panelDescartadas').hide();
+                    if (tab === 'todas') {
+                        $('tr[data-clase]').show();
+                    } else {
+                        $('tr[data-clase]').hide();
+                        $('tr[data-clase="' + tab + '"]').show();
+                    }
+                }
+            }
+        });
+    </script>
+}
+}

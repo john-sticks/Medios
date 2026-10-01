@@ -1,0 +1,92 @@
+@using Medios.Entities
+@model List<Sintesis>
+
+@{
+    ViewData["Title"] = "Síntesis Publicadas";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var filtroTipo = ViewBag.FiltroTipo as string;
+
+    // Clasificar en 3 grupos: Matutina, Vespertina, Especiales (el resto)
+    List<Sintesis> Grupo(string tipo) => tipo == "Especiales"
+        ? Model.Where(s => s.Tipo != "Matutina" && s.Tipo != "Vespertina").ToList()
+        : Model.Where(s => s.Tipo == tipo).ToList();
+
+    var grupos = new[]
+    {
+        ("Matutina",   "fa-sun-o",   "#f39c12", Grupo("Matutina")),
+        ("Vespertina", "fa-moon-o",  "#8B4513", Grupo("Vespertina")),
+        ("Especiales", "fa-star",    "#c0392b", Grupo("Especiales"))
+    };
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-newspaper-o"></i> Síntesis Publicadas</h3>
+                <div class="box-tools pull-right">
+                    <span class="text-muted" style="font-size:12px;">Síntesis de prensa consolidadas e informadas</span>
+                </div>
+            </div>
+            <div class="box-body">
+                @if (!Model.Any())
+                {
+                    <div class="text-center text-muted" style="padding:40px;">
+                        <i class="fa fa-newspaper-o fa-3x" style="opacity:0.3;"></i>
+                        <p style="margin-top:12px;">No hay síntesis publicadas todavía.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="row">
+                        @foreach (var (nombre, icono, color, lista) in grupos)
+                        {
+                            <div class="col-md-4">
+                                <div style="border:1px solid #ddd; border-radius:4px; overflow:hidden; margin-bottom:16px;">
+                                    <div style="background:@color; color:white; padding:8px 12px; font-weight:bold;">
+                                        <i class="fa @icono"></i> @nombre.ToUpper()
+                                        <span class="badge" style="background:rgba(255,255,255,0.3);">@lista.Count</span>
+                                    </div>
+                                    <div style="max-height:480px; overflow-y:auto;">
+                                        @if (!lista.Any())
+                                        {
+                                            <p class="text-muted text-center" style="padding:20px; margin:0; font-size:12px;">Sin síntesis</p>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var s in lista)
+                                            {
+                                                <div style="padding:10px 12px; border-bottom:1px solid #f0f0f0;">
+                                                    <div style="font-weight:bold; font-size:13px;">
+                                                        <i class="fa fa-calendar text-muted"></i> @s.Fecha.ToString("dd/MM/yyyy")
+                                                        @if (s.Tipo != nombre)
+                                                        {
+                                                            <span class="label label-default" style="font-size:9px;">@s.Tipo</span>
+                                                        }
+                                                    </div>
+                                                    <div style="font-size:11px; color:#888; margin:2px 0 6px;">
+                                                        @s.NotasIncluidas.Count nota(s) ·
+                                                        Informada @s.FechaInformada?.ToString("dd/MM HH:mm")
+                                                    </div>
+                                                    <a href="/Sintesis/Detalle/@s.Id" class="btn btn-xs btn-default">
+                                                        <i class="fa fa-eye"></i> Ver
+                                                    </a>
+                                                    @if (!string.IsNullOrEmpty(s.PDFPath))
+                                                    {
+                                                        <a href="/Sintesis/DescargarPdf/@s.Id" class="btn btn-xs btn-success" target="_blank">
+                                                            <i class="fa fa-file-pdf-o"></i> PDF
+                                                        </a>
+                                                    }
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

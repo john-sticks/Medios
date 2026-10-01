@@ -1,0 +1,144 @@
+@using Medios.Entities
+@model ScrapingRegla
+
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-magnet"></i> @ViewData["Title"]</h3>
+            </div>
+            <form method="post" asp-action="Editar">
+                <input type="hidden" name="Id" value="@Model.Id" />
+                <div class="box-body">
+                    <div class="form-group">
+                        <label>Dominio <span class="text-red">*</span></label>
+                        <input type="text" name="Dominio" class="form-control" value="@Model.Dominio"
+                               placeholder="quedigital.com.ar" required />
+                        <small class="text-muted">Sin www ni https. Podés pegar una URL completa y se extrae el dominio.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>XPath del cuerpo <small class="text-muted">(opcional)</small></label>
+                        <input type="text" name="XPathCuerpo" class="form-control" value="@Model.XPathCuerpo"
+                               placeholder="//div[contains(@@class,'entry-content')]" />
+                        <small class="text-muted">Contenedor del texto. Si se deja vacío, usa la heurística automática.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Clases a excluir <small class="text-muted">(separadas por coma)</small></label>
+                        <input type="text" name="ClasesExcluir" class="form-control" value="@Model.ClasesExcluir"
+                               placeholder="su-box, tags, sp-img, wp-caption" />
+                        <small class="text-muted">Bloques de ruido a eliminar: notas relacionadas, tags, epígrafes, etc.</small>
+                    </div>
+                    <div class="form-group">
+                        <label>XPath del título <small class="text-muted">(opcional)</small></label>
+                        <input type="text" name="XPathTitulo" class="form-control" value="@Model.XPathTitulo"
+                               placeholder="//h1[contains(@@class,'entry-title')]" />
+                    </div>
+                    <div class="form-group">
+                        <label>Descripción <small class="text-muted">(opcional)</small></label>
+                        <input type="text" name="Descripcion" class="form-control" value="@Model.Descripcion" maxlength="200" />
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:normal;">
+                            <input type="checkbox" name="PreferirJsonLd" value="true" @(Model.PreferirJsonLd || Model.Id == 0 ? "checked" : "") />
+                            Preferir JSON-LD (articleBody)
+                        </label>
+                        <br /><small class="text-muted">Si el portal expone el texto en schema.org, se usa esa fuente (más limpia). Recomendado.</small>
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:normal;">
+                            <input type="checkbox" name="Activo" value="true" @(Model.Activo || Model.Id == 0 ? "checked" : "") /> Activa
+                        </label>
+                    </div>
+                </div>
+                <div class="box-footer">
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Guardar</button>
+                    <a href="/Scraping/Listado" class="btn btn-default">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="box box-info">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-flask"></i> Probar extracción</h3>
+            </div>
+            <div class="box-body">
+                <p class="text-muted" style="font-size:12px;">
+                    Guardá la regla primero y luego probá una URL de ese portal para ver qué se extrae.
+                </p>
+                <div class="input-group" style="margin-bottom:10px;">
+                    <input type="url" id="urlPrueba" class="form-control"
+                           placeholder="https://@(Model.Dominio)/nota/..." />
+                    <span class="input-group-btn">
+                        <button type="button" class="btn btn-info" id="btnProbar"><i class="fa fa-play"></i> Probar</button>
+                    </span>
+                </div>
+                <div id="spinnerPrueba" style="display:none; text-align:center; padding:10px;">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                </div>
+                <div id="resultadoPrueba" style="display:none;">
+                    <div class="form-group">
+                        <label>Título extraído</label>
+                        <input type="text" id="resTitulo" class="form-control" readonly />
+                    </div>
+                    <div class="form-group">
+                        <label>Texto extraído <span id="resLen" class="badge bg-blue"></span></label>
+                        <textarea id="resTexto" class="form-control" rows="14" readonly style="font-size:12px;"></textarea>
+                    </div>
+                    <small id="resMeta" class="text-muted"></small>
+                </div>
+                <div id="errorPrueba" class="alert alert-danger" style="display:none; margin-top:10px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.getElementById('btnProbar').addEventListener('click', function () {
+    var url = document.getElementById('urlPrueba').value.trim();
+    if (!url) { toastr.warning('Ingresá una URL para probar'); return; }
+    document.getElementById('spinnerPrueba').style.display = 'block';
+    document.getElementById('resultadoPrueba').style.display = 'none';
+    document.getElementById('errorPrueba').style.display = 'none';
+
+    fetch('/Scraping/Probar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url })
+    }).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, data: data }; });
+    }).then(function (res) {
+        document.getElementById('spinnerPrueba').style.display = 'none';
+        if (!res.ok) {
+            var e = document.getElementById('errorPrueba');
+            e.textContent = res.data.error || 'Error al extraer';
+            e.style.display = 'block';
+            return;
+        }
+        document.getElementById('resTitulo').value = res.data.titulo || '';
+        document.getElementById('resTexto').value = res.data.texto || '';
+        document.getElementById('resLen').textContent = (res.data.texto || '').length + ' caracteres';
+        document.getElementById('resMeta').textContent =
+            'Fuente: ' + (res.data.fuente || '—') + ' · Fecha: ' + (res.data.fecha || '—') +
+            (res.data.direccion ? ' · Dirección: ' + res.data.direccion : '');
+        document.getElementById('resultadoPrueba').style.display = 'block';
+    }).catch(function () {
+        document.getElementById('spinnerPrueba').style.display = 'none';
+        var e = document.getElementById('errorPrueba');
+        e.textContent = 'Error de red al probar la URL.';
+        e.style.display = 'block';
+    });
+});
+</script>
+}

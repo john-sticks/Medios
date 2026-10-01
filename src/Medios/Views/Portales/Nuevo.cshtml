@@ -1,0 +1,52 @@
+@using Medios.Entities
+
+@{
+    ViewData["Title"] = "Nuevo Portal";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var partidos = ViewBag.Partidos as List<Partido> ?? new();
+    var regiones = ViewBag.Regiones as List<string> ?? new();
+}
+
+<div class="row">
+    <div class="col-md-8 col-md-offset-2">
+        <div class="box box-success">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-plus"></i> Nuevo Portal de Prensa</h3>
+            </div>
+            <form method="post" asp-action="Nuevo">
+                <div class="box-body">
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" name="nombre" class="form-control" required placeholder="Ej: La Voz del Pueblo" />
+                    </div>
+                    <div class="form-group">
+                        <label>URL</label>
+                        <input type="url" name="url" class="form-control" required placeholder="https://..." />
+                    </div>
+                    <div class="form-group">
+                        <label>Región</label>
+                        <input type="text" name="region" class="form-control"
+                               list="listRegiones" placeholder="Ej: Tres Arroyos" />
+                        <datalist id="listRegiones">
+                            @foreach (var r in regiones) { <option value="@r" /> }
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label>Partido</label>
+                        <select name="partidoId" class="form-control">
+                            <option value="">— Sin partido (provincial) —</option>
+                            @foreach (var p in partidos)
+                            {
+                                <option value="@p.IdPartido">@p.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+                <div class="box-footer">
+                    <button type="submit" class="btn btn-success"><i class="fa fa-save"></i> Agregar</button>
+                    <a href="/Portales/Listado" class="btn btn-default">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

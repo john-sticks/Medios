@@ -1,0 +1,486 @@
+@using Medios.Entities
+@model List<SesionPrensa>
+
+@{
+    ViewData["Title"] = "Consolidar Síntesis";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var porDelegacion = ViewBag.PorDelegacion as IEnumerable<IGrouping<string, SesionPrensa>>;
+    var fecha = (string)ViewBag.Fecha;
+    var fechaHoy = (string)ViewBag.FechaHoy;
+    var destinos = ViewBag.Destinos as string[] ?? new[] { "Matutina", "Vespertina", "Especial" };
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<!-- Filtros -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-default">
+            <div class="box-body">
+                <form method="get" asp-controller="Sintesis" asp-action="Consolidar" class="form-inline">
+                    <div class="form-group" style="margin-right:10px;">
+                        <label style="margin-right:6px;">Filtrar por fecha <small class="text-muted">(opcional)</small></label>
+                        <input type="date" name="fecha" class="form-control" value="@fecha" />
+                    </div>
+                    <button type="submit" class="btn btn-default"><i class="fa fa-search"></i> Buscar sesiones</button>
+                    @if (!string.IsNullOrEmpty(fecha))
+                    {
+                        <a href="/Sintesis/Consolidar" class="btn btn-link btn-sm">Ver todas</a>
+                    }
+                </form>
+                <p class="text-muted" style="margin:8px 0 0; font-size:12px;">
+                    <i class="fa fa-info-circle"></i>
+                    Se listan las sesiones <strong>finalizadas</strong> de <em>cualquier fecha y tipo</em>
+                    (Matutina, Vespertina, Ampliaciones, Especial). Elegí cuáles incorporar y, al final,
+                    definí el <strong>tipo y la fecha</strong> de la consolidada a publicar. El filtro de
+                    fecha de arriba solo acota el listado.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!Model.Any())
+{
+    <div class="alert alert-info">
+        No hay sesiones finalizadas @(string.IsNullOrEmpty(fecha) ? "pendientes de consolidar" : "para esa fecha").
+        Finalizá las síntesis revisadas desde la <a href="/Sesion/Bandeja">Bandeja</a>.
+    </div>
+}
+else
+{
+    <form id="formConsolidar" method="post" asp-controller="Sintesis" asp-action="Consolidar">
+        <input type="hidden" name="sesionIdsJson" id="sesionIdsJson" value="[]" />
+        <input type="hidden" name="notaNacProvIdsJson" id="notaNacProvIdsJson" value="[]" />
+        <input type="hidden" name="notaIdsJson" id="notaIdsJson" value="[]" />
+
+        <!-- ── PASO 1: Selección de sesiones ─────────────────────── -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="box box-primary">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">
+                            <i class="fa fa-building"></i>
+                            Paso 1 — Seleccionar sesiones y notas
+                            <span class="badge bg-blue">@Model.Count</span>
+                        </h3>
+                        <div class="box-tools pull-right">
+                            <span id="contadorSel" class="badge bg-green">0</span> seleccionadas
+                            &nbsp;
+                            <button type="button" class="btn btn-default btn-xs" onclick="seleccionarTodas()">
+                                <i class="fa fa-check-square-o"></i> Todas
+                            </button>
+                            <button type="button" class="btn btn-default btn-xs" onclick="deseleccionarTodas()">
+                                <i class="fa fa-square-o"></i> Ninguna
+                            </button>
+                        </div>
+                    </div>
+                    <div class="box-body">
+                        @if (porDelegacion != null)
+                        {
+                            foreach (var grupo in porDelegacion)
+                            {
+                                <div style="margin-bottom:12px;">
+                                    <div style="background:#3c8dbc; color:white; padding:5px 10px; font-weight:bold; font-size:12px; margin-bottom:6px; border-radius:3px;">
+                                        <i class="fa fa-building"></i> @grupo.Key.ToUpper()
+                                    </div>
+                                    @foreach (var s in grupo.OrderBy(x => x.Turno))
+                                    {
+                                        var aprobadas = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Finalizada");
+                                        var agregadas = s.Notas.Count(n => n.VersionActual?.EstadoRevision == "Agregada");
+                                        // Solo notas que van a la consolidada (aprobadas/finalizadas/agregadas).
+                                        // Las descartadas (Descartada o Sin Remitir con motivo) NO se listan.
+                                        var sesionNotas = s.Notas.Where(n => n.VersionActual != null
+                                            && (n.VersionActual.EstadoRevision == "Aprobada"
+                                             || n.VersionActual.EstadoRevision == "Finalizada"
+                                             || n.VersionActual.EstadoRevision == "Agregada")).ToList();
+                                        string AmbColor(string? a) => a == "Nacional" ? "#c0392b" : a == "Provincial" ? "#1a5276" : "#2471a3";
+                                        <div class="sesion-wrap" style="margin-bottom:4px;">
+                                            <div class="sesion-item" style="border:1px solid #ddd; border-radius:3px; padding:8px 10px; cursor:pointer;"
+                                                 onclick="toggleSesion(@s.Id, this)">
+                                                <div style="display:flex; align-items:center; gap:10px;">
+                                                    <input type="checkbox" class="sesion-check" value="@s.Id"
+                                                           onclick="event.stopPropagation(); toggleSesion(@s.Id, this.closest('.sesion-item'))" />
+                                                    <button type="button" class="btn btn-xs btn-default" title="Ver/elegir notas"
+                                                            onclick="event.stopPropagation(); expandirSesion(@s.Id)">
+                                                        <i class="fa fa-chevron-down" id="chev-@s.Id"></i>
+                                                    </button>
+                                                    <span style="font-size:12px;">
+                                                        <strong>@s.Turno</strong>
+                                                        <span class="text-muted">@s.Fecha.ToString("dd/MM/yyyy")</span>
+                                                        <span class="badge bg-blue" title="Notas a consolidar (excluye descartadas)">@sesionNotas.Count</span>
+                                                        @if (aprobadas > 0) { <span class="badge bg-green">@aprobadas apro.</span> }
+                                                        @if (agregadas > 0) { <span class="badge bg-purple">@agregadas agr.</span> }
+                                                    </span>
+                                                    <span style="font-size:11px; color:#888; margin-left:auto;">
+                                                        @string.Join(" · ", s.Notas.Select(n => n.VersionActual?.Titulo).Where(t => !string.IsNullOrEmpty(t)).Take(2))@(s.Notas.Count > 2 ? "…" : "")
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div id="notas-@s.Id" class="notas-panel" style="display:none; padding:6px 10px 8px 40px; background:#fafafa; border:1px solid #eee; border-top:none; border-radius:0 0 3px 3px;">
+                                                @if (sesionNotas.Any())
+                                                {
+                                                    <div style="font-size:11px; color:#888; margin-bottom:4px;">
+                                                        <i class="fa fa-info-circle"></i> Destildá las notas que NO querés incluir (ej. noticia repetida en otro medio).
+                                                    </div>
+                                                    foreach (var n in sesionNotas)
+                                                    {
+                                                        var v = n.VersionActual!;
+                                                        var amb = string.IsNullOrEmpty(v.AmbitoNota) ? "Partido" : v.AmbitoNota;
+                                                        <div style="display:flex; align-items:center; gap:6px; margin:2px 0;">
+                                                            <label style="flex:1; margin:0; font-weight:normal; font-size:12px; cursor:pointer;">
+                                                                <input type="checkbox" class="nota-check" data-sesion="@s.Id" value="@n.Id"
+                                                                       onclick="toggleNota(@n.Id, @s.Id, this)" style="margin-right:6px;" />
+                                                                <span class="label" style="background:@AmbColor(v.AmbitoNota); font-size:10px;">@amb</span>
+                                                                @if (v.Categoria != null) { <span class="label label-default" style="font-size:10px;">@v.Categoria.Nombre</span> }
+                                                                <strong>@v.Titulo</strong>
+                                                                @if (!string.IsNullOrEmpty(v.Fuente)) { <span class="text-muted">(@v.Fuente)</span> }
+                                                            </label>
+                                                            <a href="/NotaBuscador/Detalle/@n.Id" target="_blank" title="Ver detalle de la nota"
+                                                               class="text-muted" style="font-size:13px;">
+                                                                <i class="fa fa-external-link"></i>
+                                                            </a>
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted" style="font-size:12px;">Esta sesión no tiene notas.</span>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── PASO 2: Notas Nacional/Provincial ─────────────────── -->
+        <div class="row" id="seccionNacProv" style="display:none;">
+            <div class="col-md-12">
+                <div class="box box-warning">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">
+                            <i class="fa fa-globe"></i>
+                            Paso 2 — Noticias Nacionales y Provinciales
+                            <small class="text-muted" style="font-size:12px; font-weight:normal;">
+                                Estas noticias pueden repetirse entre delegaciones. Elegí qué versión incluir.
+                            </small>
+                        </h3>
+                        <div class="box-tools pull-right">
+                            <button type="button" class="btn btn-default btn-xs" onclick="recargarNacProv()">
+                                <i class="fa fa-refresh"></i> Recargar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="box-body" id="cuerpoNacProv">
+                        <div id="loadingNacProv" style="text-align:center; padding:20px; display:none;">
+                            <i class="fa fa-spinner fa-spin fa-2x"></i><br/>
+                            <small class="text-muted">Analizando duplicados…</small>
+                        </div>
+                        <div id="resultadoNacProv"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── PASO 3: Tipo + fecha de la consolidada a publicar ──── -->
+        <div class="row">
+            <div class="col-md-12">
+                <div class="box box-success">
+                    <div class="box-header with-border">
+                        <h3 class="box-title"><i class="fa fa-calendar-check-o"></i> Paso 3 — Publicar consolidada como</h3>
+                    </div>
+                    <div class="box-body">
+                        <div class="form-inline">
+                            <div class="form-group" style="margin-right:14px;">
+                                <label style="margin-right:6px;">Tipo</label>
+                                <select name="destino" id="destinoInput" class="form-control" required onchange="chequearDuplicado()">
+                                    @foreach (var d in destinos)
+                                    {
+                                        <option value="@d" selected="@(d == "Vespertina")">@d</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-right:14px;">
+                                <label style="margin-right:6px;">Fecha</label>
+                                <input type="date" name="fecha" id="fechaInput" class="form-control"
+                                       value="@(string.IsNullOrEmpty(fecha) ? fechaHoy : fecha)" required
+                                       onchange="chequearDuplicado()" />
+                            </div>
+                            <button type="submit" class="btn btn-success btn-lg" onclick="return prepararSubmit()">
+                                <i class="fa fa-object-group"></i> Generar Consolidada
+                                (<span id="contadorBtn">0</span> sesiones)
+                            </button>
+                        </div>
+                        <div id="avisoDuplicado" class="alert alert-warning" style="display:none; margin:10px 0 0; max-width:600px;">
+                            <i class="fa fa-exclamation-triangle"></i>
+                            Ya existe una síntesis <strong id="avisoTipo"></strong> consolidada para esa fecha —
+                            revisala en <a href="/Sesion/Bandeja#consolidadas">Bandeja de Síntesis</a> en vez de generar una nueva
+                            (podés igual intentarlo, pero el sistema lo va a rechazar).
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+}
+
+@section Scripts {
+<script>
+var fechasTipoConsolidados = @Html.Raw(ViewBag.FechasTipoConsolidadosJson);
+
+function chequearDuplicado() {
+    var tipo = document.getElementById('destinoInput').value;
+    var fechaSel = document.getElementById('fechaInput').value;
+    var existe = fechasTipoConsolidados.some(function (x) { return x.tipo === tipo && x.fecha === fechaSel; });
+    document.getElementById('avisoTipo').textContent = tipo;
+    document.getElementById('avisoDuplicado').style.display = existe ? '' : 'none';
+}
+
+var seleccionadas = new Set();
+var notasSel = new Set();   // notas tildadas (ids) — fuente de verdad de qué se consolida
+var nacProvData   = []; // grupos cargados desde el servidor
+
+// ── Selección de sesiones ──────────────────────────────────────────────
+function pintar(elem, on) {
+    elem.style.background   = on ? '#f0fff0' : '';
+    elem.style.borderColor  = on ? '#5cb85c' : '#ddd';
+}
+
+function notasDeSesion(id) {
+    return document.querySelectorAll('.nota-check[data-sesion="' + id + '"]');
+}
+
+function setNotaCheck(notaId, on) {
+    var cb = document.querySelector('.nota-check[value="' + notaId + '"]');
+    if (cb) cb.checked = on;
+    if (on) notasSel.add(notaId); else notasSel.delete(notaId);
+}
+
+function toggleSesion(id, elem) {
+    var chk = elem.querySelector('.sesion-check');
+    var seleccionar = !seleccionadas.has(id);
+    if (seleccionar) { seleccionadas.add(id); chk.checked = true; pintar(elem, true); }
+    else             { seleccionadas.delete(id); chk.checked = false; pintar(elem, false); }
+    // Seleccionar/deseleccionar todas las notas de la sesión
+    notasDeSesion(id).forEach(function (c) {
+        c.checked = seleccionar;
+        if (seleccionar) notasSel.add(parseInt(c.value));
+        else notasSel.delete(parseInt(c.value));
+    });
+    actualizarContador();
+    planificarRecargaNacProv();
+}
+
+function toggleNota(notaId, sesionId, chk) {
+    if (chk.checked) notasSel.add(notaId);
+    else notasSel.delete(notaId);
+    // Tildar una nota implica incluir la sesión
+    if (chk.checked && !seleccionadas.has(sesionId)) {
+        var item = chk.closest('.sesion-wrap').querySelector('.sesion-item');
+        seleccionadas.add(sesionId);
+        item.querySelector('.sesion-check').checked = true;
+        pintar(item, true);
+        actualizarContador();
+        planificarRecargaNacProv();
+    }
+}
+
+function expandirSesion(id) {
+    var panel = document.getElementById('notas-' + id);
+    var chev  = document.getElementById('chev-' + id);
+    var mostrar = panel.style.display === 'none';
+    panel.style.display = mostrar ? '' : 'none';
+    chev.className = mostrar ? 'fa fa-chevron-up' : 'fa fa-chevron-down';
+}
+
+function actualizarContador() {
+    var n = seleccionadas.size;
+    document.getElementById('contadorSel').textContent = n;
+    document.getElementById('contadorBtn').textContent = n;
+    document.getElementById('seccionNacProv').style.display = n > 0 ? '' : 'none';
+}
+
+function seleccionarTodas() {
+    document.querySelectorAll('.sesion-check').forEach(function(c) {
+        seleccionadas.add(parseInt(c.value)); c.checked = true; pintar(c.closest('.sesion-item'), true);
+    });
+    document.querySelectorAll('.nota-check').forEach(function(c) {
+        c.checked = true; notasSel.add(parseInt(c.value));
+    });
+    actualizarContador(); planificarRecargaNacProv();
+}
+function deseleccionarTodas() {
+    seleccionadas.clear();
+    notasSel.clear();
+    document.querySelectorAll('.sesion-check').forEach(function(c) {
+        c.checked = false; pintar(c.closest('.sesion-item'), false);
+    });
+    document.querySelectorAll('.nota-check').forEach(function(c) { c.checked = false; });
+    actualizarContador();
+}
+
+// Sincroniza la elección del Paso 2 (Nacional/Provincial) con los checkboxes del Paso 1:
+// la variante elegida queda tildada y las demás (duplicadas) destildadas.
+function sincronizarNacProvConPaso1() {
+    nacProvData.forEach(function(g, idx) {
+        if (g.variantes.length > 1) {
+            var radio = document.querySelector('input[name="nacprov_' + idx + '"]:checked');
+            var elegido = radio ? parseInt(radio.value) : 0;
+            g.variantes.forEach(function(v) { setNotaCheck(v.notaId, v.notaId === elegido); });
+        } else {
+            var chk = document.querySelector('.nacprov-include[data-nacprov="' + idx + '"]');
+            setNotaCheck(g.variantes[0].notaId, chk ? chk.checked : true);
+        }
+    });
+}
+
+// ── Carga de Nacional/Provincial ───────────────────────────────────────
+var timerNacProv = null;
+function planificarRecargaNacProv() {
+    clearTimeout(timerNacProv);
+    timerNacProv = setTimeout(cargarNacProv, 500);
+}
+function recargarNacProv() { cargarNacProv(); }
+
+function cargarNacProv() {
+    if (seleccionadas.size === 0) return;
+    var ids = JSON.stringify(Array.from(seleccionadas));
+    document.getElementById('loadingNacProv').style.display = '';
+    document.getElementById('resultadoNacProv').innerHTML = '';
+    $.getJSON('/Sintesis/NotasNacProv', { sesionIdsJson: ids }, function(data) {
+        nacProvData = data;
+        renderNacProv(data);
+    }).fail(function() {
+        document.getElementById('resultadoNacProv').innerHTML =
+            '<div class="alert alert-danger">Error al cargar las noticias.</div>';
+    }).always(function() {
+        document.getElementById('loadingNacProv').style.display = 'none';
+    });
+}
+
+function renderNacProv(grupos) {
+    var el = document.getElementById('resultadoNacProv');
+    if (!grupos || grupos.length === 0) {
+        el.innerHTML = '<p class="text-muted"><i class="fa fa-check-circle text-success"></i> No hay noticias Nacionales ni Provinciales en las sesiones seleccionadas.</p>';
+        return;
+    }
+
+    // Separar por ámbito
+    var nacionales  = grupos.filter(function(g) { return g.ambito === 'Nacional'; });
+    var provinciales = grupos.filter(function(g) { return g.ambito === 'Provincial'; });
+
+    var html = '';
+    if (nacionales.length) {
+        html += '<h5 style="color:#8B4513; margin-top:0;"><i class="fa fa-globe"></i> NACIONAL (' + nacionales.length + ' noticias)</h5>';
+        html += renderGrupos(nacionales);
+    }
+    if (provinciales.length) {
+        html += '<h5 style="color:#1a5276; margin-top:16px;"><i class="fa fa-map"></i> PROVINCIAL (' + provinciales.length + ' noticias)</h5>';
+        html += renderGrupos(provinciales);
+    }
+    el.innerHTML = html;
+
+    // Pre-seleccionar el primero de cada grupo
+    grupos.forEach(function(g, gi) {
+        var radio = document.querySelector('input[name="nacprov_' + gi + '"][value="' + g.notaIdSeleccionada + '"]');
+        if (radio) radio.checked = true;
+    });
+
+    // Reflejar la dedup automática en los checkboxes del Paso 1 (fuente de verdad)
+    sincronizarNacProvConPaso1();
+    $('#resultadoNacProv').off('change').on('change', 'input', sincronizarNacProvConPaso1);
+}
+
+function renderGrupos(grupos) {
+    var html = '';
+    grupos.forEach(function(g, gi) {
+        var idx = nacProvData.indexOf(g);
+        var esDup = g.variantes.length > 1;
+        var bgHeader = esDup ? '#fff3cd' : '#f9f9f9';
+        var catLabel = g.variantes[0].categoria ? ' <span class="label label-default" style="font-size:10px;">' + escHtml(g.variantes[0].categoria) + '</span>' : '';
+        var iconDup  = esDup ? '<span class="label label-warning" title="Misma noticia en varias delegaciones"><i class="fa fa-copy"></i> ' + g.variantes.length + ' versiones</span>' : '<span class="label label-default">1 delegación</span>';
+        html += '<div style="border:1px solid #ddd; border-radius:3px; margin-bottom:8px;">';
+        html += '<div style="background:' + bgHeader + '; padding:6px 10px; font-size:12px; border-bottom:1px solid #eee;">';
+        html += '<strong>' + escHtml(g.titulo) + '</strong> ' + catLabel + ' ' + iconDup;
+        if (g.url) html += ' <a href="' + escHtml(g.url) + '" target="_blank" class="text-muted" style="font-size:11px;"><i class="fa fa-external-link"></i></a>';
+        html += '</div>';
+        html += '<div style="padding:6px 10px;">';
+        if (esDup) {
+            // Radios para elegir versión
+            g.variantes.forEach(function(v) {
+                html += '<div style="display:flex; align-items:center; gap:6px;">';
+                html += '<label style="flex:1; margin:2px 0; font-weight:normal; font-size:12px;">';
+                html += '<input type="radio" name="nacprov_' + idx + '" value="' + v.notaId + '" style="margin-right:6px;" />';
+                html += '<strong>' + escHtml(v.delegacion) + '</strong>';
+                if (v.fuente) html += ' <span class="text-muted">(' + escHtml(v.fuente) + ')</span>';
+                if (v.titulo !== g.titulo) html += ' — <em>' + escHtml(v.titulo.substring(0, 60)) + (v.titulo.length > 60 ? '…' : '') + '</em>';
+                html += '</label>';
+                html += '<a href="/NotaBuscador/Detalle/' + v.notaId + '" target="_blank" title="Ver detalle de la nota" class="text-muted"><i class="fa fa-external-link"></i></a>';
+                html += '</div>';
+            });
+            html += '<label style="display:block; margin:4px 0; font-weight:normal; font-size:12px; color:#c0392b;">';
+            html += '<input type="radio" name="nacprov_' + idx + '" value="0" style="margin-right:6px;" /> <em>No incluir esta noticia</em>';
+            html += '</label>';
+        } else {
+            // Solo una versión: checkbox para incluir/excluir
+            html += '<div style="display:flex; align-items:center; gap:6px;">';
+            html += '<label style="flex:1; font-weight:normal; font-size:12px;">';
+            html += '<input type="checkbox" class="nacprov-include" data-nacprov="' + idx + '" data-id="' + g.variantes[0].notaId + '" checked style="margin-right:6px;" />';
+            html += '<strong>' + escHtml(g.variantes[0].delegacion) + '</strong>';
+            if (g.variantes[0].fuente) html += ' <span class="text-muted">(' + escHtml(g.variantes[0].fuente) + ')</span>';
+            html += '</label>';
+            html += '<a href="/NotaBuscador/Detalle/' + g.variantes[0].notaId + '" target="_blank" title="Ver detalle de la nota" class="text-muted"><i class="fa fa-external-link"></i></a>';
+            html += '</div>';
+        }
+        html += '</div></div>';
+    });
+    return html;
+}
+
+function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Submit ─────────────────────────────────────────────────────────────
+function prepararSubmit() {
+    if (seleccionadas.size === 0) { toastr.warning('Seleccioná al menos una sesión'); return false; }
+    if (notasSel.size === 0) { toastr.warning('Seleccioná al menos una nota'); return false; }
+    document.getElementById('sesionIdsJson').value = JSON.stringify(Array.from(seleccionadas));
+    // Notas elegidas (las destildadas quedan fuera de la consolidada) — fuente de verdad
+    document.getElementById('notaIdsJson').value = JSON.stringify(Array.from(notasSel));
+
+    // Recolectar IDs de Nacional/Provincial seleccionados
+    var selIds = [];
+    if (nacProvData.length > 0) {
+        nacProvData.forEach(function(g, idx) {
+            if (g.variantes.length > 1) {
+                // Radio button
+                var radio = document.querySelector('input[name="nacprov_' + idx + '"]:checked');
+                if (radio && radio.value !== '0') selIds.push(parseInt(radio.value));
+            } else {
+                // Checkbox
+                var chk = document.querySelector('.nacprov-include[data-nacprov="' + idx + '"]');
+                if (chk && chk.checked) selIds.push(parseInt(chk.dataset.id));
+            }
+        });
+        document.getElementById('notaNacProvIdsJson').value = JSON.stringify(selIds);
+    }
+    return true;
+}
+
+// Init: seleccionar todas por defecto y cargar NacProv
+$(document).ready(function() {
+    seleccionarTodas();
+    chequearDuplicado();
+});
+</script>
+}

@@ -1,0 +1,54 @@
+@{
+    ViewData["Title"] = "Mi perfil / Sesión";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="box box-info">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-user"></i> Claims de la sesión activa</h3>
+            </div>
+            <div class="box-body no-padding">
+                <table class="table table-bordered table-condensed" style="margin:0">
+                    <thead><tr><th>Tipo</th><th>Valor</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in (dynamic)Model)
+                        {
+                            var tipo = ((string)c.Type)
+                                .Replace("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/", "")
+                                .Replace("http://schemas.microsoft.com/ws/2008/06/identity/claims/", "");
+                            var esRol = tipo == "role";
+                            <tr class="@(esRol ? "warning" : "")">
+                                <td><small>@tipo</small></td>
+                                <td><strong>@c.Value</strong></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="box box-warning">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-info-circle"></i> Mapeo de roles</h3>
+            </div>
+            <div class="box-body">
+                <p>El claim <strong>role</strong> (resaltado en amarillo arriba) determina el menú y permisos.</p>
+                <table class="table table-condensed table-bordered">
+                    <thead><tr><th>Valor esperado</th><th>Nivel</th></tr></thead>
+                    <tbody>
+                        <tr><td>DESARROLLADOR</td><td>10</td></tr>
+                        <tr><td>MEDIOS</td><td>15</td></tr>
+                        <tr><td>DELEGACION</td><td>30</td></tr>
+                    </tbody>
+                </table>
+                <p class="text-muted" style="font-size:12px;">
+                    Si el valor de <em>role</em> no coincide exactamente (case-insensitive) con uno de los anteriores,
+                    se aplica el nivel 30 (DELEGACION) por defecto.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

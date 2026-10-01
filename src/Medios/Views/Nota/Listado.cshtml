@@ -1,0 +1,406 @@
+@using Medios.Entities
+@model List<NotaPrensa>
+
+@{
+    ViewData["Title"] = "Notas";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var categorias = ViewBag.Categorias as List<CategoriaNoticia>;
+    var partidos = ViewBag.Partidos as List<Partido>;
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<!-- ── FORMULARIO NUEVA NOTA ── -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-success collapsed-box">
+            <div class="box-header with-border" style="cursor:pointer" data-widget="collapse">
+                <h3 class="box-title"><i class="fa fa-plus-circle"></i> Nueva Nota</h3>
+                <div class="box-tools pull-right">
+                    <button type="button" class="btn btn-box-tool"><i class="fa fa-plus"></i></button>
+                </div>
+            </div>
+            <div class="box-body" style="display:none">
+                <form method="post" asp-controller="Nota" asp-action="AgregarLibre" id="formNuevaNotaLibre">
+                    <input type="hidden" name="latitud" id="hLatitud" />
+                    <input type="hidden" name="longitud" id="hLongitud" />
+
+                    <div class="row">
+                        <div class="col-md-7">
+                            <div class="row">
+                                @{ ViewData["AmbitoPrefix"] = "List"; ViewData["Categorias"] = categorias; ViewData["CatIdInicial"] = 0; }
+                                @await Html.PartialAsync("_AmbitoCategoria")
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label>Partido <span class="text-red">*</span> <small class="text-muted">(si Ámbito = Partido)</small></label>
+                                        <select name="partidoId" id="selPartido" class="form-control">
+                                            <option value="">— Todos —</option>
+                                            @foreach (var p in partidos!)
+                                            {
+                                                <option value="@p.IdPartido">@p.Nombre</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label>Localidad</label>
+                                        <select name="localidadId" id="selLocalidad" class="form-control">
+                                            <option value="">— Ninguna —</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Título <span class="text-red">*</span></label>
+                                <input type="text" name="titulo" class="form-control" required maxlength="500" />
+                            </div>
+                            <div class="form-group">
+                                <label>Texto <span class="text-red">*</span></label>
+                                <textarea name="texto" id="listTexto" class="form-control" rows="5" required></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha y hora de la noticia <small class="text-muted">(cuándo ocurrió)</small></label>
+                                <input type="datetime-local" name="fechaNoticia" class="form-control"
+                                       value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Síntesis IA
+                                    <button type="button" id="btnGenIAList" class="btn btn-xs btn-default" style="margin-left:8px;">
+                                        <i class="fa fa-magic"></i> Generar con IA
+                                    </button>
+                                    <span id="iaSpinnerList" style="display:none; margin-left:6px;"><i class="fa fa-spinner fa-spin"></i></span>
+                                </label>
+                                <textarea name="sintesis" id="listSintesis" class="form-control" rows="3"
+                                          placeholder="Síntesis generada por IA (opcional, editable)"></textarea>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Fuente <span class="text-red">*</span></label>
+                                        <input type="text" name="fuente" class="form-control" maxlength="200" required />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>
+                                            Link
+                                            <button type="button" id="btnScrapearList" class="btn btn-xs btn-info" style="margin-left:8px;" title="Importar desde URL">
+                                                <i class="fa fa-download"></i> Importar desde URL
+                                            </button>
+                                            <span id="scrapSpinnerList" style="display:none; margin-left:6px;"><i class="fa fa-spinner fa-spin"></i></span>
+                                        </label>
+                                        <input type="url" name="link" id="listLink" class="form-control" maxlength="2000" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Otros medios <small class="text-muted">(repercusión periodística, separados por coma)</small></label>
+                                <input type="text" name="otrosMedios" class="form-control" maxlength="300" placeholder="Ej: LANACION,INFOBAE" />
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" name="esRepercusion" value="true" /> Es repercusión</label>
+                            </div>
+                            @await Html.PartialAsync("_ImagenVideoNota")
+                        </div>
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label>Dirección del hecho</label>
+                                <div class="input-group">
+                                    <input type="text" id="inputDireccion" name="direccion"
+                                           class="form-control" maxlength="500"
+                                           placeholder="Ej: Av. Colón 1234, Mar del Plata" />
+                                    <span class="input-group-btn">
+                                        <button type="button" class="btn btn-default" id="btnBuscarDir">
+                                            <i class="fa fa-search"></i>
+                                        </button>
+                                    </span>
+                                </div>
+                            </div>
+                            <div id="mapaNota" style="height:280px; border-radius:4px; border:1px solid #ddd;"></div>
+                            <div id="previewBajoMapa"></div>
+                            <div id="coordsDisplay" style="font-size:11px; color:#888; margin-top:4px; display:none;">
+                                <i class="fa fa-map-marker"></i> <span id="coordsText"></span>
+                            </div>
+                        </div>
+                    </div>
+                    @{ Html.RenderPartial("~/Views/Shared/_CaratulaModalidadSelects.cshtml"); }
+                    <button type="submit" class="btn btn-success">
+                        <i class="fa fa-plus"></i> Guardar Nota
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── LISTADO DE NOTAS ── -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title">Mis Notas (@Model.Count)</h3>
+            </div>
+            <div class="box-body no-padding">
+                @if (!Model.Any())
+                {
+                    <div style="padding:20px" class="text-muted">No tenés notas libres. Usá el panel "Nueva Nota" para crear una.</div>
+                }
+                @foreach (var nota in Model)
+                {
+                    var v = nota.VersionActual;
+                    <div style="border-bottom:1px solid #f0f0f0; padding:12px 15px;">
+                        <div class="row">
+                            <div class="col-md-9">
+                                @{ var ambitoL = v?.AmbitoNota; }
+                                @if (ambitoL != null)
+                                {
+                                    <span class="label" style="background:@(ambitoL=="Nacional"?"#c0392b":ambitoL=="Provincial"?"#1a5276":"#2471a3");font-size:11px;">@ambitoL</span>
+                                }
+                                <span class="label label-default" style="font-size:11px;">@v?.Categoria?.Nombre</span>
+                                @if (v?.Partido != null)
+                                {
+                                    <span class="text-muted" style="font-size:12px; margin-left:6px;">@v.Partido.Nombre</span>
+                                }
+                                <p style="font-weight:bold; margin:6px 0 4px;">@v?.Titulo</p>
+                                <p style="margin:0; font-size:13px; color:#555;">
+                                    @{ var txt = v?.Texto ?? ""; }
+                                    @(txt.Length > 200 ? txt[..200] + "…" : txt)
+                                </p>
+                                <div style="margin-top:4px;">
+                                    @if (!string.IsNullOrEmpty(v?.Fuente))
+                                    {
+                                        <small class="text-muted">(@v.Fuente)</small>
+                                    }
+                                    <small class="text-muted" style="margin-left:8px;"><i class="fa fa-clock-o"></i> @nota.FechaRegistro.ToString("dd/MM/yyyy HH:mm")</small>
+                                </div>
+                            </div>
+                            <div class="col-md-3 text-right">
+                                <a href="/Nota/EditarLibre?id=@nota.Id" class="btn btn-info btn-xs" title="Editar">
+                                    <i class="fa fa-pencil"></i>
+                                </a>
+                                &nbsp;
+                                <form method="post" asp-controller="Nota" asp-action="EliminarLibre"
+                                      onsubmit="return confirm('¿Eliminar esta nota?')" style="display:inline">
+                                    <input type="hidden" name="notaId" value="@nota.Id" />
+                                    <button type="submit" class="btn btn-danger btn-xs" title="Eliminar">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@{
+    var notasDescartadas = ViewBag.NotasDescartadas as List<Medios.Entities.NotaPrensa>;
+}
+@if (notasDescartadas != null && notasDescartadas.Any())
+{
+    <div class="row">
+        <div class="col-md-12">
+            <div class="box box-danger">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><i class="fa fa-reply"></i> Notas descartadas sin vincular (@notasDescartadas.Count)</h3>
+                    <div class="box-tools pull-right">
+                        <small class="text-muted">Descartadas por Medios — pendientes de corregir o eliminar</small>
+                    </div>
+                </div>
+                <div class="box-body no-padding">
+                    @foreach (var nota in notasDescartadas)
+                    {
+                        var v = nota.VersionActual;
+                        <div style="border-bottom:1px solid #f0f0f0; padding:12px 15px;">
+                            <div class="row">
+                                <div class="col-md-9">
+                                    @{ var ambitoD = v?.AmbitoNota; }
+                                    @if (ambitoD != null)
+                                    {
+                                        <span class="label" style="background:@(ambitoD=="Nacional"?"#c0392b":ambitoD=="Provincial"?"#1a5276":"#2471a3");font-size:11px;">@ambitoD</span>
+                                    }
+                                    <span class="label label-default" style="font-size:11px;">@v?.Categoria?.Nombre</span>
+                                    @if (v?.Partido != null)
+                                    {
+                                        <span class="text-muted" style="font-size:12px; margin-left:6px;">@v.Partido.Nombre</span>
+                                    }
+                                    <p style="font-weight:bold; margin:6px 0 4px;">@v?.Titulo</p>
+                                    @if (!string.IsNullOrEmpty(v?.MotivoDescarte))
+                                    {
+                                        <div style="background:#fdf2f2; border-left:3px solid #e74c3c; padding:6px 10px; margin:4px 0; border-radius:2px;">
+                                            <i class="fa fa-times-circle text-red"></i>
+                                            <strong>Motivo:</strong> @v.MotivoDescarte
+                                        </div>
+                                    }
+                                    <div style="margin-top:4px;">
+                                        @if (!string.IsNullOrEmpty(v?.Fuente))
+                                        {
+                                            <small class="text-muted">(@v.Fuente)</small>
+                                        }
+                                        <small class="text-muted" style="margin-left:8px;"><i class="fa fa-clock-o"></i> @nota.FechaRegistro.ToString("dd/MM/yyyy HH:mm")</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 text-right">
+                                    <a href="/NotaBuscador/Detalle/@nota.Id" class="btn btn-default btn-xs" title="Ver detalle">
+                                        <i class="fa fa-eye"></i>
+                                    </a>
+                                    &nbsp;
+                                    <form method="post" asp-controller="Sesion" asp-action="EliminarNotaSinRemitir"
+                                          onsubmit="return confirm('¿Eliminar esta nota? Esta acción no puede deshacerse.')" style="display:inline">
+                                        <input type="hidden" name="notaId" value="@nota.Id" />
+                                        <button type="submit" class="btn btn-danger btn-xs" title="Eliminar">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+}
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var mapa = null, marker = null, mapaIniciado = false;
+
+        function iniciarMapa() {
+            if (mapaIniciado) return;
+            mapaIniciado = true;
+            mapa = L.map('mapaNota').setView([-36.5, -60.0], 7);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18 }).addTo(mapa);
+            mapa.on('click', function (e) {
+                colocarMarcador(e.latlng.lat, e.latlng.lng, null);
+                $.getJSON('https://nominatim.openstreetmap.org/reverse', {
+                    lat: e.latlng.lat, lon: e.latlng.lng, format: 'json', 'accept-language': 'es'
+                }, function (data) {
+                    if (data && data.address) {
+                        var a = data.address;
+                        var partes = [];
+                        if (a.road) partes.push(a.road + (a.house_number ? ' ' + a.house_number : ''));
+                        var ciudad = a.city || a.town || a.village || a.municipality || '';
+                        if (ciudad) partes.push(ciudad);
+                        if (partes.length > 0) $('#inputDireccion').val(partes.join(', '));
+                    }
+                });
+            });
+        }
+
+        $('[data-widget="collapse"]').on('click', function () {
+            setTimeout(function () {
+                if ($('#mapaNota').is(':visible')) { iniciarMapa(); if (mapa) mapa.invalidateSize(); }
+            }, 350);
+        });
+
+        function colocarMarcador(lat, lng, label) {
+            if (marker) mapa.removeLayer(marker);
+            marker = L.marker([lat, lng]).addTo(mapa);
+            $('#hLatitud').val(lat.toFixed(6));
+            $('#hLongitud').val(lng.toFixed(6));
+            $('#coordsDisplay').show();
+            $('#coordsText').text(lat.toFixed(6) + ', ' + lng.toFixed(6));
+        }
+
+        $('#selPartido').on('change', function () {
+            var pid = $(this).val();
+            var sel = $('#selLocalidad');
+            if (!pid) { sel.html('<option value="">— Seleccioná partido —</option>'); return; }
+            sel.html('<option value="">Cargando...</option>');
+            $.getJSON('/Sesion/LocalidadesByPartido?partidoId=' + pid, function (data) {
+                var opts = '<option value="">— Localidad (opcional) —</option>';
+                data.forEach(function (l) { opts += '<option value="' + l.id + '">' + l.nombre + '</option>'; });
+                sel.html(opts);
+            });
+        });
+
+        $('#selLocalidad').on('change', function () {
+            var opt = this.options[this.selectedIndex];
+            if (!opt || !opt.value) return;
+            var loc = opt.text, part = ($('#selPartido option:selected').text() || '').trim();
+            $('#inputDireccion').val(loc);
+            window.geocodarLocalidad(loc, part, function (lat, lng) {
+                if (typeof mapa !== 'undefined' && mapa) { mapa.setView([lat, lng], 14); colocarMarcador(lat, lng); }
+            });
+        });
+
+        $('#btnBuscarDir').on('click', function () {
+            var dir = $('#inputDireccion').val().trim();
+            if (!dir) return;
+            $.getJSON('https://nominatim.openstreetmap.org/search', { q: dir + ', Provincia de Buenos Aires, Argentina', format: 'json', limit: 1 }, function (data) {
+                if (data && data.length > 0) {
+                    var r = data[0];
+                    iniciarMapa();
+                    mapa.setView([parseFloat(r.lat), parseFloat(r.lon)], 15);
+                    colocarMarcador(parseFloat(r.lat), parseFloat(r.lon), r.display_name);
+                }
+            });
+        });
+
+        // Scraping
+        $('#btnScrapearList').on('click', function () {
+            var url = $('#listLink').val().trim();
+            if (!url) { toastr.warning('Ingresá la URL primero.'); return; }
+            $('#btnScrapearList').prop('disabled', true);
+            $('#scrapSpinnerList').show();
+            $.ajax({
+                url: '/Nota/ScrapearUrl',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ url: url }),
+                success: function (r) {
+                    if (r.titulo)  $('[name="titulo"]', '#formNuevaNotaLibre').val(r.titulo);
+                    if (r.texto)   $('#listTexto').val(r.texto + '\n\n[Validar la información importada (puede estar incompleta o contener información no relacionada)]');
+                    if (r.fuente)       $('[name="fuente"]', '#formNuevaNotaLibre').val(r.fuente);
+                    if (r.fechaNoticia) $('[name="fechaNoticia"]', '#formNuevaNotaLibre').val(r.fechaNoticia);
+                    if (r.imagenUrl)    $('#notaImagenUrl').val(r.imagenUrl).trigger('input');
+                    if (r.videoUrl)     $('#notaVideoUrl').val(r.videoUrl);
+                    if (r.direccion) { $('#inputDireccion').val(r.direccion); $('#btnBuscarDir').click(); }
+                    toastr.success('Contenido importado. Revisá y editá antes de guardar.');
+                },
+                error: function (xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Error al scrapear.';
+                    toastr.error(msg);
+                },
+                complete: function () { $('#btnScrapearList').prop('disabled', false); $('#scrapSpinnerList').hide(); }
+            });
+        });
+
+        // IA
+        $('#btnGenIAList').on('click', function () {
+            var texto = $('#listTexto').val().trim();
+            if (!texto) { toastr.warning('Ingresá el texto primero.'); return; }
+            $('#btnGenIAList').prop('disabled', true);
+            $('#iaSpinnerList').show();
+            $.ajax({
+                url: '/Nota/GenerarSintesisIA',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ texto: texto }),
+                success: function (r) { $('#listSintesis').val(r.sintesis); toastr.success('Síntesis generada.'); },
+                error: function (xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Error al generar síntesis.';
+                    toastr.error(msg);
+                },
+                complete: function () { $('#btnGenIAList').prop('disabled', false); $('#iaSpinnerList').hide(); }
+            });
+        });
+    </script>
+}

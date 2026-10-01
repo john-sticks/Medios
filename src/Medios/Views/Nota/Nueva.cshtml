@@ -1,0 +1,307 @@
+@using Medios.Entities
+
+@{
+    ViewData["Title"] = "Nueva Nota — División Medios";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var categorias = ViewBag.Categorias as List<CategoriaNoticia>;
+    var partidos = ViewBag.Partidos as List<Partido>;
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-info">
+            <div class="box-header with-border">
+                <h3 class="box-title">Nueva Nota — División Medios</h3>
+                <small class="text-muted"> La nota quedará aprobada directamente (sin revisión)</small>
+            </div>
+            <div class="box-body">
+                @if (TempData["Error"] != null)
+                {
+                    <div class="alert alert-danger">@TempData["Error"]</div>
+                }
+                <form method="post" asp-controller="Nota" asp-action="Nueva">
+                    <input type="hidden" name="latitud"  id="hLatitud" />
+                    <input type="hidden" name="longitud" id="hLongitud" />
+
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Fecha</label>
+                                <input type="date" name="fecha" class="form-control"
+                                       value="@ViewBag.FechaHoy" required />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Turno</label>
+                                <select name="turno" class="form-control" required>
+                                    @foreach (var t in ViewBag.Turnos as string[])
+                                    {
+                                        <option value="@t">@t</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Partido <span class="text-red">*</span> <small class="text-muted">(si Ámbito = Partido)</small></label>
+                                <select name="partidoId" id="selPartido" class="form-control">
+                                    <option value="">— Todos —</option>
+                                    @foreach (var p in partidos!)
+                                    {
+                                        <option value="@p.IdPartido">@p.Nombre</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Localidad</label>
+                                <select name="localidadId" id="selLocalidad" class="form-control">
+                                    <option value="">— Ninguna —</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        @{ ViewData["AmbitoPrefix"] = "Nueva"; ViewData["Categorias"] = categorias; ViewData["CatIdInicial"] = 0; }
+                        @await Html.PartialAsync("_AmbitoCategoria")
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Fuente (medio periodístico) <span class="text-red">*</span></label>
+                                <input type="text" name="fuente" class="form-control" maxlength="200" required />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>
+                                    Link
+                                    <button type="button" id="btnScrapear" class="btn btn-xs btn-info" style="margin-left:8px;" title="Importar título y texto desde la URL">
+                                        <i class="fa fa-download"></i> Importar desde URL
+                                    </button>
+                                    <span id="scrapSpinner" style="display:none; margin-left:6px;"><i class="fa fa-spinner fa-spin"></i></span>
+                                </label>
+                                <input type="url" name="link" id="notaLink" class="form-control" maxlength="2000" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Otros medios <small class="text-muted">(repercusión periodística, separados por coma)</small></label>
+                                <input type="text" name="otrosMedios" class="form-control" maxlength="300" placeholder="Ej: LANACION,INFOBAE" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Columna izquierda: datos de la nota -->
+                        <div class="col-md-7">
+                            <div class="form-group">
+                                <label>Título <span class="text-red">*</span></label>
+                                <input type="text" name="titulo" class="form-control"
+                                       placeholder="EN MAYÚSCULAS según instructivo" required maxlength="500" />
+                            </div>
+                            <div class="form-group">
+                                <label>Texto <span class="text-red">*</span></label>
+                                <textarea name="texto" id="notaTexto" class="form-control" rows="7"
+                                          placeholder="Cuerpo de la nota sin formato ni hipervínculos" required></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha y hora de la noticia <small class="text-muted">(cuándo ocurrió)</small></label>
+                                <input type="datetime-local" name="fechaNoticia" class="form-control"
+                                       value="@DateTime.Now.ToString("yyyy-MM-ddTHH:mm")" />
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Síntesis IA
+                                    <button type="button" id="btnGenerarIA" class="btn btn-xs btn-default" style="margin-left:8px;">
+                                        <i class="fa fa-magic"></i> Generar con IA
+                                    </button>
+                                    <span id="iaSpinner" style="display:none; margin-left:6px;"><i class="fa fa-spinner fa-spin"></i></span>
+                                </label>
+                                <textarea name="sintesis" id="notaSintesis" class="form-control" rows="3"
+                                          placeholder="Síntesis generada por IA (opcional, editable)"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" name="esRepercusion" value="true" /> Es repercusión periodística</label>
+                            </div>
+                            @await Html.PartialAsync("_ImagenVideoNota")
+                        </div>
+
+                        <!-- Columna derecha: geo/mapa -->
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label>Dirección del hecho</label>
+                                <div class="input-group">
+                                    <input type="text" id="inputDireccion" name="direccion"
+                                           class="form-control" maxlength="500"
+                                           placeholder="Ej: Av. Colón 1234, Mar del Plata" />
+                                    <span class="input-group-btn">
+                                        <button type="button" class="btn btn-default" id="btnBuscarDir">
+                                            <i class="fa fa-search"></i>
+                                        </button>
+                                    </span>
+                                </div>
+                            </div>
+                            <div id="mapaNota" style="height:280px; border-radius:4px; border:1px solid #ddd;"></div>
+                            <div id="previewBajoMapa"></div>
+                            <div id="coordsDisplay" style="font-size:11px; color:#888; margin-top:4px; display:none;">
+                                <i class="fa fa-map-marker"></i> <span id="coordsText"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    @{ Html.RenderPartial("~/Views/Shared/_CaratulaModalidadSelects.cshtml"); }
+
+                    <button type="submit" class="btn btn-info" style="margin-top:10px;">
+                        <i class="fa fa-plus"></i> Agregar Nota
+                    </button>
+                    <a href="/Sesion/Bandeja" class="btn btn-default" style="margin-top:10px;">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>.leaflet-container { z-index: 1; }</style>
+}
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        $('#selPartido').on('change', function () {
+            var pid = $(this).val();
+            var sel = $('#selLocalidad');
+            if (!pid) { sel.html('<option value="">— Seleccioná partido primero —</option>'); return; }
+            $.getJSON('/Sesion/LocalidadesByPartido?partidoId=' + pid, function (data) {
+                var opts = '<option value="">— Localidad (opcional) —</option>';
+                data.forEach(function (l) { opts += '<option value="' + l.id + '">' + l.nombre + '</option>'; });
+                sel.html(opts);
+            });
+        });
+
+        // Mapa
+        var mapa = L.map('mapaNota').setView([-36.5, -60.0], 7);
+        var marker = null;
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18 }).addTo(mapa);
+
+        function colocarMarcador(lat, lng) {
+            if (marker) mapa.removeLayer(marker);
+            marker = L.marker([lat, lng]).addTo(mapa);
+            $('#hLatitud').val(lat.toFixed(6));
+            $('#hLongitud').val(lng.toFixed(6));
+            $('#coordsDisplay').show();
+            $('#coordsText').text(lat.toFixed(6) + ', ' + lng.toFixed(6));
+        }
+
+        mapa.on('click', function (e) {
+            colocarMarcador(e.latlng.lat, e.latlng.lng);
+            $.getJSON('https://nominatim.openstreetmap.org/reverse', {
+                lat: e.latlng.lat, lon: e.latlng.lng, format: 'json', 'accept-language': 'es'
+            }, function (data) {
+                if (data && data.address) {
+                    var a = data.address;
+                    var partes = [];
+                    if (a.road) partes.push(a.road + (a.house_number ? ' ' + a.house_number : ''));
+                    var ciudad = a.city || a.town || a.village || a.municipality || '';
+                    if (ciudad) partes.push(ciudad);
+                    if (partes.length > 0) $('#inputDireccion').val(partes.join(', '));
+                }
+            });
+        });
+
+        $('#selLocalidad').on('change', function () {
+            var opt = this.options[this.selectedIndex];
+            if (!opt || !opt.value) return;
+            var loc = opt.text, part = ($('#selPartido option:selected').text() || '').trim();
+            $('#inputDireccion').val(loc);
+            window.geocodarLocalidad(loc, part, function (lat, lng) {
+                if (typeof mapa !== 'undefined' && mapa) { mapa.setView([lat, lng], 14); colocarMarcador(lat, lng); }
+            });
+        });
+
+        $('#btnBuscarDir').on('click', function () {
+            var dir = $('#inputDireccion').val().trim();
+            if (!dir) return;
+            var btn = $(this).prop('disabled', true).find('i').removeClass('fa-search').addClass('fa-spinner fa-spin').end();
+            $.getJSON('https://nominatim.openstreetmap.org/search', { q: dir + ', Provincia de Buenos Aires, Argentina', format: 'json', limit: 1 }, function (data) {
+                if (data && data.length > 0) {
+                    var r = data[0];
+                    mapa.setView([parseFloat(r.lat), parseFloat(r.lon)], 15);
+                    colocarMarcador(parseFloat(r.lat), parseFloat(r.lon));
+                }
+            }).always(function () {
+                btn.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-search');
+            });
+        });
+
+        // Scraping
+        $('#btnScrapear').on('click', function () {
+            var url = $('#notaLink').val().trim();
+            if (!url) { toastr.warning('Ingresá la URL primero.'); return; }
+            $('#btnScrapear').prop('disabled', true);
+            $('#scrapSpinner').show();
+            $.ajax({
+                url: '/Nota/ScrapearUrl',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ url: url }),
+                success: function (r) {
+                    if (r.titulo)  $('[name="titulo"]').val(r.titulo);
+                    if (r.texto)   $('#notaTexto').val(r.texto + '\n\n[Validar la información importada (puede estar incompleta o contener información no relacionada)]');
+                    if (r.fuente)       $('[name="fuente"]').val(r.fuente);
+                    if (r.fechaNoticia) $('[name="fechaNoticia"]').val(r.fechaNoticia);
+                    if (r.imagenUrl)    $('#notaImagenUrl').val(r.imagenUrl).trigger('input');
+                    if (r.videoUrl)     $('#notaVideoUrl').val(r.videoUrl);
+                    if (r.direccion) {
+                        $('#inputDireccion').val(r.direccion);
+                        $('#btnBuscarDir').click();
+                    }
+                    toastr.success('Contenido importado. Revisá y editá antes de guardar.');
+                },
+                error: function (xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Error al scrapear la URL.';
+                    toastr.error(msg);
+                },
+                complete: function () {
+                    $('#btnScrapear').prop('disabled', false);
+                    $('#scrapSpinner').hide();
+                }
+            });
+        });
+
+        // IA
+        $('#btnGenerarIA').on('click', function () {
+            var texto = $('#notaTexto').val().trim();
+            if (!texto) { toastr.warning('Ingresá el texto de la nota primero.'); return; }
+            $('#btnGenerarIA').prop('disabled', true);
+            $('#iaSpinner').show();
+            $.ajax({
+                url: '/Nota/GenerarSintesisIA',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ texto: texto }),
+                success: function (r) {
+                    $('#notaSintesis').val(r.sintesis);
+                    toastr.success('Síntesis generada.');
+                },
+                error: function (xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Error al generar síntesis.';
+                    toastr.error(msg);
+                },
+                complete: function () {
+                    $('#btnGenerarIA').prop('disabled', false);
+                    $('#iaSpinner').hide();
+                }
+            });
+        });
+    </script>
+}

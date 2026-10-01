@@ -1,0 +1,365 @@
+@using Medios.Entities
+@model NotaPrensa
+
+@{
+    ViewData["Title"] = "Editar Nota";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var categorias = ViewBag.Categorias as List<CategoriaNoticia>;
+    var partidos = ViewBag.Partidos as List<Partido>;
+    var sesionId = (int)ViewBag.SesionId;
+    var v = Model.VersionActual;
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Error"]
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-info">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-edit"></i> Editar Nota en Borrador</h3>
+            </div>
+            <div class="box-body">
+                <form method="post" asp-controller="Nota" asp-action="EditarBorrador">
+                    <input type="hidden" name="notaId"  value="@Model.Id" />
+                    <input type="hidden" name="sesionId" value="@sesionId" />
+                    <input type="hidden" name="latitud"  id="hLatitud"  value="@v?.Latitud?.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)" />
+                    <input type="hidden" name="longitud" id="hLongitud" value="@v?.Longitud?.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)" />
+
+                    <div class="row">
+                        <!-- Columna izquierda: campos de texto -->
+                        <div class="col-md-7">
+                            <div class="row">
+                                @{ ViewData["AmbitoPrefix"] = "Eb"; ViewData["Categorias"] = categorias; ViewData["CatIdInicial"] = v?.CategoriaId ?? 0; ViewData["AmbitoInicial"] = v?.AmbitoNota ?? ""; }
+                                @await Html.PartialAsync("_AmbitoCategoria")
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label>Partido <span class="text-red">*</span> <small class="text-muted">(si Ámbito = Partido)</small></label>
+                                        <select name="partidoId" id="selPartido" class="form-control">
+                                            <option value="">— Todos —</option>
+                                            @foreach (var p in partidos!)
+                                            {
+                                                if (p.IdPartido == v?.PartidoId)
+                                                {
+                                                    <option value="@p.IdPartido" selected="selected">@p.Nombre</option>
+                                                }
+                                                else
+                                                {
+                                                    <option value="@p.IdPartido">@p.Nombre</option>
+                                                }
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label>Localidad</label>
+                                        <select name="localidadId" id="selLocalidad" class="form-control">
+                                            <option value="@v?.LocalidadId">
+                                                @(v?.Localidad?.Nombre ?? "— Ninguna —")
+                                            </option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Fuente <span class="text-red">*</span></label>
+                                        <input type="text" name="fuente" class="form-control"
+                                               value="@v?.Fuente" maxlength="200" required />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>
+                                            Link
+                                            <button type="button" id="btnScrapearEB" class="btn btn-xs btn-info" style="margin-left:8px;" title="Importar título y texto desde la URL">
+                                                <i class="fa fa-download"></i> Importar desde URL
+                                            </button>
+                                            <span id="scrapSpinnerEB" style="display:none; margin-left:6px;"><i class="fa fa-spinner fa-spin"></i></span>
+                                        </label>
+                                        <input type="url" name="link" id="ebLink" class="form-control"
+                                               value="@v?.Link" maxlength="2000" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Título <span class="text-red">*</span></label>
+                                <input type="text" name="titulo" class="form-control"
+                                       value="@v?.Titulo" required maxlength="500" />
+                            </div>
+                            <div class="form-group">
+                                <label>Texto <span class="text-red">*</span></label>
+                                <textarea name="texto" id="ebTexto" class="form-control" rows="7" required>@v?.Texto</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Fecha y hora de la noticia <small class="text-muted">(cuándo ocurrió)</small></label>
+                                <input type="datetime-local" name="fechaNoticia" class="form-control"
+                                       value="@(v?.FechaNoticia?.ToString("yyyy-MM-ddTHH:mm") ?? "")" />
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Síntesis IA
+                                    <button type="button" id="btnGenIAeb" class="btn btn-xs btn-default" style="margin-left:8px;">
+                                        <i class="fa fa-magic"></i> Generar con IA
+                                    </button>
+                                    <span id="ebIASpinner" style="display:none; margin-left:6px;">
+                                        <i class="fa fa-spinner fa-spin"></i>
+                                    </span>
+                                </label>
+                                <textarea name="sintesis" id="ebSintesis" class="form-control" rows="3"
+                                          placeholder="Síntesis generada por IA (opcional, editable)">@v?.Sintesis</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Otros medios <small class="text-muted">(repercusión periodística, separados por coma)</small></label>
+                                <input type="text" name="otrosMedios" class="form-control" value="@v?.OtrosMedios" maxlength="300" placeholder="Ej: LANACION,INFOBAE" />
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" name="esRepercusion" value="true"
+                                           @(v?.EsRepercusion == true ? "checked" : "") />
+                                    Es repercusión periodística
+                                </label>
+                            </div>
+                            @{ ViewData["ImagenUrl"] = v?.ImagenUrl; ViewData["VideoUrl"] = v?.VideoUrl; ViewData["ImagenesExtra"] = v?.ImagenesExtra; }
+                            @await Html.PartialAsync("_ImagenVideoNota")
+                        </div>
+
+                        <!-- Columna derecha: dirección + mapa -->
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label>Dirección del hecho</label>
+                                <div class="input-group">
+                                    <input type="text" id="inputDireccion" name="direccion"
+                                           class="form-control" maxlength="500"
+                                           value="@v?.Direccion"
+                                           placeholder="Ej: Av. Colón 1234, Mar del Plata" />
+                                    <span class="input-group-btn">
+                                        <button type="button" class="btn btn-default" id="btnBuscarDir" title="Buscar en mapa">
+                                            <i class="fa fa-search"></i>
+                                        </button>
+                                    </span>
+                                </div>
+                                <small class="text-muted">O hacé clic en el mapa para fijar la ubicación.</small>
+                            </div>
+                            <div id="mapaNota" style="height:280px; border-radius:4px; border:1px solid #ddd;"></div>
+                            <div id="previewBajoMapa"></div>
+                            <div id="coordsDisplay" class="text-muted" style="font-size:11px; margin-top:4px; @(v?.Latitud.HasValue == true ? "" : "display:none")">
+                                <i class="fa fa-map-marker"></i> <span id="coordsText">@(v?.Latitud.HasValue == true ? $"{v.Latitud:F5}, {v.Longitud:F5}" : "")</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    @{ Html.RenderPartial("~/Views/Shared/_CaratulaModalidadSelects.cshtml"); }
+
+                    <div class="row" style="margin-top:10px;">
+                        <div class="col-md-12">
+                            <button type="submit" class="btn btn-info">
+                                <i class="fa fa-save"></i> Guardar cambios
+                            </button>
+                            <a href="/Sesion/Detalle/@sesionId" class="btn btn-default">Cancelar</a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>.leaflet-container { z-index: 1; }</style>
+}
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ── Localidades ──────────────────────────────────────────────
+        function cargarLocalidades(partidoId, localidadSeleccionada) {
+            var sel = $('#selLocalidad');
+            if (!partidoId) { sel.html('<option value="">— Seleccioná partido primero —</option>'); return; }
+            $.getJSON('/Sesion/LocalidadesByPartido?partidoId=' + partidoId, function (data) {
+                var opts = '<option value="">— Localidad (opcional) —</option>';
+                data.forEach(function (l) {
+                    var sel2 = l.id == localidadSeleccionada ? ' selected' : '';
+                    opts += '<option value="' + l.id + '"' + sel2 + '>' + l.nombre + '</option>';
+                });
+                sel.html(opts);
+            });
+        }
+        $('#selPartido').on('change', function () { cargarLocalidades($(this).val(), null); });
+        var partidoInicial = $('#selPartido').val();
+        var localidadInicial = @(v?.LocalidadId.HasValue == true ? v.LocalidadId.ToString() : "null");
+        if (partidoInicial) cargarLocalidades(partidoInicial, localidadInicial);
+
+        // ── Mapa Leaflet ─────────────────────────────────────────────
+        var latInicial = @(v?.Latitud.HasValue == true ? v.Latitud.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture) : "null");
+        var lngInicial = @(v?.Longitud.HasValue == true ? v.Longitud.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture) : "null");
+
+        var centro = (latInicial && lngInicial) ? [latInicial, lngInicial] : [-36.5, -60.0];
+        var zoom   = (latInicial && lngInicial) ? 15 : 7;
+
+        var mapa   = L.map('mapaNota').setView(centro, zoom);
+        var marker = null;
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap', maxZoom: 18
+        }).addTo(mapa);
+
+        if (latInicial && lngInicial) {
+            marker = L.marker([latInicial, lngInicial]).addTo(mapa);
+        }
+
+        function colocarMarcador(lat, lng, label) {
+            if (marker) mapa.removeLayer(marker);
+            marker = L.marker([lat, lng]).addTo(mapa);
+            if (label) marker.bindPopup(label).openPopup();
+            $('#hLatitud').val(lat.toFixed(6));
+            $('#hLongitud').val(lng.toFixed(6));
+            $('#coordsText').text(lat.toFixed(5) + ', ' + lng.toFixed(5));
+            $('#coordsDisplay').show();
+        }
+
+        function geocodificacionInversa(lat, lng) {
+            $.getJSON('https://nominatim.openstreetmap.org/reverse', {
+                lat: lat, lon: lng, format: 'json', 'accept-language': 'es'
+            }, function (data) {
+                if (data && data.address) {
+                    var a = data.address;
+                    var partes = [];
+                    if (a.road) partes.push(a.road + (a.house_number ? ' ' + a.house_number : ''));
+                    var ciudad = a.city || a.town || a.village || a.municipality || '';
+                    if (ciudad) partes.push(ciudad);
+                    if (partes.length > 0) $('#inputDireccion').val(partes.join(', '));
+                }
+            });
+        }
+
+        mapa.on('click', function (e) {
+            colocarMarcador(e.latlng.lat, e.latlng.lng, null);
+            geocodificacionInversa(e.latlng.lat, e.latlng.lng);
+        });
+
+        // Buscar dirección con Nominatim
+        $('#selLocalidad').on('change', function () {
+            var opt = this.options[this.selectedIndex];
+            if (!opt || !opt.value) return;
+            var loc = opt.text, part = ($('#selPartido option:selected').text() || '').trim();
+            $('#inputDireccion').val(loc);
+            window.geocodarLocalidad(loc, part, function (lat, lng) {
+                if (typeof mapa !== 'undefined' && mapa) { mapa.setView([lat, lng], 14); colocarMarcador(lat, lng); }
+            });
+        });
+
+        $('#btnBuscarDir').on('click', function () {
+            var dir = $('#inputDireccion').val().trim();
+            if (!dir) return;
+            var btn = $(this).prop('disabled', true).find('i').removeClass('fa-search').addClass('fa-spinner fa-spin').end();
+            $.getJSON('https://nominatim.openstreetmap.org/search', {
+                q: dir + ', Provincia de Buenos Aires, Argentina',
+                format: 'json', limit: 1
+            }, function (data) {
+                if (data && data.length > 0) {
+                    var r = data[0];
+                    var lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+                    mapa.setView([lat, lng], 15);
+                    colocarMarcador(lat, lng, r.display_name);
+                } else {
+                    alert('No se encontró la dirección. Intentá con una más general o hacé clic en el mapa.');
+                }
+            }).fail(function () {
+                alert('Error al geocodificar. Usá el mapa para marcar la posición.');
+            }).always(function () {
+                btn.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-search');
+            });
+        });
+
+        $('#inputDireccion').on('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); $('#btnBuscarDir').click(); }
+        });
+
+        $('#btnScrapearEB').on('click', function () {
+            var url = $('#ebLink').val().trim();
+            if (!url) { toastr.warning('Ingresá la URL primero.'); return; }
+            $('#btnScrapearEB').prop('disabled', true);
+            $('#scrapSpinnerEB').show();
+            $.ajax({
+                url: '/Nota/ScrapearUrl',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ url: url }),
+                success: function (r) {
+                    if (r.titulo)  $('[name="titulo"]').val(r.titulo);
+                    if (r.texto)   $('#ebTexto').val(r.texto + '\n\n[Validar la información importada (puede estar incompleta o contener información no relacionada)]');
+                    if (r.fuente)       $('[name="fuente"]').val(r.fuente);
+                    if (r.fechaNoticia) $('[name="fechaNoticia"]').val(r.fechaNoticia);
+                    if (r.imagenUrl)    $('#notaImagenUrl').val(r.imagenUrl).trigger('input');
+                    if (r.videoUrl)     $('#notaVideoUrl').val(r.videoUrl);
+                    if (r.direccion)    $('#inputDireccion').val(r.direccion);
+                    toastr.success('Contenido importado. Revisá y editá antes de guardar.');
+                },
+                error: function (xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Error al scrapear la URL.';
+                    toastr.error(msg);
+                },
+                complete: function () {
+                    $('#btnScrapearEB').prop('disabled', false);
+                    $('#scrapSpinnerEB').hide();
+                }
+            });
+        });
+
+        $('#btnGenIAeb').on('click', function () {
+            var texto = $('#ebTexto').val().trim();
+            if (!texto) { toastr.warning('Ingresá el texto de la nota primero.'); return; }
+            $('#btnGenIAeb').prop('disabled', true);
+            $('#ebIASpinner').show();
+            $.ajax({
+                url: '/Nota/GenerarSintesisIA',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ texto: texto }),
+                success: function (r) {
+                    $('#ebSintesis').val(r.sintesis);
+                    toastr.success('Síntesis generada.');
+                },
+                error: function (xhr) {
+                    var msg = (xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Error al generar síntesis.';
+                    toastr.error(msg);
+                },
+                complete: function () {
+                    $('#btnGenIAeb').prop('disabled', false);
+                    $('#ebIASpinner').hide();
+                }
+            });
+        });
+
+        // Corregir dirección → reposicionar marcador (debounce 1s)
+        var debounceTimer;
+        $('#inputDireccion').on('input', function () {
+            clearTimeout(debounceTimer);
+            var dir = $(this).val().trim();
+            if (dir.length < 8) return;
+            debounceTimer = setTimeout(function () {
+                $.getJSON('https://nominatim.openstreetmap.org/search', {
+                    q: dir + ', Provincia de Buenos Aires, Argentina',
+                    format: 'json', limit: 1
+                }, function (data) {
+                    if (data && data.length > 0) {
+                        var r = data[0];
+                        var lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+                        mapa.setView([lat, lng], 15);
+                        colocarMarcador(lat, lng, null);
+                    }
+                });
+            }, 1000);
+        });
+    </script>
+}

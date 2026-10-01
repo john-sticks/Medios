@@ -1,0 +1,33 @@
+@model List<Medios.Security.MenuItem>
+@{
+    var currentPath = Context.Request.Path.Value?.ToLower().TrimEnd('/') ?? "";
+}
+@foreach (var item in Model)
+{
+    if (item.IsGroup)
+    {
+        var active = item.LeafUrls().Any(u => currentPath.StartsWith(u));
+        <li class="treeview @(active ? "active menu-open" : "")">
+            <a href="#">
+                <i class="@item.Icon"></i>
+                <span>@item.Text</span>
+                <span class="pull-right-container">
+                    <i class="fa fa-angle-left pull-right"></i>
+                </span>
+            </a>
+            <ul class="treeview-menu" @(active ? "style=display:block;" : "")>
+                @await Html.PartialAsync("_SidebarItems", item.Children)
+            </ul>
+        </li>
+    }
+    else
+    {
+        var active = currentPath.StartsWith(item.Url ?? "~~");
+        <li class="@(active ? "active" : "")">
+            <a href="@item.Url">
+                <i class="@item.Icon"></i>
+                <span>@item.Text</span>
+            </a>
+        </li>
+    }
+}

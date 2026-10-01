@@ -1,0 +1,51 @@
+@using Medios.Entities
+@model CaratulaQuiron
+
+@{
+    var esNueva = Model.Id == 0;
+    ViewData["Title"] = esNueva ? "Nueva Carátula" : "Editar Carátula";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title">
+                    <i class="fa fa-gavel"></i> @ViewData["Title"]
+                </h3>
+            </div>
+            <div class="box-body">
+                @if (TempData["Error"] != null)
+                {
+                    <div class="alert alert-danger">@TempData["Error"]</div>
+                }
+                <form method="post" asp-controller="Caratula" asp-action="EditarCaratula">
+                    <input type="hidden" name="id" value="@(esNueva ? "" : Model.Id.ToString())" />
+
+                    <div class="form-group">
+                        <label>Nombre <span class="text-red">*</span></label>
+                        <input type="text" name="nombre" class="form-control" value="@Model.Nombre" required maxlength="100" autofocus />
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="consumable" value="true" @(Model.Consumable ? "checked" : "") />
+                            Consumable
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="calificable" value="true" @(Model.Calificable ? "checked" : "") />
+                            Calificable
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa fa-save"></i> @(esNueva ? "Crear" : "Guardar")
+                    </button>
+                    <a href="@Url.Action("Listado")" class="btn btn-default">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

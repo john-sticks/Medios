@@ -1,0 +1,147 @@
+@{
+    ViewData["Title"] = "Configuración Mail";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var host      = (string)(ViewBag.Host ?? "");
+    var port      = (string)(ViewBag.Port ?? "587");
+    var user      = (string)(ViewBag.User ?? "");
+    var hasPass   = (bool)(ViewBag.HasPass ?? false);
+    var from      = (string)(ViewBag.From ?? "");
+    var fromName  = (string)(ViewBag.FromName ?? "División Medios O.S.INT");
+    var enableSsl = (bool)(ViewBag.EnableSsl ?? true);
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-envelope"></i> Configuración de correo (SMTP)</h3>
+            </div>
+            <form method="post" asp-action="Mail">
+                <div class="box-body">
+                    <p class="text-muted" style="font-size:12px;">
+                        <i class="fa fa-info-circle"></i>
+                        Estos datos se usan para enviar las síntesis publicadas por correo electrónico.
+                    </p>
+
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="form-group">
+                                <label>Servidor SMTP (Host) <span class="text-red">*</span></label>
+                                <input type="text" name="host" class="form-control" value="@host"
+                                       placeholder="smtp.gmail.com / mail.dominio.gov.ar" required />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label>Puerto</label>
+                                <input type="number" name="port" class="form-control" value="@port" placeholder="587" />
+                                <small class="text-muted">587 (TLS) · 465 (SSL) · 25</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Usuario</label>
+                                <input type="text" name="user" class="form-control" value="@user"
+                                       placeholder="cuenta@dominio.gov.ar" autocomplete="off" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Contraseña</label>
+                                <input type="password" name="pass" class="form-control" autocomplete="new-password"
+                                       placeholder="@(hasPass ? "•••••••• (dejar vacío para mantener)" : "Ingresá la contraseña")" />
+                                @if (hasPass)
+                                {
+                                    <small class="text-success"><i class="fa fa-check"></i> Hay una contraseña guardada</small>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Remitente (From)</label>
+                                <input type="email" name="from" class="form-control" value="@from"
+                                       placeholder="no-reply@dominio.gov.ar" />
+                                <small class="text-muted">Si se deja vacío se usa el Usuario.</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Nombre del remitente</label>
+                                <input type="text" name="fromName" class="form-control" value="@fromName" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label style="font-weight:normal;">
+                            <input type="checkbox" name="enableSsl" value="true" @(enableSsl ? "checked" : "") />
+                            Usar conexión segura (SSL/TLS)
+                        </label>
+                    </div>
+                </div>
+                <div class="box-footer">
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Guardar configuración</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="box box-warning">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-google"></i> Si usás Gmail: contraseña de aplicación</h3>
+            </div>
+            <div class="box-body">
+                <p class="text-muted" style="font-size:13px;">
+                    Desde 2022 Gmail no acepta la contraseña normal de la cuenta para enviar correo por SMTP.
+                    Hace falta generar una <strong>contraseña de aplicación</strong> de 16 caracteres:
+                </p>
+                <ol style="font-size:13px; padding-left:18px;">
+                    <li>La cuenta (ej. <code>geventos35@gmail.com</code>) necesita tener activada la
+                        <strong>verificación en 2 pasos</strong> (2FA) — es un requisito previo.</li>
+                    <li>Ir a <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">myaccount.google.com/apppasswords</a>
+                        (logueado con esa cuenta).</li>
+                    <li>Generar una contraseña de aplicación (cualquier nombre, ej. "Medios SMTP").</li>
+                    <li>Copiar esos 16 caracteres y pegarlos en el campo <strong>Contraseña</strong> de este formulario
+                        (reemplazando lo que esté guardado).</li>
+                    <li>Guardar y volver a probar el envío.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="box box-default">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-paper-plane"></i> Probar envío</h3>
+            </div>
+            <form method="post" asp-action="MailPrueba">
+                <div class="box-body">
+                    <p class="text-muted" style="font-size:12px;">
+                        Guardá la configuración primero y luego enviá un correo de prueba para verificar.
+                    </p>
+                    <div class="form-group">
+                        <label>Correo de destino</label>
+                        <input type="email" name="destino" class="form-control" placeholder="prueba@dominio.gov.ar" required />
+                    </div>
+                </div>
+                <div class="box-footer">
+                    <button type="submit" class="btn btn-default btn-block"><i class="fa fa-send"></i> Enviar prueba</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

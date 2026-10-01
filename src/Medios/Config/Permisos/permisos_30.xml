@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nivel 30: DELEGACION -->
+<permisos>
+  <navigation>
+    <page title="Inicio" icon="fa fa-home" href="~/home" />
+    <group title="Síntesis" icon="fa fa-file-text">
+      <page title="Mis Borradores" icon="fa fa-pencil-square-o" href="~/sesion/mias" />
+      <page title="Generadas" icon="fa fa-check-square-o" href="~/sintesis/listado" />
+      <page title="Publicadas" icon="fa fa-newspaper-o" href="~/sintesis/publicadas" />
+    </group>
+    <group title="Notas" icon="fa fa-newspaper-o">
+      <page title="Nueva Nota" icon="fa fa-plus-circle" href="~/nota/listado" />
+      <page title="Búsqueda" icon="fa fa-search" href="~/notabuscador" />
+    </group>
+  </navigation>
+  <notnavigation>
+    <page href="~/portales/listado" />
+    <page href="~/home/noautorizado" />
+    <page href="~/home/miperfil" />
+    <page href="~/autorizacion/pendiente" />
+    <page href="~/autorizacion/solicitud" />
+    <page href="~/autorizacion/imprimir" />
+    <page href="~/sesion/detalle" />
+    <page href="~/sesion/localidadesbypartido" />
+    <page href="~/sesion/modalidadesbycaratula" />
+    <page href="~/sesion/nueva" />
+    <page href="~/sesion/notassinremitir" />
+  <page href="~/sesion/eliminarnotasinremitir" />
+    <page href="~/sesion/eliminarborrador" />
+    <page href="~/sesion/agregarnotaactualizada" />
+    <page href="~/sesion/cambiarborrador" />
+    <page href="~/sesion/generarpdf" />
+    <page href="~/sesion/descargarPdf" />
+    <page href="~/nota/editarborrador" />
+    <page href="~/nota/ampliar" />
+    <page href="~/nota/editarsinremitir" />
+    <page href="~/nota/agregarlibre" />
+    <page href="~/nota/eliminarlibre" />
+    <page href="~/nota/editarlibre" />
+    <page href="~/sesion/agregarnotaexistente" />
+    <page href="~/sintesis/detalle" />
+    <page href="~/sintesis/descargarpdf" />
+    <page href="~/mockswitch" />
+    <page href="~/notabuscador/detalle" />
+    <page href="~/notabuscador/buscarparaRelacionar" />
+    <page href="~/notabuscador/agregarrelacion" />
+    <page href="~/notabuscador/quitarrelacion" />
+  <page href="~/nota/generarsintesisia" />
+  <page href="~/nota/sugerircaratula" />
+  <page href="~/nota/scrapearurl" />
+  <page href="~/portales/nuevo" />
+  <page href="~/portales/editar" />
+  <page href="~/portales/eliminar" />
+  </notnavigation>
+  <permissions>
+    <permission name="CREAR_SESION" />
+    <permission name="VER_NOTAS_LIBRES" />
+    <permission name="REMITIR_SESION" />
+    <permission name="VER_SESIONES_PROPIAS" />
+    <permission name="VER_SINTESIS" />
+    <permission name="MODIFICAR_SINTESIS" />
+    <permission name="GENERAR_PDF" />
+    <permission name="BUSCAR_NOTAS" />
+    <permission name="AMPLIAR_NOTA" />
+    <permission name="RELACIONAR_NOTAS" />
+    <permission name="VER_PORTALES" />
+    <permission name="GESTIONAR_PORTALES" />
+    <permission name="USAR_IA" />
+  </permissions>
+</permisos>

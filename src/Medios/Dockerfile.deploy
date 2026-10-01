@@ -1,0 +1,21 @@
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+
+ENV TZ=America/Argentina/Buenos_Aires
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# fonts-urw-base35 trae "URW Bookman" (clon libre y compatible en metricas de Bookman Old
+# Style/ITC Bookman) para que QuestPDF pueda usarlo en el PDF de Sintesis; sin esto no hay
+# ninguna fuente serif instalada en la imagen y todo cae al Lato que trae QuestPDF por defecto.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fontconfig fonts-urw-base35 \
+    && fc-cache -f \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+
+ENV ASPNETCORE_ENVIRONMENT=Production \
+    ASPNETCORE_URLS=http://+:8009
+
+EXPOSE 8009
+ENTRYPOINT ["dotnet", "Medios.dll"]

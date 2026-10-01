@@ -1,0 +1,78 @@
+@using Medios.Entities
+@model List<ScrapingRegla>
+
+@{
+    ViewData["Title"] = "Scraping de Portales";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-magnet"></i> Reglas de Scraping por Portal</h3>
+                <div class="box-tools pull-right">
+                    <a href="/Scraping/Editar" class="btn btn-sm btn-success"><i class="fa fa-plus"></i> Nueva regla</a>
+                </div>
+            </div>
+            <div class="box-body">
+                <p class="text-muted" style="font-size:12px;">
+                    <i class="fa fa-info-circle"></i>
+                    Cada regla adapta cómo se extrae el contenido de un portal específico. Los portales sin regla
+                    usan la heurística genérica automática.
+                </p>
+                @if (!Model.Any())
+                {
+                    <p class="text-muted text-center" style="padding:20px;">No hay reglas configuradas. Todos los portales usan la heurística genérica.</p>
+                }
+                else
+                {
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Dominio</th>
+                                <th>Cuerpo (XPath)</th>
+                                <th>Clases excluidas</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in Model)
+                            {
+                                <tr class="@(r.Activo ? "" : "text-muted")">
+                                    <td><strong>@r.Dominio</strong>
+                                        @if (!string.IsNullOrEmpty(r.Descripcion)) { <br /><small class="text-muted">@r.Descripcion</small> }
+                                    </td>
+                                    <td><code style="font-size:11px;">@(string.IsNullOrEmpty(r.XPathCuerpo) ? "—" : r.XPathCuerpo)</code></td>
+                                    <td><small>@(string.IsNullOrEmpty(r.ClasesExcluir) ? "—" : r.ClasesExcluir)</small></td>
+                                    <td>
+                                        @if (r.Activo) { <span class="label label-success">Activa</span> }
+                                        else { <span class="label label-default">Inactiva</span> }
+                                    </td>
+                                    <td style="white-space:nowrap;">
+                                        <a href="/Scraping/Editar/@r.Id" class="btn btn-xs btn-default"><i class="fa fa-pencil"></i></a>
+                                        <form method="post" asp-action="Eliminar" style="display:inline;"
+                                              onsubmit="return confirm('¿Eliminar la regla de @r.Dominio?')">
+                                            <input type="hidden" name="id" value="@r.Id" />
+                                            <button type="submit" class="btn btn-xs btn-danger"><i class="fa fa-trash"></i></button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>

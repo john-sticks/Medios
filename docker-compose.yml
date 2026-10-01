@@ -1,0 +1,27 @@
+services:
+  medios:
+    image: ${MEDIOS_IMAGE:-medios:latest}
+    container_name: ${MEDIOS_CONTAINER_NAME:-medios}
+    restart: always
+
+    environment:
+      ASPNETCORE_URLS: http://+:8009
+      ASPNETCORE_ENVIRONMENT: Production
+      TZ: America/Argentina/Buenos_Aires
+      Auth__Mode: Cerberus
+      ConnectionStrings__MySql: ${MYSQL_CONNECTION_STRING}
+      Cerberus__BaseUrl: ${CERBERUS_BASE_URL}
+      Cerberus__ServiceApiKey: ${CERBERUS_SERVICE_API_KEY}
+      ReverseProxy__KnownProxy: ${REVERSE_PROXY_KNOWN_PROXY:-}
+      OpenRouter__ApiKey: ${OPENROUTER_API_KEY:-}
+
+    volumes:
+      # Persistir claves Data Protection entre reinicios (evita invalidar cookies/tokens)
+      - ./dataprotection:/root/.aspnet/DataProtection-Keys
+      # Persistir los PDFs de síntesis generados en runtime
+      - ./pdfs:/app/wwwroot/pdf
+      # Persistir las imágenes subidas de las notas (sobreviven a rebuild/redeploy)
+      - ./uploads:/app/wwwroot/uploads
+
+    ports:
+      - "${MEDIOS_PORT:-5102}:8009"

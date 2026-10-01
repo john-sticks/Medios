@@ -1,0 +1,176 @@
+@using Medios.Entities
+@using Medios.Services
+@{
+    ViewData["Title"] = "Capturar desde Drive";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var delegaciones = ViewBag.Delegaciones as List<Delegacion> ?? new List<Delegacion>();
+    var delegId = ViewBag.DelegacionId as int?;
+    var puedeConfigurar = (bool)(ViewBag.PuedeConfigurar ?? false);
+    var saPath = ViewBag.SaJsonPath as string;
+    var prevNotas = ViewBag.PreviewNotas as CapturaDriveService.PreviewCaptura;
+    var prevSintesis = ViewBag.PreviewSintesis as CapturaDriveService.PreviewCaptura;
+    var hayNotas = prevNotas != null && prevNotas.Error == null && prevNotas.Filas.Count > 0;
+    var haySint = prevSintesis != null && prevSintesis.Error == null && prevSintesis.Filas.Count > 0;
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+@if (TempData["Aviso"] != null)
+{
+    <div class="alert alert-warning alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button><i class="fa fa-exclamation-triangle"></i> @TempData["Aviso"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-warning">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-cloud-download"></i> Captura de contingencia (Drive → Sistema)</h3>
+            </div>
+            <div class="box-body">
+                <p class="text-muted" style="font-size:12px; margin-bottom:6px;">
+                    <i class="fa fa-info-circle"></i>
+                    Importa al sistema las notas y síntesis que una delegación cargó por Google Forms
+                    en su Drive mientras el sistema principal estuvo fuera de línea. Las filas ya importadas
+                    se marcan en la planilla para no duplicarlas.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (puedeConfigurar)
+{
+    <div class="row">
+        <div class="col-md-8">
+            <div class="box box-primary collapsed-box">
+                <div class="box-header with-border" style="cursor:pointer" data-widget="collapse">
+                    <h3 class="box-title"><i class="fa fa-key"></i> Credencial de Google (Service Account)</h3>
+                    <div class="box-tools pull-right"><button type="button" class="btn btn-box-tool"><i class="fa fa-plus"></i></button></div>
+                </div>
+                <div class="box-body" style="display:none">
+                    <form method="post" asp-action="GuardarSaJson">
+                        <div class="form-group">
+                            <label>Ruta del archivo JSON de la cuenta de servicio (en el servidor)</label>
+                            <input type="text" name="saJsonPath" class="form-control" value="@saPath"
+                                   placeholder="/var/medios/medios-sync.json" />
+                            <small class="text-muted">
+                                El archivo de clave que descargaste de Google Cloud. Compartí cada planilla
+                                con el email de la cuenta de servicio (rol Editor).
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="fa fa-save"></i> Guardar credencial</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-default">
+            <div class="box-body">
+                <form method="get" asp-action="Capturar" class="form-inline">
+                    <div class="form-group">
+                        <label>Delegación:&nbsp;</label>
+                        <select name="delegacionId" class="form-control" onchange="this.form.submit()">
+                            <option value="">— Elegí una delegación —</option>
+                            @foreach (var d in delegaciones)
+                            {
+                                var sel = (delegId == d.Id) ? "selected" : null;
+                                <option value="@d.Id" selected="@sel">
+                                    @d.Nombre
+                                    @(string.IsNullOrWhiteSpace(d.DriveSheetNotas) && string.IsNullOrWhiteSpace(d.DriveSheetSintesis) ? " (sin planillas)" : "")
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <noscript><button type="submit" class="btn btn-default btn-sm">Ver</button></noscript>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (delegId.HasValue)
+{
+    <div class="row">
+        <div class="col-md-6">
+            <div class="box box-info">
+                <div class="box-header with-border"><h3 class="box-title">Notas nuevas</h3></div>
+                <div class="box-body">
+                    @if (prevNotas?.Error != null)
+                    {
+                        <p class="text-danger" style="margin:0;"><i class="fa fa-times"></i> @prevNotas.Error</p>
+                    }
+                    else if (prevNotas == null || prevNotas.Filas.Count == 0)
+                    {
+                        <p class="text-muted" style="margin:0;">Sin notas nuevas para importar.</p>
+                    }
+                    else
+                    {
+                        <p><strong>@prevNotas.Filas.Count</strong> nota(s) lista(s) para importar.</p>
+                        <table class="table table-condensed">
+                            <thead><tr><th>Fecha</th><th>Turno</th><th>Título</th></tr></thead>
+                            <tbody>
+                                @foreach (var f in prevNotas.Filas.Take(50))
+                                {
+                                    <tr><td>@f.Get("fecha")</td><td>@f.Get("turno")</td><td>@f.Get("titulo")</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="box box-info">
+                <div class="box-header with-border"><h3 class="box-title">Síntesis nuevas</h3></div>
+                <div class="box-body">
+                    @if (prevSintesis?.Error != null)
+                    {
+                        <p class="text-danger" style="margin:0;"><i class="fa fa-times"></i> @prevSintesis.Error</p>
+                    }
+                    else if (prevSintesis == null || prevSintesis.Filas.Count == 0)
+                    {
+                        <p class="text-muted" style="margin:0;">Sin síntesis nuevas para importar.</p>
+                    }
+                    else
+                    {
+                        <p><strong>@prevSintesis.Filas.Count</strong> síntesis lista(s) para importar.</p>
+                        <table class="table table-condensed">
+                            <thead><tr><th>Fecha</th><th>Turno</th></tr></thead>
+                            <tbody>
+                                @foreach (var f in prevSintesis.Filas.Take(50))
+                                {
+                                    <tr><td>@f.Get("fecha")</td><td>@f.Get("turno")</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (hayNotas || haySint)
+    {
+        <div class="row">
+            <div class="col-md-12">
+                <form method="post" asp-action="CapturarConfirmar"
+                      onsubmit="return confirm('¿Importar las notas y síntesis nuevas de esta delegación al sistema?');">
+                    <input type="hidden" name="delegacionId" value="@delegId" />
+                    <button type="submit" class="btn btn-success">
+                        <i class="fa fa-download"></i> Capturar e importar al sistema
+                    </button>
+                </form>
+            </div>
+        </div>
+    }
+}

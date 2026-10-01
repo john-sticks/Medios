@@ -1,0 +1,39 @@
+@using Medios.Entities
+@{
+    ViewData["Title"] = "Solicitud Pendiente";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var solicitud = ViewBag.Solicitud as AutorizacionUsuario;
+}
+
+<div class="row">
+    <div class="col-md-8 col-md-offset-2 text-center">
+        <div class="box box-info" style="padding:30px 20px;">
+            <div style="font-size:64px;color:#00c0ef;margin-bottom:15px;">
+                <i class="fa fa-clock-o"></i>
+            </div>
+            <h2>Solicitud en proceso</h2>
+            <p style="font-size:16px;color:#666;margin-bottom:20px;">
+                Tu solicitud de autorización está siendo revisada.<br/>
+                Medios la aprobará y te asignará el ámbito de trabajo.<br/>
+                Mientras tanto <strong>no podés acceder al sistema</strong>.
+            </p>
+
+            @if (solicitud != null)
+            {
+                <p style="color:#888;">
+                    Solicitud generada el <strong>@solicitud.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</strong>
+                </p>
+                <a href="/Autorizacion/Imprimir/@solicitud.Id" target="_blank"
+                   class="btn btn-default btn-lg" style="margin-top:10px;">
+                    <i class="fa fa-print"></i> Ver e imprimir mi solicitud
+                </a>
+            }
+
+            <div style="margin-top:25px;">
+                <a href="/Login/Logout" class="btn btn-default">
+                    <i class="fa fa-sign-out"></i> Cerrar sesión
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

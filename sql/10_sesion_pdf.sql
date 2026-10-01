@@ -1,0 +1,3 @@
+ALTER TABLE sesiones_prensa
+    ADD COLUMN PDFPath VARCHAR(500) NULL,
+    ADD COLUMN FechaGeneracionPdf DATETIME NULL;

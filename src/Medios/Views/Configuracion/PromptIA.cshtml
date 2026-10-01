@@ -1,0 +1,171 @@
+@{
+    ViewData["Title"] = "Configuración IA";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var prompt       = (string)(ViewBag.Prompt       ?? "");
+    var proveedor    = (string)(ViewBag.Proveedor    ?? "openrouter");
+    var orModelo     = (string)(ViewBag.OrModelo     ?? "google/gemma-3-27b-it:free");
+    var orApiKey     = (string)(ViewBag.OrApiKey     ?? "");
+    var ollamaUrl    = (string)(ViewBag.OllamaUrl    ?? "http://localhost:11434");
+    var ollamaModelo = (string)(ViewBag.OllamaModelo ?? "qwen2.5:7b-instruct");
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Ok"]
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-9">
+        <form method="post" asp-action="PromptIA">
+
+            {{!-- ── Selector de proveedor ─────────────────────────────── --}}
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><i class="fa fa-magic"></i> Proveedor de IA</h3>
+                </div>
+                <div class="box-body">
+                    <div class="row">
+                        <div class="col-xs-6">
+                            <div class="proveedor-card @(proveedor == "openrouter" ? "selected" : "")"
+                                 onclick="seleccionarProveedor('openrouter')">
+                                <i class="fa fa-cloud fa-2x"></i>
+                                <div class="proveedor-nombre">OpenRouter.ai</div>
+                                <div class="proveedor-desc">Cloud — modelos gratuitos y de pago</div>
+                            </div>
+                        </div>
+                        <div class="col-xs-6">
+                            <div class="proveedor-card @(proveedor == "ollama" ? "selected" : "")"
+                                 onclick="seleccionarProveedor('ollama')">
+                                <i class="fa fa-server fa-2x"></i>
+                                <div class="proveedor-nombre">Local (Ollama)</div>
+                                <div class="proveedor-desc">LAN — RTX 5050 · 8 GB VRAM</div>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="proveedor" id="inputProveedor" value="@proveedor" />
+                </div>
+            </div>
+
+            {{!-- ── OpenRouter ─────────────────────────────────────────── --}}
+            <div class="box box-default" id="secOpenRouter" style="@(proveedor == "openrouter" ? "" : "display:none")">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><i class="fa fa-cloud"></i> OpenRouter.ai</h3>
+                </div>
+                <div class="box-body">
+                    <div class="form-group">
+                        <label>Modelo</label>
+                        <input type="text" name="orModelo" class="form-control" value="@orModelo"
+                               placeholder="google/gemma-3-27b-it:free" />
+                        <small class="text-muted">Ejemplos: <code>google/gemma-3-27b-it:free</code> · <code>mistralai/mistral-7b-instruct:free</code></small>
+                    </div>
+                    <div class="form-group">
+                        <label>API Key <small class="text-muted">(opcional si ya está en variable de entorno)</small></label>
+                        <input type="password" name="orApiKey" class="form-control"
+                               placeholder="@(string.IsNullOrEmpty(orApiKey) ? "sk-or-..." : "••••••••••••  (guardada)")"
+                               autocomplete="new-password" />
+                        <small class="text-muted">Dejá vacío para mantener la clave actual. La variable de entorno <code>OpenRouter__ApiKey</code> tiene menor prioridad que este campo.</small>
+                    </div>
+                </div>
+            </div>
+
+            {{!-- ── Ollama local ────────────────────────────────────────── --}}
+            <div class="box box-default" id="secOllama" style="@(proveedor == "ollama" ? "" : "display:none")">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><i class="fa fa-server"></i> Ollama local</h3>
+                </div>
+                <div class="box-body">
+                    <div class="form-group">
+                        <label>URL de Ollama</label>
+                        <input type="text" name="ollamaUrl" class="form-control" value="@ollamaUrl"
+                               placeholder="http://localhost:11434" />
+                    </div>
+                    <div class="form-group">
+                        <label>Modelo</label>
+                        <div class="input-group">
+                            <input type="text" name="ollamaModelo" id="inputOllamaModelo"
+                                   class="form-control" value="@ollamaModelo"
+                                   placeholder="qwen2.5:7b-instruct" />
+                            <span class="input-group-btn">
+                                <button type="button" class="btn btn-default" onclick="cargarModelosOllama()">
+                                    <i class="fa fa-refresh"></i> Cargar
+                                </button>
+                            </span>
+                        </div>
+                        <div id="listaModelos" style="margin-top:8px; display:none">
+                            <small class="text-muted">Modelos disponibles — clic para seleccionar:</small>
+                            <div id="modelosBadges" style="margin-top:4px"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {{!-- ── Prompt del sistema ─────────────────────────────────── --}}
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title"><i class="fa fa-file-text-o"></i> Prompt del sistema</h3>
+                </div>
+                <div class="box-body">
+                    <small class="text-muted" style="display:block; margin-bottom:6px;">
+                        Instrucción enviada a la IA antes del texto de la nota. Define el rol, tono y formato de la síntesis.
+                    </small>
+                    <textarea name="prompt" class="form-control" rows="8" required>@prompt</textarea>
+                </div>
+                <div class="box-footer">
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Guardar</button>
+                </div>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+<style>
+.proveedor-card {
+    border: 2px solid #ddd;
+    border-radius: 6px;
+    padding: 20px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    margin-bottom: 4px;
+}
+.proveedor-card:hover { border-color: #aaa; background: #fafafa; }
+.proveedor-card.selected { border-color: #3c8dbc; background: #eaf4fb; }
+.proveedor-card .fa { color: #555; margin-bottom: 8px; }
+.proveedor-card.selected .fa { color: #3c8dbc; }
+.proveedor-nombre { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+.proveedor-desc { font-size: 12px; color: #888; }
+</style>
+
+<script>
+function seleccionarProveedor(p) {
+    document.getElementById('inputProveedor').value = p;
+    document.querySelectorAll('.proveedor-card').forEach(c => c.classList.remove('selected'));
+    event.currentTarget.classList.add('selected');
+    document.getElementById('secOpenRouter').style.display = p === 'openrouter' ? '' : 'none';
+    document.getElementById('secOllama').style.display     = p === 'ollama'      ? '' : 'none';
+}
+
+function cargarModelosOllama() {
+    var url = document.querySelector('[name="ollamaUrl"]').value || 'http://localhost:11434';
+    fetch('/Configuracion/OllamaModelos?url=' + encodeURIComponent(url))
+        .then(r => r.json())
+        .then(data => {
+            var badges = document.getElementById('modelosBadges');
+            badges.innerHTML = '';
+            (data.modelos || []).forEach(function(m) {
+                var b = document.createElement('span');
+                b.className = 'label label-default';
+                b.style = 'cursor:pointer; margin:2px 4px 2px 0; display:inline-block; font-size:13px; padding:5px 8px';
+                b.textContent = m;
+                b.onclick = function() { document.getElementById('inputOllamaModelo').value = m; };
+                badges.appendChild(b);
+            });
+            document.getElementById('listaModelos').style.display = '';
+        })
+        .catch(function() { alert('No se pudo conectar a Ollama. Verificá la URL.'); });
+}
+</script>

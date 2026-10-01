@@ -1,0 +1,82 @@
+@using Medios.Entities
+@model List<Delegacion>
+
+@{
+    ViewData["Title"] = "Delegaciones";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var usuariosCount = ViewBag.UsuariosCount as Dictionary<int, int> ?? new Dictionary<int, int>();
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-building"></i> Delegaciones</h3>
+            </div>
+            <div class="box-body no-padding">
+                <table class="table table-hover table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Delegación</th>
+                            <th>Superintendencia</th>
+                            <th>Partidos</th>
+                            <th>Usuarios</th>
+                            <th>Portales</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var d in Model)
+                        {
+                            int portalesCount = 0;
+                            if (!string.IsNullOrEmpty(d.PortalesPrensa))
+                            {
+                                try { portalesCount = System.Text.Json.JsonSerializer.Deserialize<List<string>>(d.PortalesPrensa)?.Count ?? 0; } catch { }
+                            }
+                            <tr>
+                                <td><strong>@(d.DelegacionPrometheus?.Nombre ?? d.Nombre)</strong></td>
+                                <td>
+                                    @if (d.AreaResponsabilidad != null)
+                                    { <span class="label label-primary">@d.AreaResponsabilidad.AmbitoResponsabilidad</span> }
+                                    else { <span class="text-muted">— sin asignar —</span> }
+                                </td>
+                                <td>
+                                    @if (d.Partidos.Count > 0)
+                                    {
+                                        <span class="badge bg-green" title="@d.Partidos.Count partido(s) vinculado(s)">@d.Partidos.Count</span>
+                                    }
+                                    else { <span class="text-muted">—</span> }
+                                </td>
+                                <td>
+                                    @{ var cantUsuarios = usuariosCount.TryGetValue(d.Id, out var cu) ? cu : 0; }
+                                    @if (cantUsuarios > 0)
+                                    {
+                                        <span class="badge" style="background-color:#605ca8;" title="@cantUsuarios usuario(s) asignado(s)">@cantUsuarios</span>
+                                    }
+                                    else { <span class="text-muted">—</span> }
+                                </td>
+                                <td>
+                                    @if (portalesCount > 0)
+                                    {
+                                        <span class="badge bg-blue" title="@portalesCount portales monitoreados">@portalesCount</span>
+                                    }
+                                    else { <span class="text-muted">—</span> }
+                                </td>
+                                <td>
+                                    <a href="/Delegacion/Editar/@d.Id" class="btn btn-default btn-xs" title="Editar portales">
+                                        <i class="fa fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

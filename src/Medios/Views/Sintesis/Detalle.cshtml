@@ -1,0 +1,409 @@
+@using Medios.Entities
+@model Sintesis
+
+@{
+    ViewData["Title"] = $"Síntesis {Model.Tipo} — {Model.Fecha:dd/MM/yyyy}";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var puedeGenerar = User.IsInRole("MEDIOS") || User.IsInRole("DELEGACION");
+    var puedeRemitir = User.IsInRole("MEDIOS") || User.IsInRole("DELEGACION");
+    // Síntesis consolidada (sin delegación): MEDIOS la revierte e informa
+    var esConsolidada = Model.DelegacionId == null;
+    var esMedios      = User.IsInRole("MEDIOS");
+    // Síntesis propia de MEDIOS (cargada directamente, sin una Delegación real de por medio):
+    // "Remitir" no tiene destinatario externo, así que el botón se llama "Finalizar".
+    var esPropiaDeMedios = Model.Delegacion?.Nombre == "División Medios";
+    var borradores = ViewBag.BorradoresPropios as List<SesionPrensa> ?? new List<SesionPrensa>();
+    var sesionPorOrigen = ViewBag.SesionPorNotaOrigen as Dictionary<int, SesionPrensa> ?? new Dictionary<int, SesionPrensa>();
+
+    // Jerarquía Ámbito (Nacional → Provincial → Partido) → Categoría
+    int OrdenAmbitoD(string? a) => a switch { "Nacional" => 0, "Provincial" => 1, _ => 2 };
+    var porAmbito = Model.NotasIncluidas
+        .OrderBy(sn => sn.Orden)
+        .GroupBy(sn => string.IsNullOrEmpty(sn.NotaVersion.AmbitoNota) ? "Partido" : sn.NotaVersion.AmbitoNota!)
+        .OrderBy(g => OrdenAmbitoD(g.Key))
+        .ToList();
+    string AmbitoColor(string? a) => a switch { "Nacional" => "#c0392b", "Provincial" => "#1a5276", _ => "#2471a3" };
+
+    // Geo sin duplicar: si la Localidad ya trae el partido entre paréntesis para desambiguar
+    // (ej. "SAN GENARO (MONTE)"), o directamente coincide con el nombre del Partido, no repetirlo.
+    string FormatGeoCorta(Partido partido, Localidad? localidad)
+    {
+        var loc = localidad?.Nombre ?? "";
+        var sufijo = $"({partido.Nombre})";
+        if (loc.EndsWith(sufijo, StringComparison.OrdinalIgnoreCase))
+            loc = loc[..^sufijo.Length].Trim();
+        if (loc.Length == 0 || string.Equals(loc, partido.Nombre, StringComparison.OrdinalIgnoreCase))
+            return partido.Nombre.ToUpper();
+        return $"{partido.Nombre.ToUpper()} — {loc.ToUpper()}";
+    }
+
+    // Notas actualizadas: versión nueva todavía no remitida (acción pendiente del usuario)
+    var cantSinRemitir = Model.NotasIncluidas
+        .Count(sn => sn.Nota.VersionActualId != sn.NotaVersionId
+                  && sn.Nota.VersionActual?.EstadoRevision == "Sin Remitir");
+    // Total actualizadas (para referencia)
+    var cantInfoNueva = Model.NotasIncluidas
+        .Count(sn => sn.Nota.VersionActualId != sn.NotaVersionId);
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+@if (!string.IsNullOrWhiteSpace(Model.TextoImportado))
+{
+    <div class="box box-warning">
+        <div class="box-header with-border">
+            <h3 class="box-title"><i class="fa fa-cloud-download"></i> Síntesis capturada de contingencia (Google Form)</h3>
+        </div>
+        <div class="box-body" style="white-space:pre-wrap; font-size:13px;">@Model.TextoImportado</div>
+    </div>
+}
+
+@if (cantSinRemitir > 0)
+{
+    <div class="alert alert-warning">
+        <i class="fa fa-exclamation-triangle"></i>
+        <strong>@cantSinRemitir nota@(cantSinRemitir > 1 ? "s tienen" : " tiene") una versión sin remitir</strong>
+        — pueden agregarse a un borrador para incluirse en la próxima síntesis.
+        Las notas marcadas con
+        <span class="label bg-orange"><i class="fa fa-refresh"></i> Actualizada</span>
+        fueron modificadas después del armado.
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title">
+                    Síntesis de Prensa @Model.Tipo — @Model.Fecha.ToString("dd/MM/yyyy")
+                    @{
+                        var estadoBadge = Model.Estado switch {
+                            "Generada"  => "bg-green",
+                            "Remitida"  => "bg-orange",
+                            "Informada" => "bg-teal",
+                            _           => "bg-gray"
+                        };
+                    }
+                    &nbsp;<span class="label @estadoBadge">@Model.Estado</span>
+                </h3>
+                <div class="box-tools">
+                    @if (esConsolidada && esMedios)
+                    {
+                        @* ── Síntesis CONSOLIDADA: Revertir consolidar + Informar ── *@
+                        @if (Model.Estado != "Informada")
+                        {
+                            <form method="post" asp-controller="Sintesis" asp-action="RevertirConsolidar" style="display:inline"
+                                  onsubmit="return confirm('¿Revertir la consolidación? La síntesis consolidada se eliminará y las sesiones volverán a estado Finalizada para poder modificarlas.')">
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fa fa-undo"></i> Revertir consolidar
+                                </button>
+                            </form>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.PDFPath))
+                        {
+                            <a href="/Sintesis/DescargarPdf/@Model.Id" class="btn btn-success btn-sm">
+                                <i class="fa fa-download"></i> Descargar PDF
+                            </a>
+                        }
+                        @if (Model.Estado != "Informada")
+                        {
+                            <a href="/Sintesis/Informar/@Model.Id" class="btn btn-warning btn-sm">
+                                <i class="fa fa-send"></i> Informar
+                            </a>
+                        }
+                        else
+                        {
+                            <span class="label bg-teal" style="font-size:12px; padding:6px 10px;"><i class="fa fa-check"></i> Informada</span>
+                            @if (esMedios)
+                            {
+                                <a href="/Sintesis/Informar/@Model.Id" class="btn btn-info btn-sm">
+                                    <i class="fa fa-pencil"></i> Editar
+                                </a>
+                            }
+                        }
+                        @if (esMedios)
+                        {
+                            <a href="/Traza/Sintesis/@Model.Id" class="btn btn-default btn-sm">
+                                <i class="fa fa-history"></i> Historial de envíos
+                            </a>
+                        }
+                    }
+                    else
+                    {
+                        @* ── Síntesis de delegación (flujo normal) ── *@
+                        @* Solo generación inicial cuando aún no hay PDF (sin "Regenerar") *@
+                        @if (puedeGenerar && Model.Estado != "Remitida" && string.IsNullOrEmpty(Model.PDFPath))
+                        {
+                            <form method="post" asp-controller="Sintesis" asp-action="GenerarPdf" style="display:inline">
+                                <input type="hidden" name="id" value="@Model.Id" />
+                                <button type="submit" class="btn btn-danger btn-sm">
+                                    <i class="fa fa-file-pdf-o"></i> Generar PDF
+                                </button>
+                            </form>
+                        }
+                        @if (!string.IsNullOrEmpty(Model.PDFPath))
+                        {
+                            <a href="/Sintesis/DescargarPdf/@Model.Id" class="btn btn-success btn-sm">
+                                <i class="fa fa-download"></i> Descargar PDF
+                            </a>
+                            @if (Model.Estado == "Generada" && puedeRemitir)
+                            {
+                                <form method="post" asp-controller="Sintesis" asp-action="Remitir" style="display:inline"
+                                      onsubmit="return confirm(@(esPropiaDeMedios
+                                          ? "'¿Finalizar síntesis? Esta acción no puede deshacerse.'"
+                                          : "'¿Remitir síntesis? Esta acción no puede deshacerse.'"))">
+                                    <input type="hidden" name="id" value="@Model.Id" />
+                                    <button type="submit" class="btn btn-warning btn-sm">
+                                        @if (esPropiaDeMedios)
+                                        {
+                                            <i class="fa fa-flag-checkered"></i> <text>Finalizar</text>
+                                        }
+                                        else
+                                        {
+                                            <i class="fa fa-send"></i> <text>Remitir</text>
+                                        }
+                                    </button>
+                                </form>
+                            }
+                        }
+                    }
+                    <a href="javascript:history.back()" class="btn btn-default btn-sm">
+                        <i class="fa fa-arrow-left"></i> Volver
+                    </a>
+                </div>
+            </div>
+            <div class="box-body">
+
+                <!-- Info -->
+                <div class="row" style="margin-bottom:16px;">
+                    <div class="col-md-3"><strong>Fecha:</strong> @Model.Fecha.ToString("dd/MM/yyyy")</div>
+                    <div class="col-md-3"><strong>Tipo:</strong> @Model.Tipo</div>
+                    <div class="col-md-3"><strong>Notas:</strong> @Model.NotasIncluidas.Count</div>
+                    <div class="col-md-3"><strong>Operador:</strong> @Model.OperadorGenera</div>
+                </div>
+
+                @if (esConsolidada && Model.Estado == "Informada")
+                {
+                    <div class="callout callout-success" style="margin-bottom:16px; font-size:13px;">
+                        @if (Model.CanalTodosRoles)
+                        {
+                            <div><i class="fa fa-users"></i> Publicada para Todos los Roles</div>
+                        }
+                        @if (Model.CanalTodasDelegaciones)
+                        {
+                            <div><i class="fa fa-building"></i> Visible para todas las delegaciones</div>
+                        }
+                        else if (Model.DelegacionesDestino.Any())
+                        {
+                            <div><i class="fa fa-building"></i> Visible para: @string.Join(", ", Model.DelegacionesDestino.Select(d => d.Delegacion.Nombre))</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(Model.CanalMails))
+                        {
+                            <div><i class="fa fa-envelope"></i> Enviada por correo a: @Model.CanalMails</div>
+                        }
+                        @if (Model.FechaInformada.HasValue)
+                        {
+                            <div class="text-muted"><i class="fa fa-clock-o"></i> Informada el @Model.FechaInformada.Value.ToString("dd/MM/yyyy HH:mm")</div>
+                        }
+                    </div>
+                }
+
+                <!-- Previsualización: Ámbito → Categoría → Notas -->
+                @foreach (var amb in porAmbito)
+                {
+                    <!-- Encabezado de ámbito (un solo titular) -->
+                    <div style="background:@AmbitoColor(amb.Key); color:white; padding:8px 14px; font-weight:bold; font-size:15px; margin-top:14px;">
+                        <i class="fa fa-globe"></i> ÁMBITO @amb.Key.ToUpper()
+                    </div>
+                    @foreach (var grupo in amb.GroupBy(sn => new
+                        {
+                            Id = sn.NotaVersion.Categoria?.Id ?? 0,
+                            Nombre = sn.NotaVersion.Categoria?.Nombre ?? "Sin categoría",
+                            Orden = sn.NotaVersion.Categoria?.Orden ?? int.MaxValue
+                        }).OrderBy(c => c.Key.Orden))
+                    {
+                    <div style="margin-bottom:20px;">
+                        <div style="background:#8B4513; color:white; padding:6px 12px; font-weight:bold; font-size:13px;">
+                            @grupo.Key.Nombre.ToUpper() <span style="opacity:.85;">(@grupo.Count())</span>
+                        </div>
+                        @foreach (var sn in grupo.OrderBy(sn => sn.NotaVersion.Partido?.Nombre ?? ""))
+                        {
+                            var nota = sn.NotaVersion;
+                            var tieneInfoNueva = sn.Nota.VersionActualId != sn.NotaVersionId;
+                            var esRechazada = sn.Nota.VersionActual?.EstadoRevision == "Sin Remitir"
+                                           && !string.IsNullOrEmpty(sn.Nota.VersionActual?.MotivoDescarte);
+                            <div style="padding:10px 12px; border-bottom:1px solid #f0f0f0; @(tieneInfoNueva ? "background:#fffdf0;" : esRechazada ? "background:#fdf2f2;" : "")">
+                                <div style="margin-bottom:4px;">
+                                    @if (esRechazada)
+                                    {
+                                        <span class="label label-danger" style="font-size:10px;">
+                                            <i class="fa fa-times-circle"></i> Rechazada por Medios
+                                        </span>
+                                        <div style="background:#f2dede; border-left:3px solid #a94442; padding:5px 10px; margin:4px 0; font-size:12px; color:#a94442; border-radius:0 3px 3px 0;">
+                                            <i class="fa fa-comment"></i> @sn.Nota.VersionActual!.MotivoDescarte
+                                        </div>
+                                    }
+                                    @if (tieneInfoNueva && !esRechazada)
+                                    {
+                                        var estadoNueva = sn.Nota.VersionActual?.EstadoRevision ?? "";
+                                        <span class="label bg-orange" style="font-size:10px;"
+                                              title="Esta nota fue modificada o ampliada después de armar la síntesis. El PDF muestra la versión original.">
+                                            <i class="fa fa-refresh"></i> Actualizada
+                                        </span>
+                                        @if (estadoNueva == "Sin Remitir")
+                                        {
+                                            @if (borradores.Any())
+                                            {
+                                                <form method="post" asp-controller="Sesion" asp-action="AgregarNotaActualizada"
+                                                      style="display:inline; margin-left:6px;">
+                                                    <input type="hidden" name="notaOrigenId" value="@sn.Nota.Id" />
+                                                    <input type="hidden" name="sintesisId" value="@Model.Id" />
+                                                    @if (borradores.Count == 1)
+                                                    {
+                                                        <input type="hidden" name="sesionId" value="@borradores[0].Id" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <select name="sesionId" class="form-control input-sm"
+                                                                style="width:auto; display:inline-block; vertical-align:middle; font-size:11px; height:22px; padding:1px 4px;">
+                                                            @foreach (var b in borradores)
+                                                            {
+                                                                <option value="@b.Id">@b.Fecha.ToString("dd/MM") @b.Turno</option>
+                                                            }
+                                                        </select>
+                                                    }
+                                                    <button type="submit" class="btn btn-xs btn-primary"
+                                                            style="vertical-align:middle; font-size:11px;">
+                                                        <i class="fa fa-plus"></i> Agregar a borrador
+                                                    </button>
+                                                </form>
+                                            }
+                                            else if (User.IsInRole("DELEGACION"))
+                                            {
+                                                <a href="/Sesion/Nueva" class="btn btn-xs btn-default"
+                                                   style="margin-left:6px; font-size:11px; vertical-align:middle;"
+                                                   title="Necesitás un borrador activo para agregar esta nota">
+                                                    <i class="fa fa-plus"></i> Crear borrador
+                                                </a>
+                                            }
+                                        }
+                                        else if (estadoNueva == "Pendiente")
+                                        {
+                                            var sesAct = sesionPorOrigen.TryGetValue(sn.Nota.Id, out var ss) ? ss : null;
+                                            <span class="label bg-blue" style="font-size:10px; margin-left:6px;">
+                                                <i class="fa fa-clock-o"></i>
+                                                Remitida@(sesAct != null ? $" en sesión {sesAct.Turno} {sesAct.Fecha:dd/MM}" : "") — en revisión
+                                            </span>
+                                        }
+                                        else if (estadoNueva == "Aprobada")
+                                        {
+                                            <span class="label bg-green" style="font-size:10px; margin-left:6px;">
+                                                <i class="fa fa-check"></i> Aprobada
+                                            </span>
+                                        }
+                                        else if (estadoNueva == "Descartada")
+                                        {
+                                            <span class="label bg-red" style="font-size:10px; margin-left:6px;">
+                                                <i class="fa fa-times"></i> Descartada
+                                            </span>
+                                        }
+                                    }
+                                    <span class="label label-default" style="font-size:10px;">v@(sn.NotaVersion.Version)</span>
+                                </div>
+                                @if (nota.AmbitoNota != null || nota.Partido != null)
+                                {
+                                    <div style="font-size:11px; font-weight:bold; color:#555;">
+                                        @if (nota.AmbitoNota != null)
+                                        {
+                                            <span style="background:@AmbitoColor(nota.AmbitoNota); color:white; border-radius:3px; padding:1px 5px; font-size:10px; margin-right:4px;">@nota.AmbitoNota.ToUpper()</span>
+                                        }
+                                        @if (nota.Partido != null)
+                                        {
+                                            @FormatGeoCorta(nota.Partido, nota.Localidad)
+                                        }
+                                    </div>
+                                }
+                                <div style="font-weight:bold;">
+                                    @nota.Titulo
+                                    <a href="/NotaBuscador/Detalle/@sn.Nota.Id?versionId=@sn.NotaVersionId" title="Ver ficha completa (versión capturada)"
+                                       style="font-size:11px; font-weight:normal; margin-left:6px; color:#aaa;">
+                                        <i class="fa fa-external-link"></i>
+                                    </a>
+                                </div>
+                                @if (!string.IsNullOrEmpty(nota.Sintesis))
+                                {
+                                    <div class="nota-sintesis-ia" style="font-size:13px; color:#444; margin-top:4px;">
+                                        @nota.Sintesis
+                                        <small class="text-muted" style="display:block; margin-top:2px;">
+                                            <i class="fa fa-magic"></i> Síntesis IA &nbsp;
+                                            <a href="#" class="toggle-texto" style="font-size:11px;">ver texto completo</a>
+                                        </small>
+                                    </div>
+                                    <div class="nota-texto-completo" style="font-size:13px; color:#444; margin-top:4px; display:none;">
+                                        @nota.Texto
+                                        <small class="text-muted" style="display:block; margin-top:2px;">
+                                            <a href="#" class="toggle-sintesis" style="font-size:11px;">← volver a síntesis</a>
+                                        </small>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div style="font-size:13px; color:#444; margin-top:4px;">@nota.Texto</div>
+                                }
+                                @if (!string.IsNullOrEmpty(nota.ImagenUrl))
+                                {
+                                    <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">
+                                        <img src="@nota.ImagenUrl" alt="" style="max-width:240px; max-height:160px; border:1px solid #ddd; border-radius:4px;" />
+                                        @foreach (var ex in nota.ImagenesExtra)
+                                        {
+                                            <a href="@ex" target="_blank"><img src="@ex" style="height:80px; border:1px solid #ddd; border-radius:4px;" /></a>
+                                        }
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(nota.VideoUrl))
+                                {
+                                    <div style="font-size:11px; margin-top:4px;"><i class="fa fa-video-camera"></i> <a href="@nota.VideoUrl" target="_blank">Video</a></div>
+                                }
+                                @if (!string.IsNullOrEmpty(nota.Fuente))
+                                {
+                                    <div style="font-size:12px; color:#666; margin-top:4px;">(@nota.Fuente)</div>
+                                }
+                                @if (!string.IsNullOrEmpty(nota.Link))
+                                {
+                                    <div style="font-size:11px;"><a href="@nota.Link" target="_blank">@nota.Link</a></div>
+                                }
+                            </div>
+                        }
+                    </div>
+                    } @* categorías del ámbito *@
+                }
+
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+$(document).on('click', '.toggle-texto', function(e) {
+    e.preventDefault();
+    var sinDiv = $(this).closest('.nota-sintesis-ia');
+    sinDiv.hide();
+    sinDiv.next('.nota-texto-completo').show();
+});
+$(document).on('click', '.toggle-sintesis', function(e) {
+    e.preventDefault();
+    var txtDiv = $(this).closest('.nota-texto-completo');
+    txtDiv.hide();
+    txtDiv.prev('.nota-sintesis-ia').show();
+});
+</script>
+}

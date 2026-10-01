@@ -1,0 +1,95 @@
+@using System.Security.Claims
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@inject Medios.Services.AutorizacionService AutorizService
+
+@* MOCK no es un rol: es una herramienta de simulación disponible según el rol REAL del
+   usuario (RolReal). DESARROLLADOR puede simular MEDIOS o DELEGACION; MEDIOS solo puede
+   simular DELEGACION; DELEGACION nunca ve este switcher (no tiene el claim EsSimulador). *@
+@if (Config["Auth:Mode"] == "Mock" && User.HasClaim("EsSimulador", "true"))
+{
+    var rolActual = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    var rolReal = User.FindFirst("RolReal")?.Value ?? rolActual;
+    var destinoActual = User.FindFirst("Dependencia")?.Value ?? "";
+    var simulando = !string.Equals(rolActual, rolReal, StringComparison.OrdinalIgnoreCase);
+    var rolesSimulables = rolReal.ToUpper() switch
+    {
+        "DESARROLLADOR" => new[] { "MEDIOS", "DELEGACION" },
+        "MEDIOS" => new[] { "DELEGACION" },
+        _ => Array.Empty<string>()
+    };
+    // El propio rol real siempre aparece en la lista, para poder volver a él eligiéndolo
+    // directamente (además del botón explícito "Salir de simulación" más abajo).
+    var rolesMock = new[] { rolReal.ToUpper() }.Concat(rolesSimulables).Distinct().ToArray();
+    var delegaciones = await AutorizService.GetDelegacionesAsync();
+    var rolSeleccionadoEsDelegacion = string.Equals(rolActual, "DELEGACION", StringComparison.OrdinalIgnoreCase);
+
+    <li class="dropdown" style="background:#c0392b;">
+        <a href="#" class="dropdown-toggle" data-toggle="dropdown"
+           style="color:#fff !important; padding:15px 10px;">
+            <i class="fa fa-flask"></i>
+            <span style="font-size:11px; font-weight:bold;">
+                MOCK: @rolActual@(simulando ? $" (real: {rolReal})" : "")
+            </span>
+            <b class="caret"></b>
+        </a>
+        <ul class="dropdown-menu" style="min-width:320px; padding:10px;">
+            <li class="dropdown-header">Simular rol (solo Mock)</li>
+            <li>
+                <form method="post" asp-controller="MockSwitch" asp-action="Cambiar"
+                      style="padding:8px 16px;">
+                    @Html.AntiForgeryToken()
+                    <div class="form-group" style="margin-bottom:6px;">
+                        <label style="font-size:11px;">Rol a simular</label>
+                        <select name="rol" class="form-control input-sm" id="mockRol" onchange="actualizarMockDelegacion(this)">
+                            @foreach (var r in rolesMock)
+                            {
+                                <option value="@r" selected="@(r == rolActual)">@r</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:6px;">
+                        <label style="font-size:11px;">Destino/Dependencia</label>
+                        <input name="destino" class="form-control input-sm" value="@destinoActual"
+                               placeholder="Ej: División Medios" />
+                    </div>
+                    <div id="mockDelegacionRow" class="form-group" style="margin-bottom:8px; @(rolSeleccionadoEsDelegacion ? "" : "display:none")">
+                        <label style="font-size:11px;">Delegación a simular (obligatorio)</label>
+                        <select name="delegacionId" class="form-control input-sm" id="mockDelegacionId"
+                                required="@rolSeleccionadoEsDelegacion">
+                            <option value="">— Seleccionar Delegación —</option>
+                            @foreach (var d in delegaciones)
+                            {
+                                <option value="@d.Id">@d.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-danger btn-sm btn-block">
+                        <i class="fa fa-refresh"></i> Simular
+                    </button>
+                </form>
+            </li>
+            @if (simulando)
+            {
+                <li>
+                    <form method="post" asp-controller="MockSwitch" asp-action="Salir" style="padding:0 16px 8px;">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-default btn-sm btn-block">
+                            <i class="fa fa-sign-out"></i> Salir de simulación
+                        </button>
+                    </form>
+                </li>
+            }
+        </ul>
+    </li>
+}
+
+<script>
+function actualizarMockDelegacion(sel) {
+    var rol = sel.value;
+    var row = document.getElementById('mockDelegacionRow');
+    var select = document.getElementById('mockDelegacionId');
+    var esDelegacion = rol === 'DELEGACION';
+    row.style.display = esDelegacion ? '' : 'none';
+    if (select) select.required = esDelegacion;
+}
+</script>

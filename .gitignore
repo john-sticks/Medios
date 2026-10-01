@@ -1,0 +1,47 @@
+## .NET / ASP.NET Core
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.userprefs
+
+## Publish output
+publish/
+out/
+
+## Secrets / config sensible
+appsettings.Production.json
+appsettings.Staging.json
+appsettings.Development.json
+
+## Artefactos de build y deploy
+publish_output/
+publish_output.tar.gz
+publish_output.zip
+deploy.zip
+
+## Testing / Playwright
+.playwright-mcp/
+test-*.png
+*.xlsx
+
+## Secrets locales
+.env
+.claude/
+.mcp.json
+
+## Logs
+logs/
+*.log
+
+## JetBrains / Rider
+.idea/
+
+## VS Code
+.vscode/
+
+## OS
+.DS_Store
+Thumbs.db
+deploy.tar.gz

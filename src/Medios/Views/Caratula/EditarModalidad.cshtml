@@ -1,0 +1,54 @@
+@using Medios.Entities
+@model ModalidadQuiron
+
+@{
+    var esNueva = Model.Id == 0;
+    ViewData["Title"] = esNueva ? "Nueva Modalidad" : "Editar Modalidad";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var caratulas = ViewBag.Caratulas as List<CaratulaQuiron> ?? new();
+    var caratulaIdActual = (int?)ViewBag.CaratulaIdActual ?? Model.CaratulaId;
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="box box-success">
+            <div class="box-header with-border">
+                <h3 class="box-title">
+                    <i class="fa fa-list"></i> @ViewData["Title"]
+                </h3>
+            </div>
+            <div class="box-body">
+                @if (TempData["Error"] != null)
+                {
+                    <div class="alert alert-danger">@TempData["Error"]</div>
+                }
+                <form method="post" asp-controller="Caratula" asp-action="EditarModalidad">
+                    <input type="hidden" name="id" value="@(esNueva ? "" : Model.Id.ToString())" />
+
+                    <div class="form-group">
+                        <label>Carátula <span class="text-red">*</span></label>
+                        <select name="caratulaId" class="form-control" required>
+                            <option value="">— Seleccioná —</option>
+                            @foreach (var c in caratulas)
+                            {
+                                if (c.Id == caratulaIdActual)
+                                { <option value="@c.Id" selected="selected">@c.Nombre</option> }
+                                else
+                                { <option value="@c.Id">@c.Nombre</option> }
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nombre <span class="text-red">*</span></label>
+                        <input type="text" name="nombre" class="form-control" value="@Model.Nombre" required maxlength="100" autofocus />
+                    </div>
+
+                    <button type="submit" class="btn btn-success">
+                        <i class="fa fa-save"></i> @(esNueva ? "Crear" : "Guardar")
+                    </button>
+                    <a href="@Url.Action("Listado")" class="btn btn-default">Cancelar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

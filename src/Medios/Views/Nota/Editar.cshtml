@@ -1,0 +1,278 @@
+@using Medios.Entities
+
+@{
+    ViewData["Title"] = "Editar Nota";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var categorias = ViewBag.Categorias as List<CategoriaNoticia>;
+    var partidos = ViewBag.Partidos as List<Partido>;
+    var sesionId = (int)ViewBag.SesionId;
+    var v = Model.VersionActual;
+}
+
+@model NotaPrensa
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Error"]
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-warning">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-pencil"></i> Modificar Nota</h3>
+            </div>
+            <div class="box-body">
+                <form method="post" asp-controller="Nota" asp-action="Editar">
+                    <input type="hidden" name="notaId"   value="@Model.Id" />
+                    <input type="hidden" name="sesionId" value="@sesionId" />
+                    <input type="hidden" name="latitud"  id="hLatitud"  value="@v?.Latitud?.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)" />
+                    <input type="hidden" name="longitud" id="hLongitud" value="@v?.Longitud?.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)" />
+
+                    <div class="row">
+                        @{ ViewData["AmbitoPrefix"] = "Edit"; ViewData["Categorias"] = categorias; ViewData["CatIdInicial"] = v?.CategoriaId ?? 0; ViewData["AmbitoInicial"] = v?.AmbitoNota ?? ""; }
+                        @await Html.PartialAsync("_AmbitoCategoria")
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Partido <span class="text-red">*</span> <small class="text-muted">(si Ámbito = Partido)</small></label>
+                                <select name="partidoId" id="selPartido" class="form-control">
+                                    <option value="">— Todos —</option>
+                                    @foreach (var p in partidos!)
+                                    {
+                                        @if (p.IdPartido == v?.PartidoId) { <option value="@p.IdPartido" selected="selected">@p.Nombre</option> }
+                                        else { <option value="@p.IdPartido">@p.Nombre</option> }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Localidad</label>
+                                <select name="localidadId" id="selLocalidad" class="form-control">
+                                    <option value="@v?.LocalidadId">@(v?.Localidad?.Nombre ?? "— Ninguna —")</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Fecha y hora de la noticia</label>
+                                <input type="datetime-local" name="fechaNoticia" class="form-control"
+                                       value="@(v?.FechaNoticia?.ToString("yyyy-MM-ddTHH:mm") ?? "")" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <!-- Izquierda: texto + campos -->
+                        <div class="col-md-7">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Fuente <span class="text-red">*</span></label>
+                                        <input type="text" name="fuente" class="form-control"
+                                               value="@v?.Fuente" maxlength="200" required />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>
+                                            Link
+                                            <button type="button" id="btnScrapearEdit" class="btn btn-xs btn-info" style="margin-left:8px;">
+                                                <i class="fa fa-download"></i> Importar desde URL
+                                            </button>
+                                            <span id="scrapSpinnerEdit" style="display:none; margin-left:6px;"><i class="fa fa-spinner fa-spin"></i></span>
+                                        </label>
+                                        <input type="url" name="link" id="editLink" class="form-control"
+                                               value="@v?.Link" maxlength="2000" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Título <span class="text-red">*</span></label>
+                                <input type="text" name="titulo" class="form-control"
+                                       value="@v?.Titulo" required maxlength="500" />
+                            </div>
+                            <div class="form-group">
+                                <label>Texto <span class="text-red">*</span></label>
+                                <textarea name="texto" id="editTexto" class="form-control" rows="7" required>@v?.Texto</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    Síntesis IA
+                                    <button type="button" id="btnGenIAEdit" class="btn btn-xs btn-default" style="margin-left:8px;">
+                                        <i class="fa fa-magic"></i> Generar con IA
+                                    </button>
+                                    <span id="iaSpinnerEdit" style="display:none; margin-left:6px;"><i class="fa fa-spinner fa-spin"></i></span>
+                                </label>
+                                <textarea name="sintesis" id="editSintesis" class="form-control" rows="3"
+                                          placeholder="Síntesis generada por IA (opcional, editable)">@v?.Sintesis</textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Otros medios <small class="text-muted">(repercusión periodística, separados por coma)</small></label>
+                                <input type="text" name="otrosMedios" class="form-control" value="@v?.OtrosMedios" maxlength="300" placeholder="Ej: LANACION,INFOBAE" />
+                            </div>
+                            <div class="form-group">
+                                <label><input type="checkbox" name="esRepercusion" value="true" @(v?.EsRepercusion == true ? "checked" : "") /> Es repercusión periodística</label>
+                            </div>
+                            @{ ViewData["ImagenUrl"] = v?.ImagenUrl; ViewData["VideoUrl"] = v?.VideoUrl; ViewData["ImagenesExtra"] = v?.ImagenesExtra; }
+                            @await Html.PartialAsync("_ImagenVideoNota")
+                        </div>
+
+                        <!-- Derecha: dirección + mapa -->
+                        <div class="col-md-5">
+                            <div class="form-group">
+                                <label>Dirección del hecho <span class="text-red">*</span></label>
+                                <div class="input-group">
+                                    <input type="text" id="inputDireccion" name="direccion"
+                                           class="form-control" maxlength="500"
+                                           value="@v?.Direccion"
+                                           placeholder="Ej: Av. Colón 1234, Mar del Plata" />
+                                    <span class="input-group-btn">
+                                        <button type="button" class="btn btn-default" id="btnBuscarDir">
+                                            <i class="fa fa-search"></i>
+                                        </button>
+                                    </span>
+                                </div>
+                            </div>
+                            <div id="mapaNota" style="height:280px; border-radius:4px; border:1px solid #ddd;"></div>
+                            <div id="previewBajoMapa"></div>
+                            <div id="coordsDisplay" style="font-size:11px; color:#888; margin-top:4px; display:@(v?.Latitud.HasValue == true ? "block" : "none")">
+                                <i class="fa fa-map-marker"></i> <span id="coordsText">@v?.Latitud?.ToString("F6", System.Globalization.CultureInfo.InvariantCulture), @v?.Longitud?.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    @{ Html.RenderPartial("~/Views/Shared/_CaratulaModalidadSelects.cshtml"); }
+
+                    <div style="margin-top:10px;">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fa fa-save"></i> Guardar cambios
+                        </button>
+                        <a href="/Sesion/Detalle/@sesionId" class="btn btn-default">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>.leaflet-container { z-index: 1; }</style>
+}
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        function cargarLocalidades(partidoId, localidadSeleccionada) {
+            var sel = $('#selLocalidad');
+            if (!partidoId) { sel.html('<option value="">— Seleccioná partido primero —</option>'); return; }
+            $.getJSON('/Sesion/LocalidadesByPartido?partidoId=' + partidoId, function (data) {
+                var opts = '<option value="">— Localidad (opcional) —</option>';
+                data.forEach(function (l) {
+                    opts += '<option value="' + l.id + '"' + (l.id == localidadSeleccionada ? ' selected' : '') + '>' + l.nombre + '</option>';
+                });
+                sel.html(opts);
+            });
+        }
+        $('#selPartido').on('change', function () { cargarLocalidades($(this).val(), null); });
+        var partidoInicial = $('#selPartido').val();
+        var localidadInicial = @(v?.LocalidadId.HasValue == true ? v.LocalidadId.ToString() : "null");
+        if (partidoInicial) cargarLocalidades(partidoInicial, localidadInicial);
+
+        // Mapa
+        var latInicial = @(v?.Latitud.HasValue == true ? v.Latitud.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture) : "null");
+        var lngInicial = @(v?.Longitud.HasValue == true ? v.Longitud.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture) : "null");
+        var centro = (latInicial && lngInicial) ? [latInicial, lngInicial] : [-36.5, -60.0];
+        var zoom   = (latInicial && lngInicial) ? 15 : 7;
+        var mapa   = L.map('mapaNota').setView(centro, zoom);
+        var marker = null;
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18 }).addTo(mapa);
+        if (latInicial && lngInicial) marker = L.marker([latInicial, lngInicial]).addTo(mapa);
+
+        function colocarMarcador(lat, lng) {
+            if (marker) mapa.removeLayer(marker);
+            marker = L.marker([lat, lng]).addTo(mapa);
+            $('#hLatitud').val(lat.toFixed(6));
+            $('#hLongitud').val(lng.toFixed(6));
+            $('#coordsDisplay').show();
+            $('#coordsText').text(lat.toFixed(6) + ', ' + lng.toFixed(6));
+        }
+        mapa.on('click', function (e) {
+            colocarMarcador(e.latlng.lat, e.latlng.lng);
+            $.getJSON('https://nominatim.openstreetmap.org/reverse', {
+                lat: e.latlng.lat, lon: e.latlng.lng, format: 'json', 'accept-language': 'es'
+            }, function (data) {
+                if (data && data.address) {
+                    var a = data.address;
+                    var partes = [];
+                    if (a.road) partes.push(a.road + (a.house_number ? ' ' + a.house_number : ''));
+                    var ciudad = a.city || a.town || a.village || a.municipality || '';
+                    if (ciudad) partes.push(ciudad);
+                    if (partes.length > 0) $('#inputDireccion').val(partes.join(', '));
+                }
+            });
+        });
+        $('#selLocalidad').on('change', function () {
+            var opt = this.options[this.selectedIndex];
+            if (!opt || !opt.value) return;
+            var loc = opt.text, part = ($('#selPartido option:selected').text() || '').trim();
+            $('#inputDireccion').val(loc);
+            window.geocodarLocalidad(loc, part, function (lat, lng) {
+                if (typeof mapa !== 'undefined' && mapa) { mapa.setView([lat, lng], 14); colocarMarcador(lat, lng); }
+            });
+        });
+
+        $('#btnBuscarDir').on('click', function () {
+            var dir = $('#inputDireccion').val().trim();
+            if (!dir) return;
+            var btn = $(this).prop('disabled', true).find('i').removeClass('fa-search').addClass('fa-spinner fa-spin').end();
+            $.getJSON('https://nominatim.openstreetmap.org/search', { q: dir + ', Provincia de Buenos Aires, Argentina', format: 'json', limit: 1 }, function (data) {
+                if (data && data.length > 0) {
+                    mapa.setView([parseFloat(data[0].lat), parseFloat(data[0].lon)], 15);
+                    colocarMarcador(parseFloat(data[0].lat), parseFloat(data[0].lon));
+                }
+            }).always(function () { btn.prop('disabled', false).find('i').removeClass('fa-spinner fa-spin').addClass('fa-search'); });
+        });
+
+        // Scraping
+        $('#btnScrapearEdit').on('click', function () {
+            var url = $('#editLink').val().trim();
+            if (!url) { toastr.warning('Ingresá la URL primero.'); return; }
+            $('#btnScrapearEdit').prop('disabled', true); $('#scrapSpinnerEdit').show();
+            $.ajax({
+                url: '/Nota/ScrapearUrl', method: 'POST', contentType: 'application/json',
+                data: JSON.stringify({ url: url }),
+                success: function (r) {
+                    if (r.titulo)      $('[name="titulo"]').val(r.titulo);
+                    if (r.texto)       $('#editTexto').val(r.texto + '\n\n[Validar la información importada (puede estar incompleta o contener información no relacionada)]');
+                    if (r.fuente)      $('[name="fuente"]').val(r.fuente);
+                    if (r.fechaNoticia) $('[name="fechaNoticia"]').val(r.fechaNoticia);
+                    if (r.imagenUrl)   $('#notaImagenUrl').val(r.imagenUrl).trigger('input');
+                    if (r.videoUrl)    $('#notaVideoUrl').val(r.videoUrl);
+                    if (r.direccion)   { $('#inputDireccion').val(r.direccion); $('#btnBuscarDir').click(); }
+                    toastr.success('Contenido importado.');
+                },
+                error: function (xhr) { toastr.error((xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Error al scrapear.'); },
+                complete: function () { $('#btnScrapearEdit').prop('disabled', false); $('#scrapSpinnerEdit').hide(); }
+            });
+        });
+
+        // IA
+        $('#btnGenIAEdit').on('click', function () {
+            var texto = $('#editTexto').val().trim();
+            if (!texto) { toastr.warning('Ingresá el texto primero.'); return; }
+            $('#btnGenIAEdit').prop('disabled', true); $('#iaSpinnerEdit').show();
+            $.ajax({
+                url: '/Nota/GenerarSintesisIA', method: 'POST', contentType: 'application/json',
+                data: JSON.stringify({ texto: texto }),
+                success: function (r) { $('#editSintesis').val(r.sintesis); toastr.success('Síntesis generada.'); },
+                error: function (xhr) { toastr.error((xhr.responseJSON && xhr.responseJSON.error) ? xhr.responseJSON.error : 'Error al generar síntesis.'); },
+                complete: function () { $('#btnGenIAEdit').prop('disabled', false); $('#iaSpinnerEdit').hide(); }
+            });
+        });
+    </script>
+}

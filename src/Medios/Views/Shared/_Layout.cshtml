@@ -1,0 +1,234 @@
+@using System.Security.Claims
+@{
+    var rolActualLayout = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    var delegNombreLayout = User.FindFirst("DelegacionNombre")?.Value;
+    var rolDisplay = string.IsNullOrWhiteSpace(delegNombreLayout)
+        ? rolActualLayout
+        : $"{rolActualLayout} - {delegNombreLayout}";
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - División Medios</title>
+    <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
+    <link rel="apple-touch-icon" href="/img/logo.svg" />
+    <link rel="stylesheet" href="/adminlte/bower_components/bootstrap/dist/css/bootstrap.css">
+    <link rel="stylesheet" href="/adminlte/bower_components/font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="/adminlte/bower_components/Ionicons/css/ionicons.min.css">
+    <link rel="stylesheet" href="/adminlte/dist/css/AdminLTE.css">
+    <link rel="stylesheet" href="/adminlte/dist/css/skins/_all-skins.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
+    <style>
+        .leaflet-container { height: 100%; width: 100%; }
+        /* Corrector ortográfico: subraya las palabras mal escritas dentro del campo */
+        .spell-backdrop mark {
+            background: transparent;
+            color: transparent;
+            text-decoration: underline wavy #dd4b39;
+            text-decoration-skip-ink: none;
+        }
+    </style>
+    @RenderSection("Styles", required: false)
+</head>
+<body class="hold-transition skin-blue sidebar-mini">
+    <div class="wrapper">
+
+        <header class="main-header">
+            <a href="/Home" class="logo">
+                <span class="logo-mini"><img src="/img/logo.svg" alt="M" style="height:30px; vertical-align:middle;" /></span>
+                <span class="logo-lg">
+                    <img src="/img/logo.svg" alt="" style="height:30px; vertical-align:middle; margin-right:6px;" />
+                    División Medios
+                </span>
+            </a>
+            <nav class="navbar navbar-static-top">
+                <a href="#" class="sidebar-toggle" data-toggle="push-menu">
+                    <span class="sr-only">Toggle navigation</span>
+                </a>
+                <div class="navbar-custom-menu">
+                    <ul class="nav navbar-nav">
+                        @await Html.PartialAsync("_MockSwitcher")
+                        @if (User.Identity!.IsAuthenticated)
+                        {
+                            <li class="dropdown user user-menu">
+                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+                                    <span>@User.Identity.Name</span>
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li class="user-header">
+                                        <p>
+                                            @User.Identity.Name
+                                            <small>@rolDisplay</small>
+                                        </p>
+                                    </li>
+                                    <li class="user-footer">
+                                        <div class="pull-right">
+                                            <a href="/Login/Logout" class="btn btn-default btn-flat">Cerrar sesión</a>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </nav>
+        </header>
+
+        <aside class="main-sidebar">
+            <section class="sidebar">
+                <div class="user-panel">
+                    <div class="pull-left info">
+                        <p>@User.Identity!.Name</p>
+                        <a href="#">
+                            <i class="fa fa-circle text-success"></i>
+                            @rolDisplay
+                        </a>
+                    </div>
+                </div>
+                @await Html.PartialAsync("_Sidebar")
+            </section>
+        </aside>
+
+        <div class="content-wrapper">
+            <section class="content-header">
+                <h1>@ViewData["Title"]</h1>
+            </section>
+            <section class="content">
+                @RenderBody()
+            </section>
+        </div>
+
+        <footer class="main-footer text-center">
+            Sistema de Gestión y Análisis de Información Criminal — División Medios O.S.INT
+        </footer>
+
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js"></script>
+    <script src="/adminlte/dist/js/adminlte.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <script src="/lib/spell/typo.js" asp-append-version="true"></script>
+    <script src="/js/spellcheck.js" asp-append-version="true"></script>
+    <script src="/js/site.js" asp-append-version="true"></script>
+
+    <script>
+        toastr.options = { closeButton: true, progressBar: true, positionClass: "toast-top-right", timeOut: "5000" };
+
+        function showLoader(texto) { texto = texto || "Procesando..."; $("#globalLoader div div").text(texto); $("#globalLoader").fadeIn(100); }
+        function hideLoader() { $("#globalLoader").fadeOut(100); }
+
+        // ── Selector compartido Ámbito → Categoría ──────────────────────────
+        // Cada formulario de nota llama initAmbitoSelector(prefix, catIdExistente)
+        // IDs esperados: selAmbito{p}, contCat{p}, selCat{p}, hCatId{p}
+        window.initAmbitoSelector = function(p, catId) {
+            var selAmbito = document.getElementById('selAmbito' + p);
+            var contCat   = document.getElementById('contCat' + p);
+            var selCat    = document.getElementById('selCat' + p);
+            var hCatId    = document.getElementById('hCatId' + p);
+            if (!selAmbito || !hCatId) return;
+
+            function sync() {
+                var a = selAmbito.value;
+                if (a === 'nacional')   { hCatId.value = '1'; if (contCat) contCat.style.display = 'none'; }
+                else if (a === 'provincial') { hCatId.value = '2'; if (contCat) contCat.style.display = 'none'; }
+                else if (a === 'partido') {
+                    if (contCat) contCat.style.display = '';
+                    hCatId.value = selCat ? selCat.value : '';
+                } else { hCatId.value = ''; if (contCat) contCat.style.display = 'none'; }
+            }
+
+            selAmbito.addEventListener('change', sync);
+            if (selCat) selCat.addEventListener('change', function() { hCatId.value = this.value; });
+
+            // Pre-inicializar al editar
+            var ambito = catId == 1 ? 'nacional' : catId == 2 ? 'provincial' : catId ? 'partido' : '';
+            selAmbito.value = ambito;
+            if (ambito === 'partido' && selCat) selCat.value = catId;
+            sync();
+        };
+        $(document).ajaxStart(function () { showLoader(); });
+        $(document).ajaxStop(function () { hideLoader(); });
+
+
+        (function () {
+            var AVISO_MS  = 25 * 60 * 1000;
+            var CIERRE_MS =  5 * 60 * 1000;
+            var STORAGE_KEY = 'medios_sesion_cierre';
+            var modalId = 'modalSesionExpira';
+            var pollInterval = null;
+
+            function getCierreEn() {
+                var v = sessionStorage.getItem(STORAGE_KEY);
+                return v ? parseInt(v, 10) : null;
+            }
+            function setCierreEn(ms) {
+                if (ms) sessionStorage.setItem(STORAGE_KEY, ms.toString());
+                else    sessionStorage.removeItem(STORAGE_KEY);
+            }
+
+            function iniciarPoll() {
+                if (pollInterval) return;
+                pollInterval = setInterval(function () {
+                    var c = getCierreEn();
+                    if (c && Date.now() >= c) {
+                        clearInterval(pollInterval);
+                        setCierreEn(null);
+                        window.location.href = '/Login/Logout';
+                    }
+                }, 5000);
+            }
+
+            function mostrarAviso() {
+                if (document.getElementById(modalId)) return;
+                var modal = document.createElement('div');
+                modal.id = modalId;
+                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+                modal.innerHTML = '<div style="background:#fff;padding:30px;border-radius:8px;max-width:400px;text-align:center;"><h4 style="color:#c0392b;">Sesi&oacute;n por expirar</h4><p>Tu sesi&oacute;n se cerrar&aacute; en <strong>5 minutos</strong>.</p><button onclick="continuarSesion()" class="btn btn-success" style="margin-right:10px;">Continuar</button><a href="/Login/Logout" class="btn btn-default">Cerrar sesi&oacute;n</a></div>';
+                document.body.appendChild(modal);
+                if (!getCierreEn()) setCierreEn(Date.now() + CIERRE_MS);
+                iniciarPoll();
+            }
+
+            window.continuarSesion = function () {
+                setCierreEn(null);
+                clearInterval(pollInterval);
+                pollInterval = null;
+                var m = document.getElementById(modalId); if (m) m.remove();
+                fetch('/favicon.ico?_=' + Date.now(), { cache: 'no-store' });
+                setTimeout(mostrarAviso, AVISO_MS);
+            };
+
+            // Al cargar la página: verificar si ya hay un cierre pendiente en storage
+            var existente = getCierreEn();
+            if (existente) {
+                if (Date.now() >= existente) {
+                    // Ya pasó el tiempo → cerrar inmediatamente
+                    setCierreEn(null);
+                    window.location.href = '/Login/Logout';
+                } else {
+                    // Todavía queda tiempo → mostrar modal y retomar el poll
+                    mostrarAviso();
+                }
+            } else {
+                setTimeout(mostrarAviso, AVISO_MS);
+            }
+        })();
+    </script>
+
+    @RenderSection("Scripts", required: false)
+
+    <div id="globalLoader" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9999;justify-content:center;align-items:center;">
+        <div style="text-align:center;color:white;">
+            <i class="fa fa-spinner fa-spin fa-3x"></i>
+            <div style="margin-top:10px;">Procesando...</div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,444 @@
+@using Medios.Entities
+@using Medios.Services
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Buscador de Notas";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var categorias = ViewBag.Categorias as List<CategoriaNoticia> ?? new();
+    var partidos = ViewBag.Partidos as List<Partido> ?? new();
+    var delegaciones = ViewBag.Delegaciones as List<Delegacion> ?? new();
+    var resultados = ViewBag.Resultados as List<NotaBuscadorItem> ?? new();
+    var esDelegacion = (bool)(ViewBag.EsDelegacion ?? false);
+    var buscar = (bool)(ViewBag.Buscar ?? false);
+
+    var geoLat = (double?)ViewBag.GeoLat;
+    var geoLng = (double?)ViewBag.GeoLng;
+    var geoRadio = (double)(ViewBag.GeoRadio ?? 5.0);
+    var usaGeo = geoLat.HasValue && geoLng.HasValue;
+
+    string F(double? v) => v.HasValue ? v.Value.ToString("F6", CultureInfo.InvariantCulture) : "";
+}
+
+<div class="row">
+    <div class="col-md-12">
+
+        <!-- ── Filtros ── -->
+        <div class="box box-default @(buscar ? "collapsed-box" : "")">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-search"></i> Filtros de búsqueda</h3>
+                <div class="box-tools pull-right">
+                    <button type="button" class="btn btn-box-tool" data-widget="collapse">
+                        <i class="fa fa-@(buscar ? "plus" : "minus")"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="box-body">
+                <form method="get" asp-controller="NotaBuscador" asp-action="Index" id="frmBuscar">
+                    <input type="hidden" name="buscar" value="true" />
+                    <input type="hidden" name="geoLat" id="hGeoLat" value="@F(geoLat)" />
+                    <input type="hidden" name="geoLng" id="hGeoLng" value="@F(geoLng)" />
+                    <input type="hidden" name="geoRadio" id="hGeoRadio" value="@geoRadio.ToString(CultureInfo.InvariantCulture)" />
+
+                    <!-- Fila 1: texto + categoría + partido -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Texto (título, texto o fuente)</label>
+                                <input type="text" name="texto" class="form-control"
+                                       value="@ViewBag.Texto" placeholder="Buscar en el contenido..." />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Categoría</label>
+                                <select name="categoriaId" class="form-control">
+                                    <option value="">— Todas —</option>
+                                    @foreach (var cat in categorias)
+                                    {
+                                        if (cat.Id == (int?)ViewBag.CategoriaId)
+                                        { <option value="@cat.Id" selected="selected">@cat.Nombre</option> }
+                                        else
+                                        { <option value="@cat.Id">@cat.Nombre</option> }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>Partido</label>
+                                <select name="partidoId" class="form-control">
+                                    <option value="">— Todos —</option>
+                                    @foreach (var p in partidos)
+                                    {
+                                        if (p.IdPartido == (int?)ViewBag.PartidoId)
+                                        { <option value="@p.IdPartido" selected="selected">@p.Nombre</option> }
+                                        else
+                                        { <option value="@p.IdPartido">@p.Nombre</option> }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fila 2: estados + fechas + delegación -->
+                    <div class="row">
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label>Estado revisión</label>
+                                <select name="estadoRevision" class="form-control">
+                                    <option value="">— Todos —</option>
+                                    @foreach (var est in new[] { "Borrador", "Sin Remitir", "Remitida", "Aprobada", "Descartada" })
+                                    {
+                                        if (est == (string?)ViewBag.EstadoRevision)
+                                        { <option selected="selected">@est</option> }
+                                        else
+                                        { <option>@est</option> }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label>Estado sesión</label>
+                                <select name="estadoSesion" class="form-control">
+                                    <option value="">— Todos —</option>
+                                    @foreach (var est in new[] { "Borrador", "Remitida", "Revisada" })
+                                    {
+                                        if (est == (string?)ViewBag.EstadoSesion)
+                                        { <option selected="selected">@est</option> }
+                                        else
+                                        { <option>@est</option> }
+                                    }
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label>Fecha desde</label>
+                                <input type="date" name="fechaDesde" class="form-control" value="@ViewBag.FechaDesde" />
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="form-group">
+                                <label>Fecha hasta</label>
+                                <input type="date" name="fechaHasta" class="form-control" value="@ViewBag.FechaHasta" />
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <div class="checkbox" style="margin-top:2px;">
+                                    <label>
+                                        <input type="checkbox" name="usarFechaNoticia" value="true"
+                                               @((bool)(ViewBag.UsarFechaNoticia ?? false) ? "checked" : "") />
+                                        Fecha y hora de la noticia
+                                        <small class="text-muted">(en vez de fecha de registro)</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        @if (!esDelegacion)
+                        {
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label>Delegación</label>
+                                    <select name="delegacionId" class="form-control">
+                                        <option value="">— Todas —</option>
+                                        @foreach (var d in delegaciones)
+                                        {
+                                            if (d.Id == (int?)ViewBag.DelegacionId)
+                                            { <option value="@d.Id" selected="selected">@d.Nombre</option> }
+                                            else
+                                            { <option value="@d.Id">@d.Nombre</option> }
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- ── Panel geo ── -->
+                    <div class="panel panel-default" style="margin-top:8px; margin-bottom:10px;">
+                        <div class="panel-heading" style="cursor:pointer; padding:6px 12px;" data-toggle="collapse" data-target="#panelGeo">
+                            <i class="fa fa-map-marker"></i>
+                            <strong> Búsqueda por zona geográfica</strong>
+                            @if (usaGeo)
+                            {
+                                <span class="label label-info" style="margin-left:8px;">
+                                    <i class="fa fa-map-marker"></i> Radio @geoRadio km activo
+                                </span>
+                            }
+                            <i class="fa fa-chevron-@(usaGeo ? "up" : "down") pull-right" style="margin-top:2px;" id="icoGeo"></i>
+                        </div>
+                        <div id="panelGeo" class="collapse @(usaGeo ? "in" : "")">
+                            <div class="panel-body" style="padding:10px;">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <p class="text-muted" style="font-size:12px; margin-bottom:6px;">
+                                            Hacé clic en el mapa para definir el centro. El círculo muestra el área de búsqueda.
+                                            Solo se incluyen notas que tienen georreferencia cargada.
+                                        </p>
+                                        <div id="mapaGeo" style="height:280px; border-radius:4px; border:1px solid #ddd;"></div>
+                                    </div>
+                                    <div class="col-md-4" style="padding-top:26px;">
+                                        <div class="form-group">
+                                            <label>Radio de búsqueda: <strong><span id="lblRadio">@geoRadio.ToString("0")</span> km</strong></label>
+                                            <input type="range" id="sliderRadio" min="1" max="50" step="1"
+                                                   value="@geoRadio.ToString("0", CultureInfo.InvariantCulture)"
+                                                   class="form-control" style="padding:4px;" />
+                                        </div>
+                                        <div id="infoGeo" style="font-size:12px; color:#555; margin-top:6px; @(!usaGeo ? "display:none" : "")">
+                                            <i class="fa fa-map-marker text-danger"></i>
+                                            Centro: <span id="lblCentro">@(usaGeo ? $"{F(geoLat)}, {F(geoLng)}" : "")</span>
+                                        </div>
+                                        @if (usaGeo)
+                                        {
+                                            <button type="button" id="btnLimpiarGeo" class="btn btn-xs btn-default" style="margin-top:8px;">
+                                                <i class="fa fa-times"></i> Quitar filtro geo
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa fa-search"></i> Buscar
+                    </button>
+                    <a href="/NotaBuscador" class="btn btn-default">Limpiar todo</a>
+                </form>
+            </div>
+        </div>
+
+        <!-- ── Resultados ── -->
+        @if (buscar)
+        {
+            <div class="box box-primary">
+                <div class="box-header with-border">
+                    <h3 class="box-title">
+                        <i class="fa fa-list"></i>
+                        @if (resultados.Count == 0)
+                        { <span>Sin resultados</span> }
+                        else
+                        { <span>@resultados.Count resultado@(resultados.Count != 1 ? "s" : "") @(usaGeo ? $"en radio de {geoRadio} km" : "")</span> }
+                    </h3>
+                </div>
+                <div class="box-body no-padding">
+                    @if (resultados.Count == 0)
+                    {
+                        <div class="text-center" style="padding:30px; color:#888;">
+                            <i class="fa fa-search fa-2x"></i>
+                            <p style="margin-top:8px;">No se encontraron notas con los filtros aplicados.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @if (usaGeo && resultados.Any(r => r.Latitud.HasValue))
+                        {
+                            <!-- Mini-mapa de resultados -->
+                            <div id="mapaResultados" style="height:250px; border-bottom:1px solid #ddd;"></div>
+                        }
+                        <table class="table table-striped table-hover table-condensed" style="margin-bottom:0;">
+                            <thead>
+                                <tr>
+                                    <th style="width:35%">Título</th>
+                                    <th>Categoría</th>
+                                    <th>Partido</th>
+                                    <th>Estado</th>
+                                    <th>Sesión</th>
+                                    <th>Delegación</th>
+                                    @if (usaGeo) { <th style="width:80px;">Distancia</th> }
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var r in resultados)
+                                {
+                                    // Instancia/etapa de la nota: la síntesis publicada gana; sino la etapa de
+                                    // la sesión (Remitida/Finalizada/Consolidada); si es libre, su estado de revisión.
+                                    string estLabel; string estBadge;
+                                    if (r.SintesisEstado is "Informada" or "Distribuida")
+                                    {
+                                        estLabel = "Publicada"; estBadge = "success";
+                                    }
+                                    else if (!r.EsLibre)
+                                    {
+                                        (estLabel, estBadge) = r.SesionEstado switch
+                                        {
+                                            "Consolidada" => ("Consolidada", "primary"),
+                                            "Finalizada"  => ("Finalizada", "primary"),
+                                            "Remitida"    => ("Remitida", "info"),
+                                            "Borrador"    => ("Borrador", "default"),
+                                            _             => (r.SesionEstado, "default")
+                                        };
+                                    }
+                                    else
+                                    {
+                                        (estLabel, estBadge) = r.EstadoRevision switch
+                                        {
+                                            "Aprobada"   => ("Aprobada", "success"),
+                                            "Descartada" => ("Descartada", "danger"),
+                                            _            => (r.EstadoRevision, "warning")
+                                        };
+                                    }
+                                    <tr>
+                                        <td><a href="/NotaBuscador/Detalle/@r.NotaId">@r.Titulo</a></td>
+                                        <td>
+                                            @if (r.AmbitoNota != null) { <span class="label" style="background:@(r.AmbitoNota=="Nacional"?"#c0392b":r.AmbitoNota=="Provincial"?"#1a5276":"#2471a3");font-size:10px;">@r.AmbitoNota</span> }
+                                            <small>@r.CategoriaNombre</small>
+                                        </td>
+                                        <td><small>@(r.PartidoNombre ?? "—")</small></td>
+                                        <td>
+                                            <span class="label label-@estBadge">@estLabel</span>
+                                        </td>
+                                        <td>
+                                            <small>
+                                                @if (r.EsLibre)
+                                                {
+                                                    <span class="label label-default" style="font-size:9px;">sin asignar</span>
+                                                }
+                                                else
+                                                {
+                                                    @r.SesionFecha.ToString("dd/MM/yy")
+                                                    <span class="text-muted">@r.SesionTurno</span>
+                                                    <br /><small class="@(r.FechaNoticia.HasValue ? "text-info" : "text-muted")">
+                                                        <i class="fa fa-clock-o"></i> @r.FechaNoticiaEfectiva.ToString("dd/MM/yy HH:mm")
+                                                        @if (!r.FechaNoticia.HasValue) { <span>(registro)</span> }
+                                                    </small>
+                                                    <br /><span class="label label-@estBadge" style="font-size:9px;">@estLabel</span>
+                                                }
+                                            </small>
+                                        </td>
+                                        <td><small>@(r.DelegacionNombre ?? "División")</small></td>
+                                        @if (usaGeo)
+                                        {
+                                            <td>
+                                                @if (r.DistanciaKm.HasValue)
+                                                {
+                                                    <small class="text-info">@r.DistanciaKm.Value.ToString("0.0") km</small>
+                                                }
+                                                else
+                                                {
+                                                    <small class="text-muted">—</small>
+                                                }
+                                            </td>
+                                        }
+                                        <td>
+                                            <a href="/NotaBuscador/Detalle/@r.NotaId" class="btn btn-xs btn-default" title="Ver detalle">
+                                                <i class="fa fa-eye"></i>
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+            </div>
+        }
+
+    </div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>.leaflet-container { z-index: 1; }</style>
+}
+
+@section Scripts {
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ── Panel geo: toggle icon ──────────────────────────────────
+        $('#panelGeo').on('show.bs.collapse', function () { $('#icoGeo').removeClass('fa-chevron-down').addClass('fa-chevron-up'); });
+        $('#panelGeo').on('hide.bs.collapse', function () { $('#icoGeo').removeClass('fa-chevron-up').addClass('fa-chevron-down'); });
+
+        // ── Mapa selector de zona ───────────────────────────────────
+        var centroInicial = @(usaGeo ? $"[{F(geoLat)}, {F(geoLng)}]" : "[-36.5, -60.0]");
+        var zoomInicial   = @(usaGeo ? 12 : 7);
+        var radioInicial  = @geoRadio.ToString("0", CultureInfo.InvariantCulture);
+
+        var mapaGeo  = L.map('mapaGeo').setView(centroInicial, zoomInicial);
+        var marcador = null;
+        var circulo  = null;
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap', maxZoom: 18
+        }).addTo(mapaGeo);
+
+        function actualizarCirculo(lat, lng, radio) {
+            if (circulo) mapaGeo.removeLayer(circulo);
+            circulo = L.circle([lat, lng], {
+                radius: radio * 1000,
+                color: '#3388ff', fillOpacity: 0.08, weight: 2
+            }).addTo(mapaGeo);
+        }
+
+        function colocarMarcador(lat, lng) {
+            if (marcador) mapaGeo.removeLayer(marcador);
+            marcador = L.marker([lat, lng]).addTo(mapaGeo);
+            $('#hGeoLat').val(lat.toFixed(6));
+            $('#hGeoLng').val(lng.toFixed(6));
+            $('#lblCentro').text(lat.toFixed(5) + ', ' + lng.toFixed(5));
+            $('#infoGeo').show();
+            actualizarCirculo(lat, lng, parseInt($('#sliderRadio').val()));
+        }
+
+        @if (usaGeo)
+        {
+            <text>colocarMarcador(@F(geoLat), @F(geoLng));</text>
+        }
+
+        mapaGeo.on('click', function (e) { colocarMarcador(e.latlng.lat, e.latlng.lng); });
+
+        $('#sliderRadio').on('input', function () {
+            var r = parseInt($(this).val());
+            $('#lblRadio').text(r);
+            $('#hGeoRadio').val(r);
+            if (marcador) {
+                var ll = marcador.getLatLng();
+                actualizarCirculo(ll.lat, ll.lng, r);
+            }
+        });
+
+        $('#btnLimpiarGeo').on('click', function () {
+            $('#hGeoLat').val('');
+            $('#hGeoLng').val('');
+            if (marcador) { mapaGeo.removeLayer(marcador); marcador = null; }
+            if (circulo)  { mapaGeo.removeLayer(circulo);  circulo  = null; }
+            $('#infoGeo').hide();
+            $('#frmBuscar').submit();
+        });
+
+        // Forzar redraw del mapa al expandir el panel (Leaflet necesita tamaño correcto)
+        $('#panelGeo').on('shown.bs.collapse', function () { mapaGeo.invalidateSize(); });
+
+        @if (usaGeo && resultados.Any(r => r.Latitud.HasValue))
+        {
+            // ── Mini-mapa de resultados ────────────────────────────
+            <text>
+            var mapaR = L.map('mapaResultados').setView([@F(geoLat), @F(geoLng)], 12);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap', maxZoom: 18
+            }).addTo(mapaR);
+
+            L.circle([@F(geoLat), @F(geoLng)], {
+                radius: @geoRadio.ToString("0", CultureInfo.InvariantCulture) * 1000,
+                color: '#3388ff', fillOpacity: 0.06, weight: 2
+            }).addTo(mapaR);
+            </text>
+
+            foreach (var r in resultados.Where(r => r.Latitud.HasValue))
+            {
+                <text>
+                L.marker([@r.Latitud!.Value.ToString("F6", CultureInfo.InvariantCulture), @r.Longitud!.Value.ToString("F6", CultureInfo.InvariantCulture)])
+                    .bindPopup('<a href="/NotaBuscador/Detalle/@r.NotaId" target="_blank"><b>@Html.Raw(r.Titulo.Replace("'", "\\'").Replace("\n", " "))</b></a>' +
+                               '<br><small>@r.CategoriaNombre@(r.DistanciaKm.HasValue ? " · " + r.DistanciaKm.Value.ToString("0.0") + " km" : "")</small>')
+                    .addTo(mapaR);
+                </text>
+            }
+        }
+    </script>
+}

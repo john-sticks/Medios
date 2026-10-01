@@ -1,0 +1,165 @@
+@using Medios.Entities
+@model Sintesis
+
+@{
+    ViewData["Title"] = "Informar Síntesis Consolidada";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var smtpOk = (bool)(ViewBag.SmtpConfigurado ?? false);
+    var delegacionesMail = ViewBag.DelegacionesMail as List<Delegacion> ?? new List<Delegacion>();
+    var delegaciones = ViewBag.Delegaciones as List<Delegacion> ?? new List<Delegacion>();
+    var delegacionesSel = ViewBag.DelegacionesSeleccionadas as HashSet<int> ?? new HashSet<int>();
+    var todasDelegSel = Model.CanalTodasDelegaciones;
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-8 col-md-offset-2">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-send"></i> Informar Síntesis Consolidada</h3>
+            </div>
+            <div class="box-body">
+
+                <div class="callout callout-info" style="margin-bottom:20px;">
+                    <h4 style="margin-top:0;">@Model.Tipo — @Model.Fecha.ToString("dd/MM/yyyy")</h4>
+                    <p style="margin:0;">@Model.NotasIncluidas.Count nota(s) consolidada(s).
+                        @if (!string.IsNullOrEmpty(Model.PDFPath))
+                        {
+                            <a href="/Sintesis/DescargarPdf/@Model.Id" target="_blank"><i class="fa fa-file-pdf-o"></i> Ver PDF</a>
+                        }
+                        else
+                        {
+                            <span class="text-warning"><i class="fa fa-exclamation-triangle"></i> Sin PDF generado (se generará al enviar por correo)</span>
+                        }
+                    </p>
+                </div>
+
+                <form method="post" asp-controller="Sintesis" asp-action="Informar" asp-route-id="@Model.Id">
+
+                    <p class="text-muted"><strong>Seleccioná los canales de información final:</strong></p>
+
+                    <!-- Canal 1: Todos los Roles -->
+                    <div class="box box-solid box-default" style="margin-bottom:14px;">
+                        <div class="box-body">
+                            <label style="font-weight:normal; cursor:pointer; margin:0; display:flex; align-items:flex-start; gap:10px;">
+                                <input type="checkbox" name="todosRoles" value="true" style="margin-top:4px;" @(Model.CanalTodosRoles ? "checked" : "") />
+                                <span>
+                                    <strong><i class="fa fa-users"></i> Todos los Roles</strong><br />
+                                    <small class="text-muted">
+                                        La síntesis quedará visible para todos los usuarios del sistema en
+                                        <strong>Síntesis → Publicadas</strong>.
+                                    </small>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Canal 2: Delegaciones (visibilidad in-app) -->
+                    <div class="box box-solid box-default" style="margin-bottom:14px;">
+                        <div class="box-body">
+                            <label style="font-weight:bold;"><i class="fa fa-building"></i> Delegaciones (visibilidad en la plataforma)</label>
+                            <p class="text-muted" style="font-size:12px; margin:4px 0 8px;">
+                                La síntesis quedará visible en <strong>Síntesis → Publicadas</strong> solo para las
+                                delegaciones elegidas (independiente del envío por correo).
+                            </p>
+                            <div style="margin:8px 0;">
+                                <label style="font-weight:normal; cursor:pointer; font-size:12px;">
+                                    <input type="checkbox" id="chkTodasDelegVis" name="todasDelegaciones" value="true" @(todasDelegSel ? "checked" : "") />
+                                    Todas las delegaciones
+                                </label>
+                            </div>
+                            <div id="listaDelegVis" style="max-height:200px; overflow:auto; border:1px solid #eee; border-radius:4px; padding:6px 10px;">
+                                @foreach (var d in delegaciones)
+                                {
+                                    <label style="font-weight:normal; cursor:pointer; display:block; margin:2px 0;">
+                                        <input type="checkbox" class="chkDelegVis" name="delegacionIds" value="@d.Id"
+                                               @(delegacionesSel.Contains(d.Id) ? "checked" : "") @(todasDelegSel ? "disabled" : "") />
+                                        @d.Nombre
+                                    </label>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Canal 3: Vía Correo -->
+
+                    <div class="box box-solid box-default" style="margin-bottom:14px;">
+                        <div class="box-body">
+                            <label style="font-weight:bold;"><i class="fa fa-envelope"></i> Vía Correo electrónico</label>
+                            @if (!smtpOk)
+                            {
+                                <div class="alert alert-warning" style="margin:8px 0;">
+                                    <i class="fa fa-exclamation-triangle"></i>
+                                    El servidor de correo (SMTP) no está configurado. El envío por correo no está disponible
+                                    hasta que el administrador complete la sección <code>Smtp</code> en la configuración.
+                                </div>
+                            }
+
+                            <div style="margin:8px 0;">
+                                <strong>Delegaciones con correo configurado</strong>
+                                @if (delegacionesMail.Count == 0)
+                                {
+                                    <p class="text-muted" style="margin:4px 0;">
+                                        Ninguna delegación tiene correo cargado. Se configura en
+                                        <em>Administración → Estructura → Delegaciones</em> (campo Email).
+                                    </p>
+                                }
+                                else
+                                {
+                                    <div style="margin-top:4px;">
+                                        <label style="font-weight:normal; cursor:pointer; font-size:12px;">
+                                            <input type="checkbox" id="chkTodasDeleg" @(smtpOk ? "" : "disabled") /> Seleccionar todas
+                                        </label>
+                                    </div>
+                                    <div style="max-height:200px; overflow:auto; border:1px solid #eee; border-radius:4px; padding:6px 10px;">
+                                        @foreach (var d in delegacionesMail)
+                                        {
+                                            <label style="font-weight:normal; cursor:pointer; display:block; margin:2px 0;">
+                                                <input type="checkbox" class="chkDeleg" name="delegacionMails" value="@d.Email" @(smtpOk ? "" : "disabled") />
+                                                @d.Nombre <span class="text-muted" style="font-size:12px;">— @d.Email</span>
+                                            </label>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div style="margin-top:10px;">
+                                <strong style="font-size:13px;">Otros correos (a mano)</strong>
+                                <textarea name="mails" class="form-control" rows="2" @(smtpOk ? "" : "disabled")
+                                          placeholder="correo1@dominio.gov.ar; correo2@dominio.gov.ar"></textarea>
+                                <small class="text-muted">Separá los correos con punto y coma (;). Se envía la síntesis como PDF adjunto y queda registro de los destinatarios.</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:18px;">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fa fa-send"></i> Informar / Enviar
+                        </button>
+                        <a href="/Sintesis/Detalle/@Model.Id" class="btn btn-default">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById('chkTodasDeleg')?.addEventListener('change', function () {
+            var chk = this.checked;
+            document.querySelectorAll('.chkDeleg').forEach(function (c) { if (!c.disabled) c.checked = chk; });
+        });
+        document.getElementById('chkTodasDelegVis')?.addEventListener('change', function () {
+            var chk = this.checked;
+            document.querySelectorAll('.chkDelegVis').forEach(function (c) {
+                c.disabled = chk;
+                if (chk) c.checked = false;
+            });
+        });
+    </script>
+}

@@ -1,0 +1,85 @@
+@using Medios.Entities
+@model AutorizacionUsuario
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>Autorización de Uso — División Medios</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; font-size: 13px; color: #000; padding: 30px 40px; }
+        .header { text-align: center; border-bottom: 3px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
+        .header h1 { font-size: 20px; text-transform: uppercase; letter-spacing: 1px; }
+        .header h2 { font-size: 14px; font-weight: normal; margin-top: 5px; }
+        .datos table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .datos table td, .datos table th { border: 1px solid #666; padding: 6px 10px; }
+        .datos table th { background: #f0f0f0; width: 35%; font-weight: bold; }
+        .codigo-box { border: 3px solid #000; text-align: center; padding: 20px; margin: 25px 0; }
+        .codigo-box .label { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: #444; }
+        .codigo-box .codigo { font-size: 48px; font-weight: bold; letter-spacing: 10px; font-family: monospace; }
+        .firma { margin-top: 100px; display: flex; gap: 40px; }
+        .firma-campo { flex: 1; border-top: 1px solid #000; padding-top: 6px; text-align: center; font-size: 12px; }
+        .footer { border-top: 2px solid #000; margin-top: 30px; padding-top: 15px; font-size: 11px; color: #333; line-height: 1.6; }
+        .footer h4 { font-size: 12px; text-transform: uppercase; margin-bottom: 8px; }
+        .footer ul { padding-left: 20px; }
+        .no-print { text-align: center; margin-bottom: 20px; }
+        @@media print { .no-print { display: none !important; } body { padding: 15px; } }
+    </style>
+</head>
+<body>
+    <div class="no-print" style="background:#f5f5f5;padding:15px;margin-bottom:20px;border-radius:4px;">
+        <button onclick="window.print()" style="padding:10px 25px;font-size:14px;cursor:pointer;background:#337ab7;color:white;border:none;border-radius:4px;">
+            🖨️ Imprimir / Guardar como PDF
+        </button>
+        <span style="margin-left:15px;color:#666;">Usá Ctrl+P o el botón para imprimir</span>
+    </div>
+
+    <div class="header">
+        <strong>PROVINCIA DE BUENOS AIRES — MINISTERIO DE SEGURIDAD</strong><br/>
+        <span style="font-size:11px;">Superintendencia de Inteligencia Criminal — División Medios O.S.INT</span>
+        <h1 style="margin-top:10px;">Autorización de Uso — División Medios</h1>
+        <h2>Sistema de Gestión y Análisis de Información Criminal</h2>
+    </div>
+
+    <div class="datos">
+        <table>
+            <tr><th>Usuario</th><td><strong>@Model.Usuario</strong></td></tr>
+            <tr><th>Nombre completo</th><td>@Model.Nombre</td></tr>
+            <tr><th>Correo electrónico</th><td>@(Model.Email ?? "-")</td></tr>
+            <tr><th>Destino actual</th><td>@(Model.Destino ?? "-")</td></tr>
+            <tr><th>Jerarquía</th><td>@(Model.Jerarquia ?? "-")</td></tr>
+            <tr><th>Legajo</th><td>@(Model.Legajo ?? "-")</td></tr>
+            <tr><th>Teléfono</th><td>@(Model.Telefono ?? "-")</td></tr>
+            <tr><th>Fecha de solicitud</th><td>@Model.FechaSolicitud.ToString("dd/MM/yyyy HH:mm")</td></tr>
+        </table>
+    </div>
+
+    <div class="codigo-box">
+        <div class="label">Código de Autorización</div>
+        <div class="codigo">@Model.Codigo</div>
+        <div style="font-size:11px;color:#666;margin-top:8px;">
+            Entregar este código a Medios para que ingrese la aprobación en el sistema
+        </div>
+    </div>
+
+    <div class="firma">
+        <div class="firma-campo">Firma del Solicitante — Aclaración y Legajo</div>
+        <div class="firma-campo">Firma del Autorizante (Medios) — Aclaración y Legajo</div>
+        <div class="firma-campo">Fecha de Aprobación</div>
+    </div>
+
+    <div class="footer">
+        <h4>Responsabilidades del Usuario — Ley 13482 — Provincia de Buenos Aires</h4>
+        <ul style="margin-top:8px;">
+            <li>El firmante se compromete a utilizar la información <strong>exclusivamente para fines de prevención del delito y seguridad pública</strong>.</li>
+            <li>Deberá <strong>mantener en reserva</strong> las cuestiones de carácter confidencial referidas a personas de que tenga conocimiento.</li>
+            <li>Queda <strong>prohibida la reunión y análisis de información</strong> motivada en condición étnica, religiosa, política, ideológica o de género.</li>
+            <li>El firmante será <strong>personalmente responsable</strong> por el uso indebido o difusión no autorizada de la información consultada.</li>
+            <li>El incumplimiento podrá dar lugar a <strong>sanciones disciplinarias y/o acciones penales</strong> conforme a la legislación vigente.</li>
+        </ul>
+    </div>
+</body>
+</html>

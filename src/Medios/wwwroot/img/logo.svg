@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <circle cx="256" cy="256" r="248" fill="#16243f"/>
+  <!-- Letra M serif -->
+  <text x="118" y="340" font-family="Georgia, 'Times New Roman', serif" font-size="260"
+        font-weight="700" fill="#f4f6fa" text-anchor="middle">M</text>
+  <!-- Periódico -->
+  <g transform="translate(250 196)">
+    <path d="M8 12 L196 12 L196 196 L24 196 Q8 196 8 180 Z" fill="#f4f6fa" stroke="#cdd4dd" stroke-width="3"/>
+    <path d="M196 12 L214 22 L214 188 L196 196 Z" fill="#c9d0da"/>
+    <text x="36" y="58" font-family="Arial, Helvetica, sans-serif" font-size="40"
+          font-weight="700" fill="#16243f">MEDIOS</text>
+    <rect x="34" y="72" width="148" height="4" fill="#16243f"/>
+    <rect x="34" y="96" width="62" height="48" fill="#16243f"/>
+    <rect x="108" y="100" width="74" height="6" fill="#aeb7c4"/>
+    <rect x="108" y="116" width="74" height="6" fill="#aeb7c4"/>
+    <rect x="108" y="132" width="58" height="6" fill="#aeb7c4"/>
+    <rect x="34" y="158" width="148" height="6" fill="#aeb7c4"/>
+    <rect x="34" y="174" width="120" height="6" fill="#aeb7c4"/>
+  </g>
+</svg>

@@ -1,0 +1,60 @@
+@using Medios.Entities
+@model PortalPrensa
+
+@{
+    ViewData["Title"] = "Editar Portal";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var partidos = ViewBag.Partidos as List<Partido> ?? new();
+    var regiones = ViewBag.Regiones as List<string> ?? new();
+}
+
+<div class="row">
+    <div class="col-md-8 col-md-offset-2">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-pencil"></i> Editar: @Model.Nombre</h3>
+            </div>
+            <form method="post" asp-action="Editar" asp-route-id="@Model.Id">
+                <div class="box-body">
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" name="nombre" class="form-control" value="@Model.Nombre" required />
+                    </div>
+                    <div class="form-group">
+                        <label>URL</label>
+                        <input type="url" name="url" class="form-control" value="@Model.Url" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Región</label>
+                        <input type="text" name="region" class="form-control" value="@Model.Region"
+                               list="listRegiones" placeholder="Ej: La Matanza" />
+                        <datalist id="listRegiones">
+                            @foreach (var r in regiones) { <option value="@r" /> }
+                        </datalist>
+                    </div>
+                    <div class="form-group">
+                        <label>Partido</label>
+                        <select name="partidoId" class="form-control">
+                            <option value="">— Sin partido (provincial) —</option>
+                            @foreach (var p in partidos)
+                            {
+                                @if (p.IdPartido == Model.PartidoId) { <option value="@p.IdPartido" selected="selected">@p.Nombre</option> }
+                                else { <option value="@p.IdPartido">@p.Nombre</option> }
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="activo" value="true" @(Model.Activo ? "checked" : "") />
+                            Activo
+                        </label>
+                    </div>
+                </div>
+                <div class="box-footer">
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Guardar</button>
+                    <a href="/Portales/Listado" class="btn btn-default">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

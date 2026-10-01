@@ -1,0 +1,115 @@
+@using Medios.Entities
+@model List<CaratulaQuiron>
+
+@{
+    ViewData["Title"] = "Carátulas y Modalidades";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Ok"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Error"]
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-gavel"></i> Carátulas y Modalidades</h3>
+                <div class="box-tools pull-right">
+                    <a href="@Url.Action("EditarCaratula")" class="btn btn-success btn-sm">
+                        <i class="fa fa-plus"></i> Nueva Carátula
+                    </a>
+                </div>
+            </div>
+            <div class="box-body no-padding">
+                @if (!Model.Any())
+                {
+                    <p class="text-muted" style="padding:16px;">No hay carátulas cargadas.</p>
+                }
+                else
+                {
+                    @foreach (var caratula in Model)
+                    {
+                        <div class="panel panel-default" style="margin:10px; border-radius:4px;">
+                            <div class="panel-heading" style="background:#f5f5f5; padding:8px 14px; display:flex; align-items:center; justify-content:space-between;">
+                                <div>
+                                    <strong>@caratula.Nombre</strong>
+                                    @if (caratula.Consumable)
+                                    { <span class="label label-info" style="margin-left:6px;">Consumable</span> }
+                                    @if (caratula.Calificable)
+                                    { <span class="label label-warning" style="margin-left:4px;">Calificable</span> }
+                                    <span class="badge bg-blue" style="margin-left:8px;" title="Modalidades">@caratula.Modalidades.Count</span>
+                                </div>
+                                <div style="white-space:nowrap;">
+                                    <a href="@Url.Action("EditarCaratula", new { id = caratula.Id })" class="btn btn-xs btn-default" title="Editar">
+                                        <i class="fa fa-pencil"></i>
+                                    </a>
+                                    <a href="@Url.Action("EditarModalidad", new { caratulaId = caratula.Id })" class="btn btn-xs btn-success" title="Agregar modalidad" style="margin-left:4px;">
+                                        <i class="fa fa-plus"></i> Modalidad
+                                    </a>
+                                    <form method="post" asp-controller="Caratula" asp-action="EliminarCaratula" style="display:inline; margin-left:4px;">
+                                        <input type="hidden" name="id" value="@caratula.Id" />
+                                        <button type="submit" class="btn btn-xs btn-danger" title="Eliminar carátula y sus modalidades"
+                                                onclick="return confirm('¿Eliminar la carátula «@caratula.Nombre» y todas sus modalidades?')">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                            @if (caratula.Modalidades.Any())
+                            {
+                                <div class="panel-body" style="padding:6px 14px 10px;">
+                                    <table class="table table-condensed table-hover" style="margin-bottom:0;">
+                                        <thead>
+                                            <tr>
+                                                <th>Modalidad</th>
+                                                <th style="width:80px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var mod in caratula.Modalidades.OrderBy(m => m.Nombre))
+                                            {
+                                                <tr>
+                                                    <td>@mod.Nombre</td>
+                                                    <td class="text-right">
+                                                        <a href="@Url.Action("EditarModalidad", new { id = mod.Id })" class="btn btn-xs btn-default" title="Editar">
+                                                            <i class="fa fa-pencil"></i>
+                                                        </a>
+                                                        <form method="post" asp-controller="Caratula" asp-action="EliminarModalidad" style="display:inline; margin-left:2px;">
+                                                            <input type="hidden" name="id" value="@mod.Id" />
+                                                            <button type="submit" class="btn btn-xs btn-danger" title="Eliminar"
+                                                                    onclick="return confirm('¿Eliminar la modalidad «@mod.Nombre»?')">
+                                                                <i class="fa fa-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="panel-body" style="padding:6px 14px; color:#999; font-size:12px;">
+                                    Sin modalidades — <a href="@Url.Action("EditarModalidad", new { caratulaId = caratula.Id })">agregar una</a>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+</div>

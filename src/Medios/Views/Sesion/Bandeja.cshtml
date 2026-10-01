@@ -1,0 +1,221 @@
+@using Medios.Entities
+@model List<SesionPrensa>
+
+@{
+    ViewData["Title"] = User.IsInRole("OPERADOR") ? "Bandeja de Síntesis" : "Bandeja de Sesiones";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var filtroActual = ViewBag.FiltroEstado as string;
+    var delegaciones = ViewBag.Delegaciones as List<Delegacion> ?? new List<Delegacion>();
+}
+
+<!-- Filtros -->
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-default collapsed-box">
+            <div class="box-header with-border" style="cursor:pointer;" data-widget="collapse">
+                <h3 class="box-title"><i class="fa fa-filter"></i> Filtros</h3>
+                <div class="box-tools"><button class="btn btn-box-tool"><i class="fa fa-plus"></i></button></div>
+            </div>
+            <div class="box-body" style="display:none;">
+                <form method="get" asp-controller="Sesion" asp-action="Bandeja" class="form-inline" style="gap:8px;flex-wrap:wrap;display:flex;">
+                    <div class="form-group">
+                        <label style="margin-right:4px;">Estado</label>
+                        <select name="estado" class="form-control input-sm">
+                            <option value="" selected="@(filtroActual == null)">Todas</option>
+                            <option value="Remitida" selected="@(filtroActual == "Remitida")">Remitidas</option>
+                            <option value="Revisada" selected="@(filtroActual == "Revisada")">Revisadas</option>
+                            <option value="Borrador" selected="@(filtroActual == "Borrador")">Borrador</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-right:4px;">Delegación</label>
+                        <select name="delegacionId" class="form-control input-sm">
+                            <option value="">Todas</option>
+                            @foreach (var d in delegaciones)
+                            {
+                                <option value="@d.Id" selected="@(ViewBag.FiltroDelegacionId?.ToString() == d.Id.ToString())">@d.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-right:4px;">Turno</label>
+                        <select name="turno" class="form-control input-sm">
+                            @foreach (var t in ViewBag.Turnos as string[])
+                            {
+                                <option value="@t" selected="@(ViewBag.FiltroTurno == t)">@(t == "" ? "Todos" : t)</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-right:4px;">Desde</label>
+                        <input type="date" name="fechaDesde" class="form-control input-sm" value="@ViewBag.FiltroFechaDesde" />
+                    </div>
+                    <div class="form-group">
+                        <label style="margin-right:4px;">Hasta</label>
+                        <input type="date" name="fechaHasta" class="form-control input-sm" value="@ViewBag.FiltroFechaHasta" />
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fa fa-search"></i> Buscar
+                    </button>
+                    <a href="/Sesion/Bandeja" class="btn btn-default btn-sm">Limpiar</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Accesos rápidos de estado -->
+<div class="row" style="margin-bottom:8px;">
+    <div class="col-md-12">
+        <a href="/Sesion/Bandeja" class="btn btn-sm @(filtroActual == null ? "btn-primary" : "btn-default")" id="tabTodas">
+            <i class="fa fa-list"></i> Todas
+        </a>
+        <a href="/Sesion/Bandeja?estado=Remitida" class="btn btn-sm @(filtroActual == "Remitida" ? "btn-warning" : "btn-default")" style="margin-left:4px;" id="tabRemitidas">
+            <i class="fa fa-inbox"></i> Remitidas
+        </a>
+        <a href="/Sesion/Bandeja?estado=Remitida#procesando" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabProcesando">
+            <i class="fa fa-spinner"></i> Procesando
+        </a>
+        <a href="/Sesion/Bandeja?estado=Revisada" class="btn btn-sm @(filtroActual == "Revisada" ? "btn-success" : "btn-default")" style="margin-left:4px;" id="tabRevisadas">
+            <i class="fa fa-check"></i> Revisadas
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title">
+                    @(User.IsInRole("OPERADOR") ? "Síntesis recibidas" : "Sesiones")
+                    <span class="badge bg-blue">@Model.Count</span>
+                </h3>
+            </div>
+            <div class="box-body">
+                @if (!Model.Any())
+                {
+                    <p class="text-muted">No hay sesiones con este filtro.</p>
+                }
+                else
+                {
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Turno</th>
+                                <th>Delegación</th>
+                                <th>Notas</th>
+                                <th>Estado</th>
+                                <th>Remitida</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in Model)
+                            {
+                                var badgeClass = s.Estado switch {
+                                    "Borrador" => "bg-gray",
+                                    "Remitida" => "bg-orange",
+                                    "Revisada" => "bg-green",
+                                    "Finalizada" => "bg-navy",
+                                    "Consolidada" => "bg-purple",
+                                    _ => "bg-gray"
+                                };
+                                // Revisada/Finalizada/Consolidada ya pasaron la revisión → sin pendientes
+                                var esRevisada = s.Estado is "Revisada" or "Finalizada" or "Consolidada";
+                                var pendientes  = esRevisada ? 0 : s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Borrador" or "Remitida" or "Pendiente");
+                                var aprobadas   = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Finalizada");
+                                // Descartadas: estado "Descartada" O "Sin Remitir" con motivo (procesadas)
+                                var descartadas = s.Notas.Count(n => n.VersionActual?.EstadoRevision == "Descartada"
+                                    || (n.VersionActual?.EstadoRevision == "Sin Remitir" && !string.IsNullOrEmpty(n.VersionActual.MotivoDescarte)));
+                                var modificadas = s.Notas.Count(n => n.VersionActual?.TipoEvento == "Aprobacion" && n.VersionActual.ResumenCambio != null);
+                                var hayRevisadas2 = aprobadas > 0 || descartadas > 0;
+                                var progreso = (pendientes > 0 && hayRevisadas2) ? "procesando"
+                                             : (pendientes > 0)                  ? "nueva"
+                                             : "completa";
+                                <tr data-progreso="@progreso">
+                                    <td><strong>@s.Fecha.ToString("dd/MM/yyyy")</strong></td>
+                                    <td>@s.Turno</td>
+                                    <td>@(s.Delegacion?.Nombre ?? "<i>División Medios</i>")</td>
+                                    <td>
+                                        <span class="badge bg-blue" title="Total notas">@s.Notas.Count</span>
+                                        @if (pendientes > 0)
+                                        {
+                                            <span class="badge bg-orange" title="@pendientes sin revisar">@pendientes pend.</span>
+                                        }
+                                        @if (aprobadas > 0)
+                                        {
+                                            <span class="badge bg-green" title="@aprobadas aprobadas">@aprobadas apro.</span>
+                                        }
+                                        @if (descartadas > 0)
+                                        {
+                                            <span class="badge bg-red" title="@descartadas descartadas">@descartadas desc.</span>
+                                        }
+                                        @if (modificadas > 0)
+                                        {
+                                            <span class="badge bg-yellow" title="@modificadas modificadas y aprobadas" style="color:#333;">@modificadas mod.</span>
+                                        }
+                                    </td>
+                                    <td><span class="label @badgeClass">@s.Estado</span></td>
+                                    <td><small>@s.FechaRemision?.ToString("dd/MM HH:mm")</small></td>
+                                    <td>
+                                        <a href="/Sesion/Detalle/@s.Id" class="btn btn-primary btn-xs">
+                                            <i class="fa fa-eye"></i> Revisar
+                                        </a>
+                                        <a href="/Sesion/ExportarExcel/@s.Id" class="btn btn-success btn-xs" title="Exportar a Excel">
+                                            <i class="fa fa-file-excel-o"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (filtroActual == "Remitida")
+{
+@section Scripts {
+    <script>
+    $(function () {
+        function actualizarContador() {
+            var visibles = $('tr[data-progreso]:visible').length;
+            $('.box-title .badge').text(visibles);
+        }
+
+        function aplicarFiltro(modo) {
+            if (modo === 'remitidas') {
+                $('tr[data-progreso]').hide();
+                $('tr[data-progreso="nueva"]').show();
+                $('#tabRemitidas').removeClass('btn-default').addClass('btn-warning');
+                $('#tabProcesando').removeClass('btn-info btn-warning').addClass('btn-default');
+            } else {
+                $('tr[data-progreso]').hide();
+                $('tr[data-progreso="procesando"]').show();
+                $('#tabRemitidas').removeClass('btn-warning').addClass('btn-default');
+                $('#tabProcesando').removeClass('btn-default btn-warning').addClass('btn-info');
+            }
+            actualizarContador();
+        }
+
+        // Leer hash para saber qué sub-solapa mostrar al cargar
+        var modoInicial = window.location.hash === '#procesando' ? 'procesando' : 'remitidas';
+        aplicarFiltro(modoInicial);
+
+        $('#tabProcesando').on('click', function (e) {
+            e.preventDefault();
+            history.replaceState(null, '', '/Sesion/Bandeja?estado=Remitida#procesando');
+            aplicarFiltro('procesando');
+        });
+        $('#tabRemitidas').on('click', function (e) {
+            e.preventDefault();
+            history.replaceState(null, '', '/Sesion/Bandeja?estado=Remitida');
+            aplicarFiltro('remitidas');
+        });
+    });
+    </script>
+}
+}

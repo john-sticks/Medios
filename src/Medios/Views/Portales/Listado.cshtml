@@ -1,0 +1,172 @@
+@using Medios.Entities
+@model List<PortalPrensa>
+
+@{
+    ViewData["Title"] = "Portales de Prensa";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+
+    var regiones = ViewBag.Regiones as List<string> ?? new();
+    var partidos = ViewBag.Partidos as List<Partido> ?? new();
+    var filtroRegion = (string?)ViewBag.FiltroRegion;
+    var filtroPartidoId = (int?)ViewBag.FiltroPartidoId;
+    var soloActivos = (bool)(ViewBag.SoloActivos ?? true);
+    var puedeGestionar = (bool)(ViewBag.PuedeGestionar ?? false);
+
+    var porRegion = Model
+        .GroupBy(p => p.Region ?? "Sin región")
+        .OrderBy(g => g.Key)
+        .ToList();
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Ok"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Error"]
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+
+        <!-- Filtros -->
+        <div class="box box-default @(filtroRegion != null || filtroPartidoId != null || !soloActivos ? "" : "collapsed-box")">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-filter"></i> Filtros</h3>
+                <div class="box-tools pull-right">
+                    <button type="button" class="btn btn-box-tool" data-widget="collapse">
+                        <i class="fa fa-@(filtroRegion != null || filtroPartidoId != null || !soloActivos ? "minus" : "plus")"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="box-body">
+                <form method="get" asp-action="Listado" class="form-inline">
+                    <div class="form-group" style="margin-right:10px;">
+                        <label style="margin-right:5px;">Región</label>
+                        <select name="region" class="form-control input-sm">
+                            <option value="">— Todas —</option>
+                            @foreach (var r in regiones)
+                            {
+                                @if (r == filtroRegion) { <option value="@r" selected="selected">@r</option> }
+                                else { <option value="@r">@r</option> }
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-right:10px;">
+                        <label style="margin-right:5px;">Partido</label>
+                        <select name="partidoId" class="form-control input-sm">
+                            <option value="">— Todos —</option>
+                            @foreach (var p in partidos)
+                            {
+                                @if (p.IdPartido == filtroPartidoId) { <option value="@p.IdPartido" selected="selected">@p.Nombre</option> }
+                                else { <option value="@p.IdPartido">@p.Nombre</option> }
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-right:10px;">
+                        <label style="margin-right:5px;">
+                            <input type="checkbox" name="soloActivos" value="true" @(soloActivos ? "checked" : "") />
+                            Solo activos
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary"><i class="fa fa-filter"></i> Filtrar</button>
+                    <a href="/Portales/Listado" class="btn btn-sm btn-default">Limpiar</a>
+                </form>
+            </div>
+        </div>
+
+        <!-- Listado agrupado por región -->
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title">
+                    <i class="fa fa-globe"></i> @Model.Count portal@(Model.Count != 1 ? "es" : "")
+                    @if (!string.IsNullOrEmpty(filtroRegion)) { <small>— @filtroRegion</small> }
+                </h3>
+                @if (puedeGestionar)
+                {
+                    <div class="box-tools pull-right">
+                        <a href="/Portales/Nuevo" class="btn btn-sm btn-success">
+                            <i class="fa fa-plus"></i> Nuevo portal
+                        </a>
+                    </div>
+                }
+            </div>
+            <div class="box-body no-padding">
+                @if (!Model.Any())
+                {
+                    <div class="text-center" style="padding:30px; color:#888;">
+                        <i class="fa fa-globe fa-2x"></i>
+                        <p style="margin-top:8px;">No hay portales con los filtros aplicados.</p>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var grupo in porRegion)
+                    {
+                        <div style="background:#f4f6f7; padding:6px 16px; border-bottom:1px solid #ddd; font-weight:bold; font-size:13px; color:#555;">
+                            <i class="fa fa-map-marker text-muted"></i> @grupo.Key
+                            <span class="badge" style="background:#aaa; margin-left:6px;">@grupo.Count()</span>
+                        </div>
+                        <table class="table table-condensed table-hover" style="margin-bottom:0;">
+                            <tbody>
+                                @foreach (var portal in grupo.OrderBy(p => p.Nombre))
+                                {
+                                    <tr @(portal.Activo ? "" : "class=\"text-muted\"")>
+                                        <td style="width:30%; padding-left:24px;">
+                                            <a href="@portal.Url" target="_blank" rel="noopener">
+                                                <i class="fa fa-external-link" style="font-size:11px;"></i>
+                                                <strong>@portal.Nombre</strong>
+                                            </a>
+                                        </td>
+                                        <td style="width:35%; font-size:12px; color:#888;">
+                                            @portal.Url
+                                        </td>
+                                        <td style="width:20%;">
+                                            @if (portal.Partido != null)
+                                            {
+                                                <small class="label label-default">@portal.Partido.Nombre</small>
+                                            }
+                                            else
+                                            {
+                                                <small class="text-muted">Provincial</small>
+                                            }
+                                        </td>
+                                        <td style="width:8%;">
+                                            @if (!portal.Activo)
+                                            {
+                                                <span class="label label-default" style="font-size:10px;">inactivo</span>
+                                            }
+                                        </td>
+                                        @if (puedeGestionar)
+                                        {
+                                            <td style="width:7%; text-align:right; padding-right:12px;">
+                                                <a href="/Portales/Editar/@portal.Id" class="btn btn-xs btn-default" title="Editar">
+                                                    <i class="fa fa-pencil"></i>
+                                                </a>
+                                                <form method="post" asp-action="Eliminar" style="display:inline;"
+                                                      onsubmit="return confirm('¿Eliminar @portal.Nombre?')">
+                                                    <input type="hidden" name="id" value="@portal.Id" />
+                                                    <button type="submit" class="btn btn-xs btn-danger" title="Eliminar">
+                                                        <i class="fa fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                }
+            </div>
+        </div>
+
+    </div>
+</div>

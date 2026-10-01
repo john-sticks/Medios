@@ -1,0 +1,757 @@
+@using Medios.Entities
+@model NotaPrensa
+
+@{
+    ViewData["Title"] = "Detalle de Nota";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    // Si se llegó desde una síntesis con ?versionId=X, mostrar esa versión específica
+    var versionFijada = ViewBag.VersionMostrada as NotaVersion;
+    var v = versionFijada ?? Model.VersionActual;
+    var sesion = Model.Sesion;
+    var esLibre = sesion == null;
+    var puedeAmpliar = versionFijada == null && (bool)(ViewBag.PuedeAmpliar ?? false);
+    // En modo lectura (versión fijada), no permitir modificar relaciones
+    var puedeRelacionar = versionFijada == null && (bool)(ViewBag.PuedeRelacionar ?? false);
+    var returnUrl = $"/NotaBuscador/Detalle/{Model.Id}";
+    var sesionRemitida = !esLibre && (sesion!.Estado == "Remitida" || sesion.Estado == "Revisada");
+    var esSinRemitir = v?.EstadoRevision == "Sin Remitir";
+    var sintesisPorVersion = ViewBag.SintesisPorVersion as Dictionary<int, Sintesis> ?? new Dictionary<int, Sintesis>();
+    // Síntesis que capturó la versión actualmente mostrada (para el panel Síntesis)
+    Sintesis? sinFijada = null;
+    if (v != null) sintesisPorVersion.TryGetValue(v.Id, out sinFijada);
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Ok"]
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert">&times;</button>
+        @TempData["Error"]
+    </div>
+}
+@if (versionFijada != null)
+{
+    <div class="alert alert-info" style="margin-bottom:10px;">
+        <i class="fa fa-camera"></i>
+        Mostrando <strong>v@(versionFijada.Version)</strong> — versión capturada en la síntesis.
+        <a href="/NotaBuscador/Detalle/@Model.Id" style="margin-left:8px;">
+            <i class="fa fa-refresh"></i> Ver versión actual
+        </a>
+    </div>
+}
+
+<div class="row">
+    <!-- Columna principal: contenido + historial -->
+    <div class="col-md-8">
+
+        <!-- Contenido actual -->
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title">
+                    <i class="fa fa-newspaper-o"></i> <span id="verTitulo">@v?.Titulo</span>
+                </h3>
+                <div class="box-tools pull-right">
+                    @{
+                        // Estado efectivo: la versión actual tiene prioridad si está en progreso
+                        Sintesis? sinActual = null;
+                        if (v != null) sintesisPorVersion.TryGetValue(v.Id, out sinActual);
+                        string estadoEfectivo;
+                        string badgeEst;
+
+                        // Prioridad 1: si la versión actual es "Sin Remitir" o "Borrador", mostrar eso
+                        // (nota fue ampliada/editada después de ser revisada — todavía no informada)
+                        if (v?.EstadoRevision is "Sin Remitir" or "Borrador")
+                        {
+                            estadoEfectivo = v.EstadoRevision;
+                            badgeEst = "warning";
+                        }
+                        // Prioridad 2: síntesis
+                        else if (sinActual != null)
+                        {
+                            estadoEfectivo = sinActual.Estado switch { "Remitida" or "Distribuida" => sinActual.Estado, _ => "Sin Remitir" };
+                            badgeEst = sinActual.Estado switch { "Remitida" => "info", "Distribuida" => "success", _ => "warning" };
+                        }
+                        // Prioridad 3: estado de sesión
+                        else if (!esLibre && sesion!.Estado == "Borrador")
+                        {
+                            estadoEfectivo = "Borrador";
+                            badgeEst = "default";
+                        }
+                        else if (!esLibre && sesion!.Estado is "Remitida" or "Revisada")
+                        {
+                            estadoEfectivo = sesion.Estado;
+                            badgeEst = sesion.Estado == "Revisada" ? "success" : "info";
+                        }
+                        else
+                        {
+                            estadoEfectivo = v?.EstadoRevision ?? "";
+                            badgeEst = v?.EstadoRevision switch { "Aprobada" => "success", "Descartada" => "danger", _ => "default" };
+                        }
+                    }
+                    <span id="headerEstadoBadge" class="label label-@badgeEst" style="font-size:12px;">@estadoEfectivo</span>
+                    <span id="headerAprobadaBadge" style="font-size:12px; margin-left:4px; @(v?.EstadoRevision is "Aprobada" or "Descartada" ? "" : "display:none")">
+                        @if (v?.EstadoRevision == "Descartada")
+                        {
+                            <span class="label label-danger"><i class="fa fa-times"></i> Rechazada</span>
+                        }
+                        else if (v?.EstadoRevision == "Aprobada")
+                        {
+                            <span class="label label-success"><i class="fa fa-check"></i> Aprobada</span>
+                        }
+                    </span>
+                    &nbsp;
+                    <span id="headerVersionBadge" class="label label-default" style="font-size:11px;">v@(v?.Version)</span>
+                </div>
+            </div>
+            <div class="box-body">
+                <div class="row" id="verMeta">
+                    <div class="col-md-4">
+                        <strong>Ámbito / Categoría:</strong><br />
+                        @{ var ambitoD = v?.AmbitoNota; }
+                        @if (ambitoD != null)
+                        {
+                            <span class="label" style="background:@(ambitoD=="Nacional"?"#c0392b":ambitoD=="Provincial"?"#1a5276":"#2471a3");">@ambitoD</span>
+                        }
+                        <span id="verCategoria">@v?.Categoria?.Nombre</span>
+                    </div>
+                    <div class="col-md-4" id="verPartidoDiv" style="@(v?.Partido == null ? "display:none" : "")">
+                        <strong>Partido:</strong><br />
+                        <span id="verPartido">@v?.Partido?.Nombre</span>
+                    </div>
+                    <div class="col-md-4" id="verLocalidadDiv" style="@(v?.Localidad == null ? "display:none" : "")">
+                        <strong>Localidad:</strong><br />
+                        <span id="verLocalidad">@v?.Localidad?.Nombre</span>
+                    </div>
+                </div>
+
+                <div id="verFechaNoticiaDiv" style="font-size:12px; color:#3c8dbc; margin-bottom:6px; @(v?.FechaNoticia.HasValue == true ? "" : "display:none")">
+                    <i class="fa fa-clock-o"></i> <strong>Fecha y hora de la noticia:</strong>
+                    <span id="verFechaNoticia">@(v?.FechaNoticia?.ToString("dd/MM/yyyy HH:mm") ?? "")</span>
+                </div>
+
+                <hr style="margin:10px 0;" />
+
+                @if (v?.EstadoRevision == "Descartada" && !string.IsNullOrEmpty(v.MotivoDescarte))
+                {
+                    <div style="background:#f2dede; border-left:4px solid #a94442; padding:10px 14px; margin-bottom:12px; border-radius:0 4px 4px 0;">
+                        <div style="font-size:11px; color:#a94442; font-weight:bold; margin-bottom:4px;">
+                            <i class="fa fa-times-circle"></i> Motivo de rechazo
+                        </div>
+                        <p style="margin:0; font-size:13px; color:#a94442;">@v.MotivoDescarte</p>
+                    </div>
+                }
+
+                <p id="verTexto" style="white-space:pre-wrap; font-size:14px;">@v?.Texto</p>
+
+                <div id="verImagenDiv" style="margin:10px 0; @(string.IsNullOrEmpty(v?.ImagenUrl) ? "display:none" : "")">
+                    <img id="verImagen" src="@v?.ImagenUrl" alt="Imagen de la nota"
+                         style="max-width:100%; max-height:340px; border:1px solid #ddd; border-radius:4px;" />
+                </div>
+                <div id="verImagenesExtra" style="display:flex; flex-wrap:wrap; gap:6px; margin:6px 0;">
+                    @foreach (var ex in v?.ImagenesExtra ?? Array.Empty<string>())
+                    {
+                        <a href="@ex" target="_blank"><img src="@ex" style="height:90px; border:1px solid #ddd; border-radius:4px;" /></a>
+                    }
+                </div>
+                <div id="verVideoDiv" style="margin:8px 0; font-size:12px; @(string.IsNullOrEmpty(v?.VideoUrl) ? "display:none" : "")">
+                    <i class="fa fa-video-camera"></i> <strong>Video:</strong>
+                    <a id="verVideo" href="@v?.VideoUrl" target="_blank">@v?.VideoUrl</a>
+                </div>
+
+                <div id="verSintesis" style="display:@(!string.IsNullOrEmpty(v?.Sintesis) ? "block" : "none"); background:#f9f9f9; border-left:3px solid #3c8dbc; padding:10px 14px; margin:12px 0; border-radius:0 4px 4px 0;">
+                    <div style="font-size:11px; color:#888; margin-bottom:4px;">
+                        <i class="fa fa-magic"></i> <strong>Síntesis IA</strong>
+                    </div>
+                    <p id="verSintesisTexto" style="margin:0; font-size:13px; white-space:pre-wrap;">@v?.Sintesis</p>
+                </div>
+
+                <div id="verFuenteDiv" style="font-size:12px; color:#666; margin-top:8px; @((string.IsNullOrEmpty(v?.Fuente) && string.IsNullOrEmpty(v?.Link)) ? "display:none" : "")">
+                    <span id="verFuenteSpan" style="@(string.IsNullOrEmpty(v?.Fuente) ? "display:none" : "")">
+                        <i class="fa fa-tag"></i> <strong>Fuente:</strong> <span id="verFuente">@v?.Fuente</span> &nbsp;
+                    </span>
+                    <span id="verLinkSpan" style="@(string.IsNullOrEmpty(v?.Link) ? "display:none" : "")">
+                        <i class="fa fa-link"></i> <a id="verLink" href="@v?.Link" target="_blank">@v?.Link</a>
+                    </span>
+                </div>
+
+                @if (v?.EsRepercusion == true)
+                {
+                    <div style="margin-top:6px;">
+                        <span class="label label-info"><i class="fa fa-retweet"></i> Es repercusión periodística</span>
+                    </div>
+                }
+
+                @if (v?.Latitud.HasValue == true)
+                {
+                    <div style="margin-top:10px; font-size:12px; color:#666;">
+                        <i class="fa fa-map-marker"></i>
+                        @if (!string.IsNullOrEmpty(v.Direccion))
+                        {
+                            <span>@v.Direccion</span>
+                        }
+                        <span class="text-muted">(@v.Latitud!.Value.ToString("F5"), @v.Longitud!.Value.ToString("F5"))</span>
+                    </div>
+                    <div id="mapaNota" style="height:200px; border-radius:4px; border:1px solid #ddd; margin-top:6px;"></div>
+                }
+            </div>
+            @{
+                var puedeDescartarBorrador = versionFijada == null && (bool)(ViewBag.PuedeDescartarBorrador ?? false);
+                var tieneVersionAnterior   = puedeDescartarBorrador && Model.Versiones.Count > 1;
+            }
+            @if ((sesionRemitida && puedeAmpliar) || puedeDescartarBorrador)
+            {
+                <div class="box-footer" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    @if (sesionRemitida && puedeAmpliar)
+                    {
+                        @if (esSinRemitir)
+                        {
+                            <a href="/Nota/EditarSinRemitir?id=@Model.Id&returnUrl=@Uri.EscapeDataString(returnUrl)"
+                               class="btn btn-warning btn-sm">
+                                <i class="fa fa-pencil"></i> Modificar versión sin informar
+                            </a>
+                            <small class="text-muted">Esta versión aún no fue remitida — podés corregirla antes de enviarla</small>
+                        }
+                        else
+                        {
+                            <a href="/Nota/Ampliar?id=@Model.Id&returnUrl=@Uri.EscapeDataString(returnUrl)"
+                               class="btn btn-warning btn-sm">
+                                <i class="fa fa-plus-circle"></i> Agregar información
+                            </a>
+                            <small class="text-muted">Genera una nueva versión de esta nota</small>
+                        }
+                    }
+                    @if (puedeDescartarBorrador)
+                    {
+                        var btnLabel  = tieneVersionAnterior ? "Descartar borrador" : "Eliminar nota";
+                        var btnConfirm = tieneVersionAnterior
+                            ? "¿Descartar el borrador? Se volverá a la versión anterior aprobada."
+                            : "¿Eliminar esta nota permanentemente? Esta acción no se puede deshacer.";
+                        <form method="post" asp-controller="NotaBuscador" asp-action="DescartarBorrador" style="display:inline">
+                            <input type="hidden" name="id" value="@Model.Id" />
+                            <button type="submit" class="btn btn-danger btn-sm"
+                                    onclick="return confirm('@btnConfirm')">
+                                <i class="fa fa-trash"></i> @btnLabel
+                            </button>
+                        </form>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Historial de versiones -->
+        <div class="box box-default @(Model.Versiones.Count <= 1 ? "collapsed-box" : "")">
+            <div class="box-header with-border">
+                <h3 class="box-title">
+                    <i class="fa fa-history"></i> Historial de versiones (@Model.Versiones.Count)
+                </h3>
+                <div class="box-tools pull-right">
+                    <button type="button" class="btn btn-box-tool" data-widget="collapse">
+                        <i class="fa fa-@(Model.Versiones.Count <= 1 ? "plus" : "minus")"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="box-body no-padding">
+                <table class="table table-condensed" style="margin-bottom:0; font-size:12px;">
+                    <thead>
+                        <tr>
+                            <th style="width:40px;">Ver.</th>
+                            <th style="width:90px;">Evento</th>
+                            <th style="width:90px;">Estado</th>
+                            <th>Resumen / Usuario</th>
+                            <th style="width:150px;">Síntesis</th>
+                            <th style="width:110px;">Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var ver in Model.Versiones.OrderByDescending(x => x.Version))
+                        {
+                            var esActual = ver.EsActual;
+                            sintesisPorVersion.TryGetValue(ver.Id, out var sinVer);
+                            var verData = new {
+                                titulo      = ver.Titulo,
+                                texto       = ver.Texto,
+                                sintesis    = ver.Sintesis ?? "",
+                                categoria   = ver.Categoria?.Nombre ?? "",
+                                partido     = ver.Partido?.Nombre ?? "",
+                                localidad   = ver.Localidad?.Nombre ?? "",
+                                fuente      = ver.Fuente ?? "",
+                                link        = ver.Link ?? "",
+                                imagenUrl   = ver.ImagenUrl ?? "",
+                                videoUrl    = ver.VideoUrl ?? "",
+                                imagenesExtra = ver.ImagenesExtra,
+                                fechaNoticia = ver.FechaNoticia.HasValue
+                                    ? ver.FechaNoticia.Value.ToString("dd/MM/yyyy HH:mm") : "",
+                                operadorRevision = ver.OperadorRevision ?? "",
+                                estadoRevision = ver.EstadoRevision ?? "",
+                                versionNum = ver.Version,
+                                sinEstado   = sinVer?.Estado ?? "",
+                                sinFecha    = sinVer != null ? sinVer.Fecha.ToString("dd/MM/yyyy") : "",
+                                sinTipo     = sinVer?.Tipo ?? "",
+                                sinFechaCreacion = sinVer != null ? sinVer.FechaCreacion.ToString("dd/MM/yyyy HH:mm") : ""
+                            };
+
+                            // Estado efectivo por versión
+                            string estadoV;
+                            string badgeV;
+                            if (sinVer != null)
+                            {
+                                // Versión capturada en una síntesis → estado de la síntesis
+                                estadoV = sinVer.Estado switch { "Remitida" or "Distribuida" => sinVer.Estado, "Borrador" => "Borrador", _ => "Sin Remitir" };
+                                badgeV  = sinVer.Estado switch { "Remitida" => "info", "Distribuida" => "success", "Borrador" => "default", _ => "warning" };
+                            }
+                            else if (!esLibre && sesion!.Estado == "Borrador")
+                            {
+                                // Nota en borrador → todas las versiones muestran "Borrador"
+                                estadoV = "Borrador";
+                                badgeV  = "default";
+                            }
+                            else if (esActual && !esLibre)
+                            {
+                                // Versión actual: si está en progreso (Sin Remitir/Borrador),
+                                // mostrar su propio estado en vez del de la sesión
+                                if (ver.EstadoRevision is "Sin Remitir" or "Borrador")
+                                {
+                                    estadoV = ver.EstadoRevision;
+                                    badgeV  = "warning";
+                                }
+                                else
+                                {
+                                    estadoV = sesion!.Estado switch { "Remitida" => "Remitida", "Revisada" => "Revisada", _ => ver.EstadoRevision };
+                                    badgeV  = sesion.Estado switch { "Remitida" => "info", "Revisada" => "success", _ => "warning" };
+                                }
+                            }
+                            else
+                            {
+                                // Versión histórica sin síntesis → EstadoRevision original
+                                estadoV = ver.EstadoRevision;
+                                badgeV  = ver.EstadoRevision switch { "Aprobada" => "success", "Descartada" => "danger", "Borrador" or "Sin Remitir" => "default", _ => "warning" };
+                            }
+
+                            var esFijada = versionFijada != null ? ver.Id == versionFijada.Id : esActual;
+                            <tr class="ver-row @(esFijada ? "active selected-ver" : "")"
+                                style="cursor:pointer;"
+                                data-ver="@System.Text.Json.JsonSerializer.Serialize(verData)"
+                                title="Clic para ver esta versión">
+                                <td>
+                                    <span class="label @(esFijada ? "bg-blue" : "bg-gray")">v@(ver.Version)</span>
+                                </td>
+                                <td>
+                                    <span class="label label-default" style="font-size:10px;">@ver.TipoEvento</span>
+                                </td>
+                                <td>
+                                    <span class="label label-@badgeV" style="font-size:10px;">@estadoV</span>
+                                </td>
+                                <td>
+                                    <i class="fa fa-user text-muted"></i> @ver.Usuario
+                                    @if (!string.IsNullOrEmpty(ver.ResumenCambio))
+                                    {
+                                        <br /><span class="text-info" style="font-size:11px;"><i class="fa fa-info-circle"></i> @ver.ResumenCambio</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(ver.MotivoDescarte))
+                                    {
+                                        <br /><span class="text-danger" style="font-size:11px;"><i class="fa fa-times-circle"></i> @ver.MotivoDescarte</span>
+                                    }
+                                </td>
+                                <td style="font-size:11px;">
+                                    @if (sinVer != null)
+                                    {
+                                        <a href="/Sintesis/Detalle/@sinVer.Id" class="text-info">
+                                            <i class="fa fa-file-text-o"></i>
+                                            @sinVer.Tipo<br />
+                                            <span class="text-muted">@sinVer.Fecha.ToString("dd/MM/yyyy")</span>
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="text-muted">@ver.FechaVersion.ToString("dd/MM/yy HH:mm")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Columna derecha: info sesión + relaciones -->
+    <div class="col-md-4">
+
+        <!-- Información de sesión / nota libre -->
+        <div class="box box-info">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-info-circle"></i> @(esLibre ? "Nota libre" : "Síntesis")</h3>
+            </div>
+            <div class="box-body" style="font-size:13px;">
+                <table class="table table-condensed" style="margin-bottom:0;">
+                    <tr>
+                        <td class="text-muted" style="width:50%;">Delegación</td>
+                        <td><strong>@(sesion?.Delegacion?.Nombre ?? Model.Delegacion?.Nombre ?? "División")</strong></td>
+                    </tr>
+                    @if (!esLibre)
+                    {
+                        var panelFecha  = sinFijada != null ? sinFijada.Fecha.ToString("dd/MM/yyyy") : sesion!.Fecha.ToString("dd/MM/yyyy");
+                        var panelTurno  = sinFijada != null ? sinFijada.Tipo                       : sesion!.Turno;
+                        // Estado: del síntesis capturado si existe, sino del EstadoRevision de la versión
+                        var panelEstado = sinFijada != null ? sinFijada.Estado : (v?.EstadoRevision ?? "");
+                        var panelReg    = sinFijada != null ? sinFijada.FechaCreacion.ToString("dd/MM/yyyy HH:mm") : null;
+                        var badgeSes = panelEstado switch {
+                            "Remitida" or "Generada"    => "info",
+                            "Revisada" or "Distribuida" or "Aprobada" => "success",
+                            "Descartada"                => "danger",
+                            _                           => "default"
+                        };
+                        <tr>
+                            <td class="text-muted">Fecha</td>
+                            <td id="panelSinFecha">@panelFecha</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Turno</td>
+                            <td id="panelSinTurno">@panelTurno</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Estado síntesis</td>
+                            <td><span id="panelSinEstado" class="label label-@badgeSes">@panelEstado</span></td>
+                        </tr>
+                        <tr id="panelSinRegRow" style="@(panelReg != null ? "" : "display:none")">
+                            <td class="text-muted">Registrado</td>
+                            <td id="panelSinRegistrado" class="text-muted" style="font-size:11px;">@panelReg</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        <tr>
+                            <td class="text-muted">Estado</td>
+                            <td><span class="label label-default">Sin sesión asignada</span></td>
+                        </tr>
+                    }
+                    <tr id="panelSesRegRow" style="@(sinFijada == null && !esLibre ? "" : "display:none")">
+                        <td class="text-muted">Registrado</td>
+                        <td class="text-muted" style="font-size:11px;">@Model.FechaRegistro.ToString("dd/MM/yyyy HH:mm")</td>
+                    </tr>
+                    <tr id="panelSinOperadorRow" style="@(!string.IsNullOrEmpty(v?.OperadorRevision) ? "" : "display:none")">
+                        <td class="text-muted">Operador</td>
+                        <td id="panelSinOperador">@v?.OperadorRevision</td>
+                    </tr>
+                </table>
+                <div style="margin-top:8px;">
+                    @if (!esLibre)
+                    {
+                        <a href="/Sesion/Detalle/@sesion!.Id" class="btn btn-xs btn-default">
+                            <i class="fa fa-external-link"></i> Ver sesión
+                        </a>
+                    }
+                    <a href="/NotaBuscador" class="btn btn-xs btn-default">
+                        <i class="fa fa-arrow-left"></i> Volver al buscador
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notas relacionadas -->
+        <div class="box box-default">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-link"></i> Notas relacionadas (@Model.Relaciones.Count)</h3>
+            </div>
+            <div class="box-body" style="padding:8px;">
+
+                @if (!Model.Relaciones.Any())
+                {
+                    <p class="text-muted" style="font-size:12px; margin:4px 0 8px;">Sin relaciones establecidas.</p>
+                }
+                else
+                {
+                    foreach (var rel in Model.Relaciones)
+                    {
+                        var rn = rel.NotaRelacionada;
+                        var rv = rn.VersionActual;
+                        <div style="padding:4px 0; border-bottom:1px solid #f5f5f5;">
+                            <a href="/NotaBuscador/Detalle/@rn.Id" style="font-size:12px;">@rv?.Titulo</a>
+                            <small class="text-muted" style="display:block;">
+                                @rv?.Categoria?.Nombre &nbsp;·&nbsp;
+                                @rn.Sesion?.Fecha.ToString("dd/MM/yyyy") &nbsp;·&nbsp;
+                                @(rn.Sesion?.Delegacion?.Nombre ?? "División")
+                            </small>
+                            @if (puedeRelacionar)
+                            {
+                                <form method="post" asp-controller="NotaBuscador" asp-action="QuitarRelacion"
+                                      style="display:inline;">
+                                    <input type="hidden" name="notaId" value="@Model.Id" />
+                                    <input type="hidden" name="relacionadaId" value="@rn.Id" />
+                                    <button type="submit" class="btn btn-xs btn-link text-danger"
+                                            style="padding:0;" title="Quitar relación"
+                                            onclick="return confirm('¿Quitar esta relación?')">
+                                        <i class="fa fa-times"></i> quitar
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    }
+                }
+
+                @if (puedeRelacionar)
+                {
+                    <div style="margin-top:10px;">
+                        <label style="font-size:12px;">Relacionar con otra nota:</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="inputBuscarRelacion" class="form-control"
+                                   placeholder="Buscar por título..." autocomplete="off" />
+                            <span class="input-group-addon"><i class="fa fa-search"></i></span>
+                        </div>
+                        <div id="sugerenciasRelacion" style="position:relative;"></div>
+                    </div>
+                }
+            </div>
+        </div>
+
+    </div>
+</div>
+
+@section Styles {
+    @if (v?.Latitud.HasValue == true)
+    {
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <style>.leaflet-container { z-index: 1; }</style>
+    }
+    <style>
+        #sugerenciasLista {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 0 0 4px 4px;
+            z-index: 999;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .sug-item {
+            padding: 6px 10px;
+            cursor: pointer;
+            font-size: 12px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+        .sug-item:hover { background: #f0f0f0; }
+    </style>
+}
+
+@section Scripts {
+    @if (v?.Latitud.HasValue == true)
+    {
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+            var mapa = L.map('mapaNota').setView([@v.Latitud!.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture), @v.Longitud!.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap', maxZoom: 18
+            }).addTo(mapa);
+            L.marker([@v.Latitud.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture), @v.Longitud!.Value.ToString("F6", System.Globalization.CultureInfo.InvariantCulture)]).addTo(mapa);
+        </script>
+    }
+
+    @if (puedeRelacionar)
+    {
+        <script>
+            var notaActualId = @Model.Id;
+            var debounce;
+
+            $('#inputBuscarRelacion').on('input', function () {
+                clearTimeout(debounce);
+                var q = $(this).val().trim();
+                if (q.length < 3) { $('#sugerenciasRelacion').html(''); return; }
+
+                debounce = setTimeout(function () {
+                    $.getJSON('/NotaBuscador/BuscarParaRelacionar', { q: q, excluirNotaId: notaActualId }, function (data) {
+                        if (!data.length) { $('#sugerenciasRelacion').html('<div style="font-size:12px;color:#888;padding:4px 0;">Sin resultados</div>'); return; }
+
+                        var html = '<div id="sugerenciasLista">';
+                        data.forEach(function (r) {
+                            html += '<div class="sug-item" data-id="' + r.id + '">' +
+                                '<strong>' + r.titulo + '</strong>' +
+                                '<br><span class="text-muted">' + r.categoria + ' · ' + r.fecha + ' · ' + r.delegacion + '</span>' +
+                                '</div>';
+                        });
+                        html += '</div>';
+                        $('#sugerenciasRelacion').html(html);
+                    });
+                }, 350);
+            });
+
+            $(document).on('click', '.sug-item', function () {
+                var relId = $(this).data('id');
+                $('<form method="post" action="/NotaBuscador/AgregarRelacion">' +
+                    '<input type="hidden" name="notaId" value="' + notaActualId + '" />' +
+                    '<input type="hidden" name="relacionadaId" value="' + relId + '" />' +
+                    '</form>').appendTo('body').submit();
+            });
+
+            $(document).on('click', function (e) {
+                if (!$(e.target).closest('#sugerenciasRelacion, #inputBuscarRelacion').length)
+                    $('#sugerenciasRelacion').html('');
+            });
+        </script>
+    }
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/diff_match_patch/20121119/diff_match_patch.js"></script>
+    <script>
+        var dmp = new diff_match_patch();
+
+        // Datos estáticos de la sesión (no cambian entre versiones)
+        var sesionFecha  = '@(!esLibre ? sesion?.Fecha.ToString("dd/MM/yyyy") : "")';
+        var sesionTurno  = '@(!esLibre ? sesion?.Turno : "")';
+        var sesionEstado = '@(!esLibre ? sesion?.Estado : "")';
+
+        function panelSinBadge(estado) {
+            if (estado === 'Revisada' || estado === 'Distribuida' || estado === 'Aprobada') return 'label-success';
+            if (estado === 'Remitida' || estado === 'Generada') return 'label-info';
+            if (estado === 'Descartada') return 'label-danger';
+            return 'label-default';
+        }
+
+        function escHtml(t) {
+            return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+
+        // Genera HTML con adiciones en verde. Eliminaciones se omiten.
+        function diffHtml(oldText, newText) {
+            var diffs = dmp.diff_main(oldText || '', newText || '');
+            dmp.diff_cleanupSemantic(diffs);
+            var html = '';
+            diffs.forEach(function(d) {
+                var op = d[0], txt = escHtml(d[1]);
+                if (op ===  1) html += '<mark class="diff-add">' + txt + '</mark>';
+                else if (op === 0) html += txt;
+                // op === -1 (eliminado): no mostrar
+            });
+            return html;
+        }
+
+        $(document).on('click', '.ver-row', function () {
+            var $row = $(this);
+            var data = JSON.parse($row.attr('data-ver'));
+            var $prev = $row.nextAll('.ver-row').first();
+            var prevData = $prev.length ? JSON.parse($prev.attr('data-ver')) : null;
+
+            // Título
+            $('#verTitulo').html(diffHtml(prevData ? prevData.titulo : '', data.titulo));
+
+            // Metadata
+            $('#verCategoria').text(data.categoria);
+            if (data.partido) { $('#verPartido').text(data.partido); $('#verPartidoDiv').show(); }
+            else $('#verPartidoDiv').hide();
+            if (data.localidad) { $('#verLocalidad').text(data.localidad); $('#verLocalidadDiv').show(); }
+            else $('#verLocalidadDiv').hide();
+
+            // Fecha noticia
+            if (data.fechaNoticia) { $('#verFechaNoticia').text(data.fechaNoticia); $('#verFechaNoticiaDiv').show(); }
+            else $('#verFechaNoticiaDiv').hide();
+
+            // Texto (con diff)
+            $('#verTexto').html(diffHtml(prevData ? prevData.texto : '', data.texto));
+
+            // Síntesis IA (con diff)
+            if (data.sintesis) {
+                $('#verSintesisTexto').html(diffHtml(prevData ? prevData.sintesis : '', data.sintesis));
+                $('#verSintesis').show();
+            } else {
+                $('#verSintesis').hide();
+            }
+
+            // Imagen / Video
+            if (data.imagenUrl) { $('#verImagen').attr('src', data.imagenUrl); $('#verImagenDiv').show(); }
+            else { $('#verImagenDiv').hide(); }
+            var $extra = $('#verImagenesExtra').empty();
+            (data.imagenesExtra || []).forEach(function (u) {
+                $extra.append('<a href="' + u + '" target="_blank"><img src="' + u + '" style="height:90px; border:1px solid #ddd; border-radius:4px;" /></a>');
+            });
+            if (data.videoUrl) { $('#verVideo').text(data.videoUrl).attr('href', data.videoUrl); $('#verVideoDiv').show(); }
+            else { $('#verVideoDiv').hide(); }
+
+            // Fuente / Link
+            if (data.fuente || data.link) {
+                $('#verFuenteDiv').show();
+                if (data.fuente) { $('#verFuente').text(data.fuente); $('#verFuenteSpan').show(); }
+                else $('#verFuenteSpan').hide();
+                if (data.link) { $('#verLink').text(data.link).attr('href', data.link); $('#verLinkSpan').show(); }
+                else $('#verLinkSpan').hide();
+            } else {
+                $('#verFuenteDiv').hide();
+            }
+
+            // Panel Síntesis: actualizar con datos de la síntesis de esta versión
+            if (data.sinEstado) {
+                // Versión capturada en una síntesis → mostrar datos de esa síntesis
+                $('#panelSinFecha').text(data.sinFecha);
+                $('#panelSinTurno').text(data.sinTipo);
+                $('#panelSinEstado').attr('class', 'label ' + panelSinBadge(data.sinEstado)).text(data.sinEstado);
+                $('#panelSinRegistrado').text(data.sinFechaCreacion);
+                $('#panelSinRegRow').show();
+                $('#panelSesRegRow').hide();
+            } else {
+                // Sin síntesis → mostrar datos de sesión + EstadoRevision de la versión
+                $('#panelSinFecha').text(sesionFecha);
+                $('#panelSinTurno').text(sesionTurno);
+                var estadoV = data.estadoRevision || '';
+                $('#panelSinEstado').attr('class', 'label ' + panelSinBadge(estadoV)).text(estadoV);
+                $('#panelSinRegRow').hide();
+                $('#panelSesRegRow').show();
+            }
+            if (data.operadorRevision) {
+                $('#panelSinOperador').text(data.operadorRevision);
+                $('#panelSinOperadorRow').show();
+            } else {
+                $('#panelSinOperadorRow').hide();
+            }
+
+            // Badges del header (estado + aprobada/rechazada + número de versión)
+            var er = data.estadoRevision;
+            var estadoEf, badgeEf;
+            if (er === 'Sin Remitir' || er === 'Borrador') {
+                estadoEf = er; badgeEf = 'label-warning';
+            } else if (data.sinEstado) {
+                var s = data.sinEstado;
+                estadoEf = (s === 'Remitida' || s === 'Distribuida') ? s : 'Sin Remitir';
+                badgeEf  = s === 'Distribuida' ? 'label-success' : s === 'Remitida' ? 'label-info' : 'label-warning';
+            } else if (sesionEstado === 'Borrador') {
+                estadoEf = 'Borrador'; badgeEf = 'label-default';
+            } else if (sesionEstado === 'Remitida' || sesionEstado === 'Revisada') {
+                estadoEf = sesionEstado;
+                badgeEf  = sesionEstado === 'Revisada' ? 'label-success' : 'label-info';
+            } else {
+                estadoEf = er;
+                badgeEf  = er === 'Aprobada' ? 'label-success' : er === 'Descartada' ? 'label-danger' : 'label-default';
+            }
+            $('#headerEstadoBadge').attr('class', 'label ' + badgeEf).text(estadoEf);
+            if (er === 'Descartada') {
+                $('#headerAprobadaBadge').html('<span class="label label-danger"><i class="fa fa-times"></i> Rechazada</span>').show();
+            } else if (er === 'Aprobada') {
+                $('#headerAprobadaBadge').html('<span class="label label-success"><i class="fa fa-check"></i> Aprobada</span>').show();
+            } else {
+                $('#headerAprobadaBadge').hide();
+            }
+            $('#headerVersionBadge').text('v' + data.versionNum);
+
+            // Resaltar fila
+            $('.ver-row').removeClass('selected-ver active');
+            $row.addClass('selected-ver active');
+        });
+    </script>
+    <style>
+        .ver-row { cursor: pointer; }
+        .ver-row:hover { background: #f5f5f5; }
+        .ver-row.selected-ver { background: #d9edf7 !important; }
+        .ver-row.selected-ver td:first-child { border-left: 3px solid #3c8dbc; }
+        mark.diff-add {
+            background: rgba(80, 200, 100, 0.25);
+            padding: 0 1px;
+            border-radius: 2px;
+            font-style: normal;
+        }
+    </style>
+}

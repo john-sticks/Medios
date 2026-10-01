@@ -1,0 +1,124 @@
+@using Medios.Services
+@using Medios.Entities
+@model Sintesis
+
+@{
+    ViewData["Title"] = $"Traza — Síntesis #{Model.Id}";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var grupos = ViewBag.Grupos as List<TrazaGrupo> ?? new();
+
+    (string color, string icono, string etiqueta) Estilo(string evento) => evento switch
+    {
+        TrazaService.NotaCreada      => ("#00a65a", "fa-plus-circle", "Notas creadas"),
+        TrazaService.NotaModificada  => ("#3c8dbc", "fa-pencil", "Notas modificadas"),
+        TrazaService.NotaAmpliada    => ("#f39c12", "fa-expand", "Notas ampliadas"),
+        TrazaService.NotaAprobada    => ("#00a65a", "fa-check", "Notas aprobadas"),
+        TrazaService.NotaDescartada  => ("#dd4b39", "fa-times", "Notas descartadas"),
+        TrazaService.NotaEliminada   => ("#dd4b39", "fa-trash", "Notas eliminadas"),
+        TrazaService.NotaAgregada    => ("#605ca8", "fa-plus", "Notas agregadas (Medios)"),
+        TrazaService.SesionRemitida  => ("#00c0ef", "fa-send", "Sesiones remitidas"),
+        TrazaService.SesionRevisada  => ("#00a65a", "fa-check-square-o", "Sesiones revisadas"),
+        TrazaService.SesionFinalizada => ("#001f3f", "fa-flag-checkered", "Sesiones finalizadas"),
+        TrazaService.SintesisGenerada => ("#8B4513", "fa-file-text-o", "Síntesis generada"),
+        TrazaService.SintesisPdf     => ("#8B4513", "fa-file-pdf-o", "PDF de síntesis"),
+        TrazaService.SintesisRemitida => ("#f39c12", "fa-send", "Síntesis remitida"),
+        TrazaService.SintesisConsolidada => ("#605ca8", "fa-object-group", "Síntesis consolidada"),
+        TrazaService.SintesisInformada => ("#39cccc", "fa-bullhorn", "Síntesis informada / publicada"),
+        TrazaService.ConsolidacionRevertida => ("#dd4b39", "fa-undo", "Consolidación revertida"),
+        _ => ("#3c8dbc", "fa-circle", evento)
+    };
+    // SUPERVISOR/ANALISTA ya no son roles activos (fusionados en MEDIOS), pero eventos
+    // históricos previos a la migración guardan ese Rol tal cual se logueó en su momento —
+    // se conserva el color para no perder distinción visual en trazas viejas.
+    string RolColor(string? rol) => rol switch
+    {
+        "DELEGACION" => "#00c0ef",
+        "MEDIOS" or "SUPERVISOR" or "ANALISTA" => "#00a65a",
+        "DESARROLLADOR" => "#001f3f",
+        _ => "#777"
+    };
+}
+
+<div class="row">
+    <div class="col-md-10 col-md-offset-1">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title"><i class="fa fa-sitemap"></i> Traza de la Síntesis #@Model.Id</h3>
+                <div class="box-tools pull-right">
+                    <a href="javascript:history.back()" class="btn btn-default btn-sm"><i class="fa fa-arrow-left"></i> Volver</a>
+                    <a href="/Sintesis/Detalle/@Model.Id" class="btn btn-info btn-sm"><i class="fa fa-eye"></i> Ver síntesis</a>
+                </div>
+            </div>
+            <div class="box-body">
+                <div class="callout callout-info" style="margin-bottom:18px;">
+                    <h4 style="margin-top:0;">@Model.Tipo — @Model.Fecha.ToString("dd/MM/yyyy")</h4>
+                    <p style="margin:0;">
+                        @(Model.Delegacion?.Nombre ?? "Consolidada (División Medios)") ·
+                        @Model.NotasIncluidas.Count nota(s) ·
+                        Estado: <span class="label label-default">@Model.Estado</span>
+                    </p>
+                </div>
+
+                @if (!grupos.Any())
+                {
+                    <p class="text-muted"><i class="fa fa-info-circle"></i> No hay eventos de trazabilidad registrados para esta síntesis.</p>
+                }
+                else
+                {
+                    <ul class="timeline">
+                        @{ string? diaActual = null; }
+                        @foreach (var g in grupos)
+                        {
+                            var dia = g.Fecha.ToString("dd/MM/yyyy");
+                            if (dia != diaActual)
+                            {
+                                diaActual = dia;
+                                <li class="time-label"><span class="bg-blue">@dia</span></li>
+                            }
+                            var (color, icono, etiqueta) = Estilo(g.Evento);
+                            <li>
+                                <i class="fa @icono" style="background:@color; color:#fff;"></i>
+                                <div class="timeline-item">
+                                    <span class="time"><i class="fa fa-clock-o"></i> @g.Fecha.ToString("HH:mm")</span>
+                                    <h3 class="timeline-header" style="font-size:14px;">
+                                        @if (g.Cantidad > 1)
+                                        {
+                                            <span class="badge" style="background:@color;">@g.Cantidad</span>
+                                        }
+                                        <span class="label" style="background:@color; font-size:10px;">@etiqueta</span>
+                                        @if (!string.IsNullOrEmpty(g.Estado)) { <span class="label label-default" style="font-size:10px;">@g.Estado</span> }
+                                        @if (!string.IsNullOrEmpty(g.Delegacion)) { <span class="label label-info" style="font-size:10px;">@g.Delegacion</span> }
+                                        @if (!string.IsNullOrEmpty(g.Rol))
+                                        {
+                                            <span class="label" style="background:@RolColor(g.Rol); font-size:10px;">@g.Rol</span>
+                                        }
+                                        @if (!string.IsNullOrEmpty(g.Usuario)) { <small class="text-muted">— @g.Usuario</small> }
+                                    </h3>
+                                    @if (g.NotaIds.Any() || !string.IsNullOrEmpty(g.Detalle))
+                                    {
+                                        <div class="timeline-body" style="font-size:13px;">
+                                            @if (g.NotaIds.Any())
+                                            {
+                                                <span class="text-muted" style="font-size:12px;">Notas: </span>
+                                                @foreach (var nid in g.NotaIds.Take(15))
+                                                {
+                                                    <a href="/Traza/Detalle/@nid" class="label label-default" style="font-size:10px; margin-right:2px;">#@nid</a>
+                                                }
+                                                @if (g.NotaIds.Count > 15) { <span class="text-muted">…</span> }
+                                            }
+                                            @if (!string.IsNullOrEmpty(g.Detalle))
+                                            {
+                                                <div style="margin-top:3px;">@g.Detalle</div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </li>
+                        }
+                        <li><i class="fa fa-flag-checkered bg-gray"></i></li>
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+</div>

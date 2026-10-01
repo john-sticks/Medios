@@ -1,0 +1,77 @@
+@using Medios.Entities
+@{
+    var caratulas    = ViewBag.Caratulas as List<CaratulaQuiron> ?? new();
+    var curCaratula  = ViewBag.CurrentCaratulaId as int?;
+    var curModalidad = ViewBag.CurrentModalidadId as int?;
+}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="form-group">
+            <label>Carátula</label>
+            <select name="caratulaQuironId" id="selCaratula" class="form-control">
+                <option value="">— Sin carátula —</option>
+                @foreach (var c in caratulas)
+                {
+                    if (c.Id == curCaratula)
+                    { <option value="@c.Id" selected="selected">@c.Nombre</option> }
+                    else
+                    { <option value="@c.Id">@c.Nombre</option> }
+                }
+            </select>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="form-group">
+            <label>Modalidad</label>
+            <select name="modalidadQuironId" id="selModalidad" class="form-control" disabled>
+                <option value="">— Seleccioná carátula primero —</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var currentModalidadId = @(curModalidad.HasValue ? curModalidad.Value.ToString() : "null");
+
+    function cargarModalidades(caratulaId, seleccionarId) {
+        var sel = document.getElementById('selModalidad');
+        if (!caratulaId) {
+            sel.innerHTML = '<option value="">— Seleccioná carátula primero —</option>';
+            sel.disabled = true;
+            return;
+        }
+        fetch('/Sesion/ModalidadesByCaratula?caratulaId=' + encodeURIComponent(caratulaId))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var opts = '<option value="">— Sin modalidad —</option>';
+                data.forEach(function(m) {
+                    var selected = (seleccionarId && m.id == seleccionarId) ? ' selected' : '';
+                    opts += '<option value="' + m.id + '"' + selected + '>' + m.nombre + '</option>';
+                });
+                sel.innerHTML = opts;
+                sel.disabled = false;
+            });
+    }
+
+    function initSelects() {
+        var selCar = document.getElementById('selCaratula');
+        if (!selCar) return;
+
+        selCar.addEventListener('change', function() {
+            cargarModalidades(this.value, null);
+        });
+
+        if (selCar.value) {
+            cargarModalidades(selCar.value, currentModalidadId);
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSelects);
+    } else {
+        initSelects();
+    }
+})();
+</script>

@@ -1,0 +1,78 @@
+@{
+    Layout = null;
+    var codigo = ViewBag.Codigo as string ?? "";
+    var nombre = ViewBag.Nombre as string ?? "";
+    var yaExistia = (bool)(ViewBag.YaExistia ?? false);
+    var solicitudId = (int)(ViewBag.SolicitudId ?? 0);
+    var revalida = (bool)(ViewBag.Revalida ?? false);
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Solicitud registrada — División Medios</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    <style>
+        body { background: #2c3e50; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+        .msg-box { background: #fff; border-radius: 6px; padding: 40px; width: 460px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); text-align: center; }
+        .msg-box h3 { margin-top: 8px; color: #2c3e50; }
+        .icono { font-size: 54px; color: #27ae60; }
+        .codigo { font-size: 30px; font-weight: bold; letter-spacing: 8px; color: #2c3e50; background: #ecf0f1; border-radius: 6px; padding: 12px; margin: 16px 0; }
+        .nota { color: #7f8c8d; font-size: 13px; }
+        .btn-volver { background: #2980b9; color: #fff; padding: 9px 20px; border: none; border-radius: 4px; font-size: 14px; text-decoration: none; display: inline-block; margin-top: 8px; }
+        .btn-volver:hover { background: #1f6391; color: #fff; text-decoration: none; }
+        .btn-descargar { background: #27ae60; color: #fff; padding: 10px 22px; border: none; border-radius: 4px; font-size: 14px; text-decoration: none; display: inline-block; }
+        .btn-descargar:hover { background: #1e8449; color: #fff; text-decoration: none; }
+    </style>
+</head>
+<body>
+    <div class="msg-box">
+        @if (revalida)
+        {
+            <i class="fa fa-refresh icono" style="color:#e67e22;"></i>
+            <h3>Tu acceso fue desactivado</h3>
+            <p style="color:#555;">
+                @if (!string.IsNullOrEmpty(nombre)) { <strong>@nombre</strong><text>, t</text> } else { <text>T</text> }u acceso al sistema
+                fue desactivado por un administrador. Generamos una <strong>solicitud de revalidación</strong>
+                que un <strong>administrador</strong> deberá aprobar para restablecer tu acceso.
+            </p>
+        }
+        else
+        {
+            <i class="fa fa-check-circle icono"></i>
+            <h3>@(yaExistia ? "Tu solicitud ya estaba registrada" : "Solicitud registrada")</h3>
+            <p style="color:#555;">
+                @if (!string.IsNullOrEmpty(nombre)) { <strong>@nombre</strong><text>, t</text> } else { <text>T</text> }u acceso al sistema
+                quedó pendiente de aprobación. Un <strong>administrador</strong> revisará tu solicitud
+                y te asignará un <strong>ámbito de trabajo</strong>.
+            </p>
+        }
+
+        @if (!string.IsNullOrEmpty(codigo))
+        {
+            <p class="nota" style="margin-bottom:4px;">Código de verificación de tu solicitud:</p>
+            <div class="codigo">@codigo</div>
+            <p class="nota">Comunicá este código al administrador para que apruebe tu acceso.</p>
+        }
+
+        @if (solicitudId > 0)
+        {
+            <p class="nota" style="margin-top:16px;">
+                Descargá la autorización, <strong>firmala</strong> y presentala al administrador junto con el código.
+            </p>
+            <a href="/Autorizacion/Imprimir/@solicitudId?codigo=@codigo" target="_blank" class="btn-descargar">
+                <i class="fa fa-download"></i> Descargar autorización para firmar
+            </a>
+        }
+
+        <p class="nota" style="margin-top:18px;">
+            <i class="fa fa-info-circle"></i>
+            No tenés acceso al sistema hasta que tu solicitud sea aprobada.
+        </p>
+
+        <a href="/Login" class="btn-volver"><i class="fa fa-arrow-left"></i> Volver al inicio</a>
+    </div>
+</body>
+</html>

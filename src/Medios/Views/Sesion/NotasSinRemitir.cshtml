@@ -1,0 +1,190 @@
+@using Medios.Entities
+@model List<NotaPrensa>
+
+@{
+    ViewData["Title"] = "Notas sin informar";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var borradores = ViewBag.Borradores as List<SesionPrensa> ?? new List<SesionPrensa>();
+    var borradorPorNota = ViewBag.BorradorPorNota as Dictionary<int, SesionPrensa> ?? new Dictionary<int, SesionPrensa>();
+}
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
+}
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="box box-warning">
+            <div class="box-header with-border">
+                <h3 class="box-title">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    Notas sin informar (@Model.Count)
+                </h3>
+                <div class="box-tools pull-right">
+                    <a href="/Sesion/Mias" class="btn btn-xs btn-default"><i class="fa fa-arrow-left"></i> Volver</a>
+                </div>
+            </div>
+            <div class="box-body">
+                <p class="text-muted" style="font-size:13px; margin-bottom:16px;">
+                    Estas notas fueron <strong>ampliadas o rechazadas</strong> y su versión actual no está en ninguna síntesis.
+                    Revisá el motivo (si fue rechazada), corregí el contenido y agregala a un borrador para remitirla, o eliminala.
+                </p>
+
+                @if (!Model.Any())
+                {
+                    <p class="text-muted">No hay notas pendientes de informar.</p>
+                }
+
+                @foreach (var nota in Model)
+                {
+                    var v = nota.VersionActual;
+                    var enBorrador = borradorPorNota.TryGetValue(nota.Id, out var sesionActual);
+                    var otrosBorradores = borradores.Where(b => !enBorrador || b.Id != sesionActual!.Id).ToList();
+
+                    <div class="box box-default" style="margin-bottom:12px;">
+                        <div class="box-header with-border" style="padding:8px 14px; background:#fffdf0;">
+                            <h4 class="box-title" style="font-size:14px;">
+                                @if (!string.IsNullOrEmpty(v?.MotivoDescarte))
+                                {
+                                    <span class="label bg-red" style="font-size:10px;"><i class="fa fa-ban"></i> Rechazada — v@(v?.Version)</span>
+                                }
+                                else
+                                {
+                                    <span class="label bg-orange" style="font-size:10px;"><i class="fa fa-refresh"></i> Sin informar — v@(v?.Version)</span>
+                                }
+                                &nbsp;
+                                <a href="/NotaBuscador/Detalle/@nota.Id" style="color:#333;">@v?.Titulo</a>
+                                <a href="/NotaBuscador/Detalle/@nota.Id" target="_blank" style="font-size:11px; margin-left:6px; color:#aaa;">
+                                    <i class="fa fa-external-link"></i>
+                                </a>
+                            </h4>
+                            <div class="box-tools pull-right">
+                                <small class="text-muted">
+                                    @nota.Sesion?.Fecha.ToString("dd/MM/yyyy") &nbsp;·&nbsp;
+                                    <strong>@v?.Categoria?.Nombre</strong>
+                                    @if (v?.Partido != null) { <span> — @v.Partido.Nombre</span> }
+                                    @if (v?.Localidad != null) { <span> / @v.Localidad.Nombre</span> }
+                                </small>
+                            </div>
+                        </div>
+                        <div class="box-body" style="padding:12px 14px;">
+
+                            @if (!string.IsNullOrEmpty(v?.MotivoDescarte))
+                            {
+                                <div style="background:#f2dede; border-left:4px solid #a94442; padding:8px 12px; margin-bottom:10px; border-radius:0 3px 3px 0;">
+                                    <i class="fa fa-ban text-danger"></i>
+                                    <strong class="text-danger">Motivo del rechazo:</strong>
+                                    <span style="color:#a94442;">@v.MotivoDescarte</span>
+                                </div>
+                            }
+
+                            @if (v?.FechaNoticia.HasValue == true)
+                            {
+                                <div style="font-size:12px; color:#3c8dbc; margin-bottom:6px;">
+                                    <i class="fa fa-clock-o"></i> @v.FechaNoticia.Value.ToString("dd/MM/yyyy HH:mm")
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(v?.ResumenCambio))
+                            {
+                                <div style="background:#d9edf7; border-left:3px solid #31708f; padding:6px 10px; margin-bottom:8px; font-size:12px; border-radius:0 3px 3px 0;">
+                                    <i class="fa fa-info-circle text-info"></i> <em>@v.ResumenCambio</em>
+                                </div>
+                            }
+
+                            <p style="white-space:pre-wrap; font-size:13px; color:#444;">@v?.Texto</p>
+
+                            @if (!string.IsNullOrEmpty(v?.Sintesis))
+                            {
+                                <div style="background:#f9f9f9; border-left:3px solid #3c8dbc; padding:8px 12px; margin:8px 0; font-size:12px;">
+                                    <i class="fa fa-magic text-muted"></i> <strong>Síntesis IA:</strong> @v.Sintesis
+                                </div>
+                            }
+
+                            @if (!string.IsNullOrEmpty(v?.Fuente) || !string.IsNullOrEmpty(v?.Link))
+                            {
+                                <div style="font-size:12px; color:#666; margin-top:6px;">
+                                    @if (!string.IsNullOrEmpty(v?.Fuente)) { <span><i class="fa fa-tag"></i> @v.Fuente &nbsp;</span> }
+                                    @if (!string.IsNullOrEmpty(v?.Link)) { <span><i class="fa fa-link"></i> <a href="@v.Link" target="_blank">@v.Link</a></span> }
+                                </div>
+                            }
+
+                            <!-- Acción: agregar a borrador -->
+                            <div style="margin-top:12px; padding-top:10px; border-top:1px solid #eee;">
+                                @if (enBorrador)
+                                {
+                                    <span class="label label-success" style="font-size:12px; padding:5px 8px;">
+                                        <i class="fa fa-check"></i> En borrador: @sesionActual!.Fecha.ToString("dd/MM") @sesionActual.Turno
+                                    </span>
+                                    @if (otrosBorradores.Any())
+                                    {
+                                        <form method="post" asp-controller="Sesion" asp-action="CambiarBorrador" style="display:inline; margin-left:8px;">
+                                            <input type="hidden" name="notaOrigenId" value="@nota.Id" />
+                                            @if (otrosBorradores.Count == 1)
+                                            {
+                                                <input type="hidden" name="nuevaSesionId" value="@otrosBorradores[0].Id" />
+                                                <button type="submit" class="btn btn-xs btn-default">
+                                                    <i class="fa fa-exchange"></i> Mover a @otrosBorradores[0].Fecha.ToString("dd/MM") @otrosBorradores[0].Turno
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <select name="nuevaSesionId" class="form-control input-sm" style="width:auto;display:inline-block;vertical-align:middle;margin-right:4px;">
+                                                    @foreach (var b in otrosBorradores) { <option value="@b.Id">@b.Fecha.ToString("dd/MM") @b.Turno</option> }
+                                                </select>
+                                                <button type="submit" class="btn btn-xs btn-default"><i class="fa fa-exchange"></i> Mover</button>
+                                            }
+                                        </form>
+                                    }
+                                }
+                                else if (borradores.Any())
+                                {
+                                    <form method="post" asp-controller="Sesion" asp-action="AgregarNotaActualizada" style="display:inline;">
+                                        <input type="hidden" name="notaOrigenId" value="@nota.Id" />
+                                        <input type="hidden" name="returnUrl" value="/Sesion/NotasSinRemitir" />
+                                        @if (borradores.Count == 1)
+                                        {
+                                            <input type="hidden" name="sesionId" value="@borradores[0].Id" />
+                                            <button type="submit" class="btn btn-sm btn-primary">
+                                                <i class="fa fa-plus"></i> Agregar a borrador
+                                                <small class="text-muted">(@borradores[0].Fecha.ToString("dd/MM") @borradores[0].Turno)</small>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <select name="sesionId" class="form-control input-sm" style="width:auto;display:inline-block;vertical-align:middle;margin-right:6px;">
+                                                @foreach (var b in borradores) { <option value="@b.Id">@b.Fecha.ToString("dd/MM") @b.Turno</option> }
+                                            </select>
+                                            <button type="submit" class="btn btn-sm btn-primary"><i class="fa fa-plus"></i> Agregar a borrador</button>
+                                        }
+                                    </form>
+                                }
+                                else
+                                {
+                                    <a href="/Sesion/Nueva" class="btn btn-sm btn-default"><i class="fa fa-plus"></i> Crear borrador primero</a>
+                                }
+                                &nbsp;
+                                <a href="/NotaBuscador/Detalle/@nota.Id" class="btn btn-sm btn-default">
+                                    <i class="fa fa-eye"></i> Ver detalle completo
+                                </a>
+                                <form method="post" asp-controller="Sesion" asp-action="EliminarNotaSinRemitir"
+                                      style="display:inline; margin-left:4px;"
+                                      onsubmit="return confirm('¿Eliminar esta nota? Esta acción no puede deshacerse.')">
+                                    <input type="hidden" name="notaId" value="@nota.Id" />
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="fa fa-trash"></i> Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

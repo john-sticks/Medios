@@ -1,0 +1,185 @@
+@using Medios.Entities
+@model Delegacion
+
+@{
+    ViewData["Title"] = "Editar Delegación";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var portalesJson = (string)(ViewBag.PortalesJson ?? "[]");
+    var usuarios = ViewBag.Usuarios as List<AutorizacionUsuario> ?? new List<AutorizacionUsuario>();
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="box box-primary">
+            <div class="box-header with-border">
+                <h3 class="box-title">@ViewData["Title"]</h3>
+            </div>
+            <div class="box-body">
+                <!-- Datos de solo lectura: se gestionan en otros módulos -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Delegación</label>
+                            <p class="form-control-static"><strong>@(Model.DelegacionPrometheus?.Nombre ?? Model.Nombre)</strong></p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Superintendencia <small class="text-muted">(se gestiona en Partidos)</small></label>
+                            <p class="form-control-static">@(Model.AreaResponsabilidad?.AmbitoResponsabilidad ?? "— sin asignar —")</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>
+                        Usuarios asignados <small class="text-muted">(se asignan en Autorizaciones)</small>
+                        <span class="badge" style="background-color:#605ca8;">@usuarios.Count</span>
+                    </label>
+                    @if (usuarios.Count == 0)
+                    {
+                        <p class="form-control-static"><span class="text-muted">— sin usuarios asignados —</span></p>
+                    }
+                    else
+                    {
+                        <table class="table table-bordered table-condensed" style="margin-bottom:0;">
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Nombre</th>
+                                    <th>Legajo</th>
+                                    <th>Rol</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var u in usuarios)
+                                {
+                                    <tr>
+                                        <td><span class="label label-info">@u.Usuario</span></td>
+                                        <td>@u.Nombre</td>
+                                        <td>@(string.IsNullOrEmpty(u.Legajo) ? "—" : u.Legajo)</td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(u.Rol))
+                                            { <span class="label" style="background-color:#605ca8;">@u.Rol</span> }
+                                            else { <span class="text-muted">—</span> }
+                                        </td>
+                                        <td>
+                                            @if (u.Activo)
+                                            { <span class="label label-success">Activo</span> }
+                                            else { <span class="label label-default">Inactivo</span> }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    }
+                </div>
+                <hr />
+
+                <form method="post" asp-controller="Delegacion" asp-action="Editar"
+                      asp-route-id="@Model.Id">
+
+                    <!-- Email de contacto (para informar síntesis por correo) -->
+                    <div class="form-group">
+                        <label>Email de contacto</label>
+                        <input type="email" name="email" class="form-control" value="@Model.Email"
+                               placeholder="delegacion@dominio.gov.ar" />
+                        <small class="text-muted">Se usa para enviar las síntesis consolidadas por correo en Síntesis → Informar.</small>
+                    </div>
+
+                    <!-- Portales de prensa (único campo editable) -->
+                    <div class="form-group">
+                        <label>
+                            Portales de prensa monitoreados
+                            <small class="text-muted"> — URLs que esta delegación revisa diariamente</small>
+                        </label>
+                        <input type="hidden" name="portalesJson" id="portalesJson" value="@portalesJson" />
+
+                        <div id="listaPortales" style="margin-bottom:8px;"></div>
+
+                        <div class="input-group">
+                            <input type="url" id="nuevoPortal" class="form-control"
+                                   placeholder="https://www.diario.com.ar" />
+                            <span class="input-group-btn">
+                                <button type="button" class="btn btn-default" onclick="agregarPortal()">
+                                    <i class="fa fa-plus"></i> Agregar
+                                </button>
+                            </span>
+                        </div>
+                    </div>
+
+                    <hr />
+                    <h4><i class="fa fa-cloud"></i> Sincronización / contingencia (Google Drive)</h4>
+                    <p class="text-muted" style="font-size:12px;">
+                        IDs de las planillas de respuestas de Google Forms desde donde el sistema
+                        captura notas y síntesis de esta delegación. El ID está en la URL de la planilla:
+                        <code>docs.google.com/spreadsheets/d/<strong>ESTE_ID</strong>/edit</code>.
+                        Compartí cada planilla con el email de la cuenta de servicio (rol Editor).
+                    </p>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Planilla de Notas (ID)</label>
+                                <input type="text" name="driveSheetNotas" class="form-control"
+                                       value="@Model.DriveSheetNotas" placeholder="1AbC...xyz" />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label>Planilla de Síntesis (ID)</label>
+                                <input type="text" name="driveSheetSintesis" class="form-control"
+                                       value="@Model.DriveSheetSintesis" placeholder="1AbC...xyz" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:16px;">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-save"></i> Guardar
+                        </button>
+                        <a href="/Delegacion/Listado" class="btn btn-default">Cancelar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    var portales = @Html.Raw(portalesJson);
+
+    function renderPortales() {
+        var cont = document.getElementById('listaPortales');
+        cont.innerHTML = '';
+        portales.forEach(function(url, i) {
+            cont.innerHTML += '<div class="input-group" style="margin-bottom:4px;">' +
+                '<span class="input-group-addon"><i class="fa fa-link"></i></span>' +
+                '<input type="text" class="form-control" value="' + url + '" readonly />' +
+                '<span class="input-group-btn">' +
+                '<button type="button" class="btn btn-danger btn-sm" onclick="quitarPortal(' + i + ')"><i class="fa fa-trash"></i></button>' +
+                '</span></div>';
+        });
+        document.getElementById('portalesJson').value = JSON.stringify(portales);
+    }
+
+    function agregarPortal() {
+        var url = document.getElementById('nuevoPortal').value.trim();
+        if (!url) return;
+        portales.push(url);
+        document.getElementById('nuevoPortal').value = '';
+        renderPortales();
+    }
+
+    function quitarPortal(i) {
+        portales.splice(i, 1);
+        renderPortales();
+    }
+
+    renderPortales();
+
+    document.getElementById('nuevoPortal').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') { e.preventDefault(); agregarPortal(); }
+    });
+</script>
+}
