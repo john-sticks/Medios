@@ -426,8 +426,8 @@ namespace Medios.Controllers
                 await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "sesiones_prensa", "POST", "publicar_sintesis",
                     new { sesionId = id, sintesisId });
 
-                TempData["Ok"] = "Síntesis publicada. Generá el PDF para poder remitirla.";
-                return RedirectToAction("Detalle", "Sintesis", new { id = sintesisId });
+                TempData["Ok"] = "Síntesis creada. En Generadas podés generar el PDF y luego remitirla.";
+                return Redirect("/Sintesis/Listado#generadas");
             }
             catch (Exception ex)
             {

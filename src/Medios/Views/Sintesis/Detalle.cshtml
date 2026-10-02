@@ -91,7 +91,7 @@
                             _           => "bg-gray"
                         };
                     }
-                    &nbsp;<span class="label @estadoBadge">@Model.Estado</span>
+                    &nbsp;<span class="label @estadoBadge">@(Model.Estado == "Borrador" ? "Pendiente de PDF" : Model.Estado)</span>
                 </h3>
                 <div class="box-tools">
                     @if (esConsolidada && esMedios)

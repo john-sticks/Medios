@@ -7,6 +7,7 @@
     var puedeCrear = User.IsInRole("MEDIOS");
     var puedeModificar = puedeCrear || User.IsInRole("DELEGACION");
     var puedeRemitir = puedeCrear || User.IsInRole("DELEGACION");
+    var puedeGenerar = puedeCrear || User.IsInRole("DELEGACION");
     var esDelegacion = User.IsInRole("DELEGACION");
     var notasRechazadasGlobal = esDelegacion
         ? (ViewBag.NotasRechazadas as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>())
@@ -14,8 +15,7 @@
 
     // Clasificación de síntesis para solapas (solo DELEGACION)
     static string Clasificar(Sintesis s) {
-        if (s.Estado == "Borrador") return "borrador";
-        if (s.Estado == "Generada") return "generada";
+        if (s.Estado is "Borrador" or "Generada") return "generada";
         var notas = s.NotasIncluidas;
         if (!notas.Any()) return "remitida";
 
@@ -57,17 +57,10 @@
                         var cntRemitida    = Model.Count(s => Clasificar(s) == "remitida");
                         var cntAprobada    = Model.Count(s => Clasificar(s) == "aprobada");
                         var cntDescartadas = notasRechazadasGlobal.Count(); // notas individuales rechazadas
-                        var cntBorrador    = Model.Count(s => Clasificar(s) == "borrador");
                     }
                     <a href="#" class="btn btn-sm btn-default tab-sint active-tab" data-tab="todas">
                         <i class="fa fa-list"></i> Todas <span class="badge">@Model.Count</span>
                     </a>
-                    @if (cntBorrador > 0)
-                    {
-                        <a href="#" class="btn btn-sm btn-default tab-sint" data-tab="borrador" style="margin-left:4px;">
-                            <i class="fa fa-pencil"></i> Borrador <span class="badge bg-gray">@cntBorrador</span>
-                        </a>
-                    }
                     <a href="#" class="btn btn-sm btn-default tab-sint" data-tab="generada" style="margin-left:4px;">
                         <i class="fa fa-file-pdf-o"></i> Generadas <span class="badge bg-light-blue">@cntGenerada</span>
                     </a>
@@ -119,7 +112,7 @@
                                 <tr data-clase="@Clasificar(s)">
                                     <td><strong>@s.Fecha.ToString("dd/MM/yyyy")</strong></td>
                                     <td>@s.Tipo</td>
-                                    <td><span class="label @estadoClass">@s.Estado</span></td>
+                                    <td><span class="label @estadoClass">@(s.Estado == "Borrador" ? "Pendiente de PDF" : s.Estado)</span></td>
                                     <td>
                                         <span class="badge bg-blue" title="@totalNotas notas">@totalNotas</span>
                                         @if (!esDelegacion || esAprobada)
@@ -140,6 +133,15 @@
                                             <a href="/Sintesis/DescargarPdf/@s.Id" class="btn btn-danger btn-xs">
                                                 <i class="fa fa-file-pdf-o"></i> PDF
                                             </a>
+                                        }
+                                        @if (puedeGenerar && (s.Estado is "Borrador" or "Generada") && string.IsNullOrEmpty(s.PDFPath))
+                                        {
+                                            <form method="post" action="/Sintesis/GenerarPdf" style="display:inline">
+                                                <input type="hidden" name="id" value="@s.Id" />
+                                                <button type="submit" class="btn btn-danger btn-xs">
+                                                    <i class="fa fa-file-pdf-o"></i> Generar PDF
+                                                </button>
+                                            </form>
                                         }
                                         @if (puedeRemitir && s.Estado == "Generada")
                                         {
@@ -226,8 +228,8 @@
 @section Scripts {
     <script>
         $(function () {
-            // Activar "Todas" al cargar
-            activarTab($('.tab-sint[data-tab="todas"]'));
+            var tabInicial = window.location.hash === '#generadas' ? 'generada' : 'todas';
+            activarTab($('.tab-sint[data-tab="' + tabInicial + '"]'));
 
             $('.tab-sint').on('click', function (e) {
                 e.preventDefault();
@@ -239,7 +241,7 @@
 
                 // Resetear todos los botones a su estilo original
                 $('.tab-sint').each(function () {
-                    $(this).removeClass('btn-primary btn-success btn-danger btn-warning active-tab');
+                    $(this).removeClass('btn-primary btn-success btn-danger btn-warning btn-info active-tab');
                     $(this).addClass('btn-default');
                 });
 

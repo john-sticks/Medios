@@ -397,7 +397,7 @@
                 {
                     <div class="box-tools">
                         <form method="post" asp-controller="Sesion" asp-action="GenerarPdf" style="display:inline"
-                              onsubmit="return confirm('¿Publicar como Síntesis?\n\nEl borrador se marcará como remitido y se generará el PDF.\nPodrás remitirla desde el detalle de la síntesis.')">
+                              onsubmit="return confirm('¿Publicar como Síntesis?\n\nLa síntesis aparecerá en Generadas.\nDesde allí podrás generar el PDF y luego remitirla.')">
                             <input type="hidden" name="id" value="@Model.Id" />
                             <button type="submit" class="btn btn-danger btn-sm">
                                 <i class="fa fa-file-pdf-o"></i> Publicar como Síntesis
