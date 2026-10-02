@@ -23,6 +23,16 @@ namespace Medios.Services
             return ultima?.Estado;
         }
 
+        public async Task<AutorizacionUsuario?> GetUltimaAsync(string usuario)
+        {
+            using var db = _factory.Create();
+            return await db.AutorizacionesUsuario.AsNoTracking()
+                .Where(a => a.Usuario == usuario)
+                .OrderByDescending(a => a.FechaSolicitud)
+                .ThenByDescending(a => a.Id)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<AutorizacionUsuario?> GetPendiente(string usuario)
         {
             using var db = _factory.Create();

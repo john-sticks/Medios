@@ -2,6 +2,7 @@ namespace Medios.Security
 {
     public interface IAuthService
     {
+        bool UsaAutorizacionLocal => false;
         Task<LoginResponse?> LoginAsync(string usuario, string password);
         Task<UserSession?> GetUserInfo(string token);
     }

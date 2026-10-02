@@ -27,6 +27,9 @@ jobs:
       - name: Build
         run: dotnet build Medios.sln --configuration Release --no-restore
 
+      - name: Check authentication and local authorization
+        run: dotnet run --project tests/Medios.AuthChecks/Medios.AuthChecks.csproj --configuration Release
+
       - name: Build production image
         run: docker build --tag medios:validate .
 

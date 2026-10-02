@@ -6,6 +6,7 @@ namespace Medios.Security
 {
     public class CerberusAuthService : IAuthService
     {
+        public bool UsaAutorizacionLocal => true;
         private readonly HttpClient _http;
         private readonly string _baseUrl;
         private readonly string _apiKey;
@@ -35,7 +36,8 @@ namespace Medios.Security
             var result = JsonSerializer.Deserialize<TokenResponse>(content,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            return new LoginResponse { Usuario = usuario, Token = result?.access_token };
+            if (string.IsNullOrWhiteSpace(result?.access_token)) return null;
+            return new LoginResponse { Usuario = usuario, Token = result.access_token };
         }
 
         public async Task<UserSession?> GetUserInfo(string token)

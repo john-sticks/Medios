@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Medios.Security;
 using Medios.Services;
+using Medios.Entities;
 using System.Security.Claims;
 
 namespace Medios.Controllers
@@ -45,6 +46,7 @@ namespace Medios.Controllers
         {
             if (msg == "expired") ViewBag.Error = "Sesión expirada";
             else if (msg == "desactivada") ViewBag.Error = "Tu acceso fue desactivado. Contactá al administrador.";
+            else if (msg == "permisos_actualizados") ViewBag.Error = "Tus permisos cambiaron. Ingresá nuevamente.";
             return View();
         }
 
@@ -57,9 +59,10 @@ namespace Medios.Controllers
                 return View();
             }
 
+            Usuario = Usuario.Trim();
             var loginResult = await _auth.LoginAsync(Usuario, Password);
 
-            if (loginResult == null || string.IsNullOrEmpty(loginResult.Token))
+            if (loginResult == null || string.IsNullOrWhiteSpace(loginResult.Token))
             {
                 await _auditoria.RegistrarAsync(Usuario, GetIp(), "auth", "POST", "login_fallido",
                     new { usuario_intentado = Usuario });
@@ -67,7 +70,24 @@ namespace Medios.Controllers
                 return View();
             }
 
-            var user = await _auth.GetUserInfo(loginResult.Token);
+            // Cerberus valida credenciales; el acceso y el perfil operativo son locales.
+            // No consultar info-servicio, que requiere una asignación previa en Cerberus.
+            var usaAutorizacionLocal = _auth.UsaAutorizacionLocal;
+            var local = usaAutorizacionLocal
+                ? await _autorizacionService.GetUltimaAsync(Usuario)
+                : null;
+            var user = usaAutorizacionLocal
+                ? new UserSession
+                {
+                    Nombre = string.IsNullOrWhiteSpace(local?.Nombre) ? Usuario : local.Nombre,
+                    Email = local?.Email ?? "",
+                    Dependencia = local?.Destino ?? "",
+                    Jerarquia = local?.Jerarquia ?? "",
+                    Legajo = local?.Legajo ?? "",
+                    Telefono = local?.Telefono ?? "",
+                    Token = loginResult.Token
+                }
+                : await _auth.GetUserInfo(loginResult.Token);
 
             if (user == null)
             {
@@ -78,11 +98,28 @@ namespace Medios.Controllers
             var rolCerberus = user.Rol.ToUpper().Trim();
             var rolAuth = NormalizeCerberusRole(rolCerberus);
             var rolesConAutorizacion = new[] { "MEDIOS", "DELEGACION" };
+            var requiereAutorizacion = usaAutorizacionLocal || rolesConAutorizacion.Contains(rolAuth);
+
+            if (usaAutorizacionLocal && local?.Estado == "aprobada")
+            {
+                if (!local.Activo)
+                {
+                    ViewBag.Error = "Tu acceso a Medios fue desactivado. Contactá al administrador.";
+                    return View();
+                }
+                if (!AutorizacionLocalPolicy.RolValido(local.Rol))
+                {
+                    ViewBag.Error = "Tu autorización de Medios necesita un rol válido. Contactá al administrador.";
+                    return View();
+                }
+            }
 
             // Autorización aprobada del usuario (rol efectivo, delegación y ámbito asignados por el admin)
-            var aprobada = rolesConAutorizacion.Contains(rolAuth)
-                ? await _autorizacionService.GetAprobadaAsync(Usuario)
-                : null;
+            AutorizacionUsuario? aprobada = null;
+            if (usaAutorizacionLocal)
+                aprobada = AutorizacionLocalPolicy.PermiteAcceso(local) ? local : null;
+            else if (rolesConAutorizacion.Contains(rolAuth))
+                aprobada = await _autorizacionService.GetAprobadaAsync(Usuario);
             var rolEfectivo = !string.IsNullOrWhiteSpace(aprobada?.Rol)
                 ? aprobada!.Rol!.ToUpper().Trim()
                 : rolAuth;
@@ -153,14 +190,11 @@ namespace Medios.Controllers
 
             var identity = new ClaimsIdentity(claims, "Cookies");
             var principal = new ClaimsPrincipal(identity);
-            await HttpContext.SignInAsync("Cookies", principal);
 
-            await _auditoria.RegistrarAsync($"{user.Nombre} {user.Apellido}".Trim(), GetIp(), "auth", "POST", "login");
-
-            // Verificar autorización para roles que la requieren (según el rol del proveedor de auth)
-            if (rolesConAutorizacion.Contains(rolAuth))
+            // En Cerberus todos los roles necesitan autorización local, incluido DESARROLLADOR.
+            if (requiereAutorizacion)
             {
-                var estado = await _autorizacionService.GetEstado(Usuario);
+                var estado = usaAutorizacionLocal ? local?.Estado : await _autorizacionService.GetEstado(Usuario);
 
                 // Acceso OK solo si está aprobado Y activo. Si fue desactivado, debe revalidar.
                 var accesoOk = estado == "aprobada" && aprobada != null && aprobada.Activo;
@@ -209,6 +243,8 @@ namespace Medios.Controllers
                 return RedirectToAction("SinAmbito", "Home");
             }
 
+            await HttpContext.SignInAsync("Cookies", principal);
+            await _auditoria.RegistrarAsync($"{user.Nombre} {user.Apellido}".Trim(), GetIp(), "auth", "POST", "login");
             return RedirectToAction("Index", "Home");
         }
 
