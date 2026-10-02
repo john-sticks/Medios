@@ -23,7 +23,6 @@
                     <thead>
                         <tr>
                             <th>Delegación</th>
-                            <th>Superintendencia</th>
                             <th>Partidos</th>
                             <th>Usuarios</th>
                             <th>Portales</th>
@@ -41,14 +40,10 @@
                             <tr>
                                 <td><strong>@(d.DelegacionPrometheus?.Nombre ?? d.Nombre)</strong></td>
                                 <td>
-                                    @if (d.AreaResponsabilidad != null)
-                                    { <span class="label label-primary">@d.AreaResponsabilidad.AmbitoResponsabilidad</span> }
-                                    else { <span class="text-muted">— sin asignar —</span> }
-                                </td>
-                                <td>
                                     @if (d.Partidos.Count > 0)
                                     {
-                                        <span class="badge bg-green" title="@d.Partidos.Count partido(s) vinculado(s)">@d.Partidos.Count</span>
+                                        <a asp-controller="Partido" asp-action="Listado" asp-route-delegacionId="@d.Id"
+                                           class="badge bg-green" title="Ver partidos asignados">@d.Partidos.Count</a>
                                     }
                                     else { <span class="text-muted">—</span> }
                                 </td>

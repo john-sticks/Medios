@@ -23,31 +23,31 @@ namespace Medios.Controllers
             Request.Headers["X-Forwarded-For"].FirstOrDefault()
             ?? HttpContext.Connection.RemoteIpAddress?.MapToIPv4().ToString() ?? "";
 
+        private static IQueryable<Delegacion> DelegacionesDisponibles(MediosDbContext db) =>
+            db.Delegaciones.Where(d => d.Activa
+                && (d.DelegacionPrometheusId != null || d.Nombre != "Superintendencia"));
+
         [HasPermission("ADMINISTRAR_CATALOGOS")]
-        public async Task<IActionResult> Listado(string? q, int? delegacionId, int? superintendenciaId)
+        public async Task<IActionResult> Listado(string? q, int? delegacionId)
         {
             ViewData["Title"] = "Partidos";
             using var db = _factory.Create();
 
             var query = db.Partidos
                 .Include(p => p.Delegacion)
-                .Include(p => p.AreaResponsabilidad)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(q))
                 query = query.Where(p => p.Nombre.Contains(q));
             if (delegacionId.HasValue)
                 query = query.Where(p => p.DelegacionId == delegacionId.Value);
-            if (superintendenciaId.HasValue)
-                query = query.Where(p => p.IdAreaResponsabilidad == superintendenciaId.Value);
 
             var partidos = await query.OrderBy(p => p.Nombre).ToListAsync();
 
-            ViewBag.Delegaciones = await db.Delegaciones.Where(d => d.Activa).OrderBy(d => d.Nombre).ToListAsync();
-            ViewBag.Superintendencias = await db.AreasResponsabilidad.OrderBy(a => a.AmbitoResponsabilidad).ToListAsync();
+            ViewBag.Delegaciones = await DelegacionesDisponibles(db)
+                .OrderBy(d => d.Nombre).ToListAsync();
             ViewBag.FiltroQ = q;
             ViewBag.FiltroDelegacionId = delegacionId;
-            ViewBag.FiltroSuperintendenciaId = superintendenciaId;
 
             return View(partidos);
         }
@@ -60,29 +60,33 @@ namespace Medios.Controllers
             using var db = _factory.Create();
             var partido = await db.Partidos
                 .Include(p => p.Delegacion)
-                .Include(p => p.AreaResponsabilidad)
                 .FirstOrDefaultAsync(p => p.IdPartido == id);
             if (partido == null) return NotFound();
 
-            ViewBag.Delegaciones = await db.Delegaciones.Where(d => d.Activa).OrderBy(d => d.Nombre).ToListAsync();
-            ViewBag.Superintendencias = await db.AreasResponsabilidad.OrderBy(a => a.AmbitoResponsabilidad).ToListAsync();
+            ViewBag.Delegaciones = await DelegacionesDisponibles(db)
+                .OrderBy(d => d.Nombre).ToListAsync();
             return View(partido);
         }
 
         [HasPermission("ADMINISTRAR_CATALOGOS")]
         [HttpPost]
-        public async Task<IActionResult> Editar(int id, int delegacionId, int superintendenciaId)
+        public async Task<IActionResult> Editar(int id, int delegacionId)
         {
             using var db = _factory.Create();
             var partido = await db.Partidos.FindAsync(id);
             if (partido == null) return NotFound();
 
+            if (!ModelState.IsValid || !await DelegacionesDisponibles(db).AnyAsync(d => d.Id == delegacionId))
+            {
+                TempData["Error"] = "Seleccioná una delegación activa válida.";
+                return RedirectToAction(nameof(Editar), new { id });
+            }
+
             partido.DelegacionId = delegacionId;
-            partido.IdAreaResponsabilidad = superintendenciaId;
             await db.SaveChangesAsync();
 
             await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "partidos_prometheus", "PUT", "editar",
-                new { id, delegacionId, superintendenciaId });
+                new { id, delegacionId });
             TempData["Ok"] = "Partido actualizado.";
             return RedirectToAction(nameof(Listado));
         }

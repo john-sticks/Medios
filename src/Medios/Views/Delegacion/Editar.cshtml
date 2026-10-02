@@ -6,6 +6,7 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
     var portalesJson = (string)(ViewBag.PortalesJson ?? "[]");
     var usuarios = ViewBag.Usuarios as List<AutorizacionUsuario> ?? new List<AutorizacionUsuario>();
+    var partidos = ViewBag.Partidos as List<Partido> ?? new List<Partido>();
 }
 
 <div class="row">
@@ -17,18 +18,34 @@
             <div class="box-body">
                 <!-- Datos de solo lectura: se gestionan en otros módulos -->
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                         <div class="form-group">
                             <label>Delegación</label>
                             <p class="form-control-static"><strong>@(Model.DelegacionPrometheus?.Nombre ?? Model.Nombre)</strong></p>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="form-group">
-                            <label>Superintendencia <small class="text-muted">(se gestiona en Partidos)</small></label>
-                            <p class="form-control-static">@(Model.AreaResponsabilidad?.AmbitoResponsabilidad ?? "— sin asignar —")</p>
-                        </div>
-                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Partidos asignados <span class="badge bg-green">@partidos.Count</span></label>
+                    @if (partidos.Count == 0)
+                    {
+                        <p class="text-muted">Sin partidos asignados.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-unstyled">
+                            @foreach (var partido in partidos)
+                            {
+                                <li>
+                                    <a asp-controller="Partido" asp-action="Editar" asp-route-id="@partido.IdPartido">@partido.Nombre</a>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    <a asp-controller="Partido" asp-action="Listado" asp-route-delegacionId="@Model.Id"
+                       class="btn btn-default btn-sm"><i class="fa fa-map-o"></i> Ver partidos</a>
+                    <a asp-controller="Partido" asp-action="Listado" class="btn btn-default btn-sm">Asignar partidos</a>
+                    <p class="help-block">Para asignar o reasignar un partido, editá su delegación.</p>
                 </div>
                 <div class="form-group">
                     <label>

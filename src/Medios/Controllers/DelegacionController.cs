@@ -32,6 +32,7 @@ namespace Medios.Controllers
         {
             ViewData["Title"] = "Delegaciones";
             var lista = await _service.GetTodasAsync();
+            lista.RemoveAll(d => d.DelegacionPrometheusId == null && d.Nombre == "Superintendencia");
             ViewBag.UsuariosCount = await _autorizacion.GetUsuariosCountByDelegacionAsync();
             return View(lista);
         }
@@ -46,12 +47,12 @@ namespace Medios.Controllers
 
             ViewBag.PortalesJson = d.PortalesPrensa ?? "[]";
             ViewBag.Usuarios = await _autorizacion.GetUsuariosByDelegacionAsync(id);
+            ViewBag.Partidos = await _notaService.GetPartidosByDelegacionAsync(id);
             return View(d);
         }
 
-        // Solo se editan los portales monitoreados. La Delegación es del catálogo,
-        // la Superintendencia se gestiona en Partidos, el Usuario en Autorizaciones,
-        // y las delegaciones están siempre activas.
+        // Los partidos se asignan directamente a la delegación en Partidos;
+        // los usuarios se gestionan en Autorizaciones.
         [HasPermission("ADMINISTRAR_DELEGACIONES")]
         [HttpPost]
         public async Task<IActionResult> Editar(int id, string? portalesJson,

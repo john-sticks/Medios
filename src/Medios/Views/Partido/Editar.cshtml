@@ -5,7 +5,6 @@
     ViewData["Title"] = "Editar Partido";
     Layout = "~/Views/Shared/_Layout.cshtml";
     var delegaciones = ViewBag.Delegaciones as List<Delegacion> ?? new();
-    var superintendencias = ViewBag.Superintendencias as List<AreaResponsabilidad> ?? new();
 }
 
 <div class="row">
@@ -25,20 +24,11 @@
                     <div class="form-group">
                         <label>Delegación <span class="text-red">*</span></label>
                         <select name="delegacionId" class="form-control" required>
+                            <option value="">Seleccionar delegación</option>
                             @foreach (var d in delegaciones)
                             {
                                 if (d.Id == Model.DelegacionId) { <option value="@d.Id" selected="selected">@d.Nombre</option> }
                                 else { <option value="@d.Id">@d.Nombre</option> }
-                            }
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Superintendencia <span class="text-red">*</span></label>
-                        <select name="superintendenciaId" class="form-control" required>
-                            @foreach (var s in superintendencias)
-                            {
-                                if (s.Id == Model.IdAreaResponsabilidad) { <option value="@s.Id" selected="selected">@s.AmbitoResponsabilidad</option> }
-                                else { <option value="@s.Id">@s.AmbitoResponsabilidad</option> }
                             }
                         </select>
                     </div>
