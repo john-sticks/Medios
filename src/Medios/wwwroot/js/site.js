@@ -1,3 +1,12 @@
+// Al volver con Atrás/Adelante, pedir nuevamente los datos al servidor.
+window.addEventListener('pageshow', function (event) {
+    var navegacion = window.performance.getEntriesByType('navigation')[0];
+    if (event.persisted || (navegacion && navegacion.type === 'back_forward')) {
+        // Reemplazar por un GET conserva la URL y evita reenviar un formulario POST.
+        window.location.replace(window.location.href);
+    }
+});
+
 (function () {
     var estabaOffline = false;
 

@@ -3,6 +3,7 @@ using Medios.Infrastructure.Middleware;
 using Medios.Security;
 using Medios.Services;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using System.Net;
 using System.Text;
 using QuestPDF.Infrastructure;
@@ -25,7 +26,14 @@ namespace Medios
                 .AddEnvironmentVariables();
 
             // MVC
-            builder.Services.AddControllersWithViews()
+            builder.Services.AddControllersWithViews(options =>
+                {
+                    options.Filters.Add(new ResponseCacheAttribute
+                    {
+                        NoStore = true,
+                        Location = ResponseCacheLocation.None
+                    });
+                })
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNamingPolicy =

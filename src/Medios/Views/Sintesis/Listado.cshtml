@@ -228,12 +228,24 @@
 @section Scripts {
     <script>
         $(function () {
-            var tabInicial = window.location.hash === '#generadas' ? 'generada' : 'todas';
+            var tabsPorHash = {
+                '#todas': 'todas',
+                '#generadas': 'generada',
+                '#remitidas': 'remitida',
+                '#aprobadas': 'aprobada',
+                '#descartadas': 'descartada'
+            };
+            var tabInicial = tabsPorHash[window.location.hash] || 'todas';
             activarTab($('.tab-sint[data-tab="' + tabInicial + '"]'));
 
             $('.tab-sint').on('click', function (e) {
                 e.preventDefault();
                 activarTab($(this));
+                var tab = $(this).data('tab');
+                var hash = Object.keys(tabsPorHash).find(function (clave) {
+                    return tabsPorHash[clave] === tab;
+                });
+                window.history.replaceState(null, '', hash);
             });
 
             function activarTab($btn) {
