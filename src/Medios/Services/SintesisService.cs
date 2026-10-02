@@ -881,8 +881,9 @@ namespace Medios.Services
         }
 
         // ── Convertir síntesis a borrador de sesión ───────────────────
-        // Crea una SesionPrensa nueva, mueve las notas a ella y elimina la síntesis.
-        // Retorna el Id de la nueva sesión, o -1 si no es posible.
+        // Recupera la sesión de origen cuando contiene exactamente estas notas;
+        // si las notas provienen de distintas sesiones, crea un borrador nuevo.
+        // Retorna el Id del borrador recuperado o creado, o -1 si no es posible.
 
         public async Task<int> ConvertirABorradorAsync(int id, string usuario, int? delegacionId)
         {
@@ -892,22 +893,40 @@ namespace Medios.Services
                 .FirstOrDefaultAsync(x => x.Id == id);
             if (s == null || s.Estado == "Remitida") return -1;
 
-            var sesion = new SesionPrensa
-            {
-                Fecha = s.Fecha,
-                Turno = s.Tipo,
-                Estado = "Borrador",
-                FechaCreacion = DateTime.Now,
-                UsuarioCarga = usuario,
-                DelegacionId = delegacionId
-            };
-            db.SesionesPrensas.Add(sesion);
-            await db.SaveChangesAsync();
-
             var notaIds = s.NotasIncluidas.Select(sn => sn.NotaPrensaId).ToList();
             var notas = await db.NotasPrensa.Where(n => notaIds.Contains(n.Id)).ToListAsync();
+            var sesionesOrigen = notas.Where(n => n.SesionPrensaId.HasValue)
+                .Select(n => n.SesionPrensaId!.Value).Distinct().ToList();
+            SesionPrensa? sesion = null;
+            if (sesionesOrigen.Count == 1 && notas.All(n => n.SesionPrensaId == sesionesOrigen[0]))
+            {
+                var origenId = sesionesOrigen[0];
+                sesion = await db.SesionesPrensas.FirstOrDefaultAsync(origen =>
+                    origen.Id == origenId && origen.UsuarioCarga == usuario
+                    && origen.DelegacionId == delegacionId && origen.Fecha == s.Fecha
+                    && origen.Turno == s.Tipo && origen.SintesisConsolidadaId == null
+                    && (origen.Estado == "Remitida" || origen.Estado == "Finalizada")
+                    && !origen.Notas.Any(n => !notaIds.Contains(n.Id)));
+            }
+
+            if (sesion == null)
+            {
+                sesion = new SesionPrensa
+                {
+                    Fecha = s.Fecha,
+                    Turno = s.Tipo,
+                    FechaCreacion = DateTime.Now,
+                    UsuarioCarga = usuario,
+                    DelegacionId = delegacionId
+                };
+                db.SesionesPrensas.Add(sesion);
+            }
+            sesion.Estado = "Borrador";
+            sesion.FechaRemision = null;
+            sesion.PDFPath = null;
+            sesion.FechaGeneracionPdf = null;
             foreach (var nota in notas)
-                nota.SesionPrensaId = sesion.Id;
+                nota.Sesion = sesion;
 
             // Notas vuelven a "Borrador"
             var versionesNotas = await db.NotasVersion

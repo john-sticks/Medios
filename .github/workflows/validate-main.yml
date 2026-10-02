@@ -30,6 +30,9 @@ jobs:
       - name: Check authentication and local authorization
         run: dotnet run --project tests/Medios.AuthChecks/Medios.AuthChecks.csproj --configuration Release
 
+      - name: Check synthesis publishing and modification
+        run: dotnet run --project tests/Medios.WorkflowChecks/Medios.WorkflowChecks.csproj --configuration Release
+
       - name: Build production image
         run: docker build --tag medios:validate .
 

@@ -56,6 +56,9 @@ namespace Medios.Services
                 // sus PROPIOS borradores (los que él creó) — no los borradores de otras delegaciones.
                 .Where(s => s.Estado == "Remitida" || s.Estado == "Finalizada" || s.Estado == "Consolidada"
                          || (s.Estado == "Borrador" && s.UsuarioCarga == usuarioBorradores))
+                // Una modificación antigua pudo mover todas las notas a otro borrador.
+                // Esa sesión vacía no representa una remisión pendiente de revisión.
+                .Where(s => s.Estado != "Remitida" || s.Notas.Any())
                 .AsQueryable();
 
             // Filtro exacto cuando se pide (ej. SUPERVISOR pide solo "Finalizada" para su bandeja).
@@ -133,6 +136,7 @@ namespace Medios.Services
             // todas las notas aprobadas (se eliminó el filtro a nivel de nota que la ocultaba).
             var estilosVisibles = new[] { "Remitida", "Finalizada", "Consolidada" };
             query = query.Where(s => estilosVisibles.Contains(s.Estado));
+            query = query.Where(s => s.Estado != "Remitida" || s.Notas.Any());
 
             if (!string.IsNullOrEmpty(filtroEstado))
                 query = query.Where(s => s.Estado == filtroEstado);
