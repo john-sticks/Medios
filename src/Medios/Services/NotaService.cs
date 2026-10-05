@@ -1064,7 +1064,7 @@ namespace Medios.Services
             int? delegacionId = null, string? sintesis = null, DateTime? fechaNoticia = null,
             int? caratulaQuironId = null, int? modalidadQuironId = null,
             string? ambitoNota = null, string? imagenUrl = null, string? videoUrl = null,
-            string? imagenesExtraJson = null, string? otrosMedios = null)
+            string? imagenesExtraJson = null, string? otrosMedios = null, bool aprobadaDirectamente = false)
         {
             using var db = _factory.Create();
 
@@ -1080,8 +1080,8 @@ namespace Medios.Services
             await CrearVersionAsync(db, nota,
                 categoriaId, partidoId, localidadId,
                 titulo, texto, fuente, link, esRepercusion,
-                estadoRevision: "Sin Remitir",
-                motivoDescarte: null, operadorRevision: null,
+                estadoRevision: aprobadaDirectamente ? "Aprobada" : "Sin Remitir",
+                motivoDescarte: null, operadorRevision: aprobadaDirectamente ? usuario : null,
                 usuario: usuario, tipoEvento: "Creacion",
                 direccion: direccion, latitud: latitud, longitud: longitud,
                 sintesis: sintesis, fechaNoticia: fechaNoticia,
@@ -1156,8 +1156,8 @@ namespace Medios.Services
             await CrearVersionAsync(db, nota,
                 categoriaId, partidoId, localidadId,
                 titulo, texto, fuente, link, esRepercusion,
-                estadoRevision: "Sin Remitir",
-                motivoDescarte: null, operadorRevision: null,
+                estadoRevision: nota.VersionActual.EstadoRevision == "Aprobada" ? "Aprobada" : "Sin Remitir",
+                motivoDescarte: null, operadorRevision: nota.VersionActual.OperadorRevision,
                 usuario: usuario, tipoEvento: "Modificacion",
                 direccion: direccion, latitud: latitud, longitud: longitud,
                 sintesis: sintesis, fechaNoticia: fechaNoticia,

@@ -10,6 +10,10 @@ verifica contadores de ambas bandejas y tres ciclos de publicar/modificar sin
 crear sesiones adicionales. También verifica la creación de un borrador cuando
 hay distintos orígenes y el bloqueo de modificaciones de síntesis remitidas.
 
+Comprueba además que MEDIOS y DELEGACION creen notas libres sin generar sesiones,
+que MEDIOS conserve la aprobación directa al editar y que pueda incorporar la
+nota posteriormente a su borrador. Rechaza incorporar notas de otra delegación.
+
 El proveedor InMemory es una dependencia exclusiva de este proyecto de prueba.
 No comprueba restricciones ni ejecución SQL de MySQL, ni genera PDF físicos.
 La comprobación productiva se realiza después del despliegue manual, sin borrar

@@ -322,6 +322,9 @@ namespace Medios.Services
                         || n.VersionActual!.EstadoRevision == "Sin Remitir"));
             if (nota == null) return false;
 
+            if (nota.DelegacionId.HasValue && nota.DelegacionId != sesion.DelegacionId)
+                return false;
+
             nota.SesionPrensaId = sesionId;
 
             // Cambiar "Sin Remitir" → "Borrador" al incorporar al borrador

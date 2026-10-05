@@ -96,7 +96,10 @@ namespace Medios.Controllers
             }
 
             int? delegId = null;
-            if (int.TryParse(User.FindFirst("DelegacionId")?.Value, out var dId))
+            var esMedios = User.IsInRole("MEDIOS");
+            if (esMedios)
+                delegId = (await _sesionService.GetDelegacionEfectivaAsync(User))?.Id;
+            else if (int.TryParse(User.FindFirst("DelegacionId")?.Value, out var dId))
                 delegId = dId;
 
             var imagenLocal = await _imagen.ProcesarDesdeUrlAsync(imagenUrl);
@@ -106,12 +109,13 @@ namespace Medios.Controllers
                 categoriaId, partidoId, localidadId, titulo, texto,
                 fuente, link, esRepercusion, GetNombre(),
                 direccion, latitud, longitud, delegId, sintesis, fn,
-                caratulaQuironId, modalidadQuironId, ambitoNota, imagenLocal, videoUrl, extrasJson, otrosMedios);
+                caratulaQuironId, modalidadQuironId, ambitoNota, imagenLocal, videoUrl, extrasJson, otrosMedios,
+                aprobadaDirectamente: esMedios);
 
             await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "notas_prensa", "POST", "agregar_libre",
                 new { categoriaId, titulo });
             await _traza.RegistrarAsync(TrazaService.NotaCreada, GetNombre(), GetRol(),
-                notaId: nuevaNotaId, version: 1, estado: "Sin Remitir", detalle: "Nota libre (División Medios)");
+                notaId: nuevaNotaId, version: 1, estado: esMedios ? "Aprobada" : "Sin Remitir", detalle: "Nota libre");
 
             TempData["Ok"] = "Nota agregada";
             return RedirectToAction(nameof(Listado));
@@ -584,15 +588,9 @@ namespace Medios.Controllers
 
         [HasPermission("CREAR_NOTA_DIVISION")]
         [HttpGet]
-        public async Task<IActionResult> Nueva()
+        public IActionResult Nueva()
         {
-            ViewData["Title"] = "Nueva Nota — División Medios";
-            ViewBag.Categorias = await _notaService.GetCategoriasAsync();
-            ViewBag.Caratulas  = await _notaService.GetCaratulasAsync();
-            ViewBag.Partidos = await _notaService.GetPartidosAsync();
-            ViewBag.Turnos = new[] { "Matutina", "Vespertina", "Ampliacion Matutina", "Ampliacion Vespertina", "Especial" };
-            ViewBag.FechaHoy = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
-            return View();
+            return RedirectToAction(nameof(Listado));
         }
 
         // ── Carga directa División Medios: POST ───────────────────────
@@ -609,33 +607,10 @@ namespace Medios.Controllers
             string? ambitoNota = null, string? imagenUrl = null, string? videoUrl = null,
             List<string>? imagenesExtra = null, string? otrosMedios = null)
         {
-            if (string.IsNullOrWhiteSpace(titulo) || string.IsNullOrWhiteSpace(texto)
-                || string.IsNullOrWhiteSpace(fuente))
-            {
-                TempData["Error"] = "Título, texto y fuente son obligatorios";
-                return RedirectToAction(nameof(Nueva));
-            }
-
-            if (!DateOnly.TryParse(fecha, out var fechaParsed))
-                fechaParsed = DateOnly.FromDateTime(DateTime.Today);
-
-            var imagenLocal = await _imagen.ProcesarDesdeUrlAsync(imagenUrl);
-            var extrasJson = await _imagen.ProcesarVariasJsonAsync(imagenesExtra);
-            DateTime? fn = DateTime.TryParse(fechaNoticia, out var fnParsed) ? fnParsed : null;
-            var delegacionMedios = await _sesionService.GetDelegacionEfectivaAsync(User);
-            var notaId = await _notaService.AgregarDivisionAsync(
-                categoriaId, partidoId, localidadId, titulo, texto,
-                fuente, link, esRepercusion, GetUsuario(), fechaParsed, turno,
-                delegacionMedios?.Id, sintesis,
-                caratulaQuironId, modalidadQuironId, ambitoNota, imagenLocal, videoUrl, extrasJson, otrosMedios);
-
-            await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "notas_prensa", "POST", "carga_division",
-                new { notaId, categoriaId, fecha, turno });
-            await _traza.RegistrarAsync(TrazaService.NotaCreada, GetNombre(), GetRol(),
-                notaId: notaId, version: 1, estado: "Aprobada", detalle: $"Carga directa División Medios ({turno})");
-
-            TempData["Ok"] = "Nota cargada y aprobada directamente";
-            return RedirectToAction("Bandeja", "Sesion");
+            // Formularios abiertos antes del cambio también guardan una nota libre.
+            return await AgregarLibre(categoriaId, partidoId, localidadId, titulo, texto, fuente, link,
+                esRepercusion, direccion, latitud, longitud, sintesis, fechaNoticia,
+                caratulaQuironId, modalidadQuironId, ambitoNota, imagenUrl, videoUrl, imagenesExtra, otrosMedios);
         }
 
         // ── Sugerencia de carátula/modalidad con IA ───────────────────

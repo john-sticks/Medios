@@ -9,7 +9,7 @@
       <page title="Publicadas" icon="fa fa-newspaper-o" href="~/sintesis/publicadas" />
     </group>
     <group title="Notas" icon="fa fa-newspaper-o">
-      <page title="Nueva Nota" icon="fa fa-plus-circle" href="~/nota/nueva" />
+      <page title="Nueva Nota" icon="fa fa-plus-circle" href="~/nota/listado" />
       <page title="Búsqueda" icon="fa fa-search" href="~/notabuscador" />
     </group>
     <group title="Consulta" icon="fa fa-search-plus">
@@ -133,5 +133,6 @@
     <permission name="GESTIONAR_PORTALES" />
     <permission name="USAR_IA" />
     <permission name="VER_SINCRONIZACION" />
+    <permission name="VER_NOTAS_LIBRES" />
   </permissions>
 </permisos>

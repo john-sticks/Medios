@@ -23,6 +23,10 @@
         <div class="box box-success collapsed-box">
             <div class="box-header with-border" style="cursor:pointer" data-widget="collapse">
                 <h3 class="box-title"><i class="fa fa-plus-circle"></i> Nueva Nota</h3>
+                @if (User.IsInRole("MEDIOS"))
+                {
+                    <small class="text-muted">Se guardará aprobada, sin vincularla a una síntesis.</small>
+                }
                 <div class="box-tools pull-right">
                     <button type="button" class="btn btn-box-tool"><i class="fa fa-plus"></i></button>
                 </div>
@@ -58,6 +62,30 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>Fuente (medio periodístico) <span class="text-red">*</span></label>
+                                        <input type="text" name="fuente" class="form-control" maxlength="200" required />
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label>
+                                            Link
+                                            <button type="button" id="btnScrapearList" class="btn btn-xs btn-info" style="margin-left:8px;" title="Importar desde URL">
+                                                <i class="fa fa-download"></i> Importar desde URL
+                                            </button>
+                                            <span id="scrapSpinnerList" style="display:none; margin-left:6px;"><i class="fa fa-spinner fa-spin"></i></span>
+                                        </label>
+                                        <input type="url" name="link" id="listLink" class="form-control" maxlength="2000" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Otros medios <small class="text-muted">(repercusión periodística, separados por coma)</small></label>
+                                <input type="text" name="otrosMedios" class="form-control" maxlength="300" placeholder="Ej: LANACION,INFOBAE" />
+                            </div>
                             <div class="form-group">
                                 <label>Título <span class="text-red">*</span></label>
                                 <input type="text" name="titulo" class="form-control" required maxlength="500" />
@@ -81,30 +109,6 @@
                                 </label>
                                 <textarea name="sintesis" id="listSintesis" class="form-control" rows="3"
                                           placeholder="Síntesis generada por IA (opcional, editable)"></textarea>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>Fuente <span class="text-red">*</span></label>
-                                        <input type="text" name="fuente" class="form-control" maxlength="200" required />
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="form-group">
-                                        <label>
-                                            Link
-                                            <button type="button" id="btnScrapearList" class="btn btn-xs btn-info" style="margin-left:8px;" title="Importar desde URL">
-                                                <i class="fa fa-download"></i> Importar desde URL
-                                            </button>
-                                            <span id="scrapSpinnerList" style="display:none; margin-left:6px;"><i class="fa fa-spinner fa-spin"></i></span>
-                                        </label>
-                                        <input type="url" name="link" id="listLink" class="form-control" maxlength="2000" />
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Otros medios <small class="text-muted">(repercusión periodística, separados por coma)</small></label>
-                                <input type="text" name="otrosMedios" class="form-control" maxlength="300" placeholder="Ej: LANACION,INFOBAE" />
                             </div>
                             <div class="form-group">
                                 <label><input type="checkbox" name="esRepercusion" value="true" /> Es repercusión</label>

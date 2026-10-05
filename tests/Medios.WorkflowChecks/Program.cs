@@ -103,7 +103,32 @@ using (var db = factory.Create())
         && await db.NotasPrensa.CountAsync(n => n.SesionPrensaId == nuevaId) == 2,
         "Conservar la síntesis remitida y sus notas");
 
-Console.WriteLine($"OK: {comprobaciones} comprobaciones de publicación, modificación y bandejas.");
+// MEDIOS y DELEGACION guardan notas libres sin crear sesiones automáticamente.
+var libresFactory = new MemoriaFactory();
+var notasService = new NotaService(libresFactory);
+var libresSintesis = new SintesisService(libresFactory, null!, notasService);
+var libresSesiones = new SesionService(libresFactory, null!, libresSintesis, notasService);
+var notaMedios = await notasService.AgregarLibreAsync(null, null, null, "Título", "Texto", "Fuente", null,
+    false, "Nombre Medios", delegacionId: 1, aprobadaDirectamente: true);
+var notaDelegacion = await notasService.AgregarLibreAsync(null, null, null, "Título", "Texto", "Fuente", null,
+    false, "Nombre Delegación", delegacionId: 2);
+using (var db = libresFactory.Create())
+{
+    Verificar(!await db.SesionesPrensas.AnyAsync() && !await db.Sintesis.AnyAsync(), "Crear notas no crea borradores ni síntesis");
+    Verificar(await db.NotasPrensa.CountAsync(n => n.SesionPrensaId == null) == 2, "Ambas notas quedan libres");
+    Verificar(await db.NotasVersion.AnyAsync(v => v.NotaId == notaMedios && v.EstadoRevision == "Aprobada"), "MEDIOS conserva aprobación directa");
+    Verificar(await db.NotasVersion.AnyAsync(v => v.NotaId == notaDelegacion && v.EstadoRevision == "Sin Remitir"), "DELEGACION conserva su flujo");
+}
+Verificar((await notasService.GetNotasLibresAsync("Nombre Medios")).Single().Id == notaMedios, "Listar la nota propia de MEDIOS");
+Verificar(await notasService.EditarLibreAsync(notaMedios, "Nombre Medios", null, null, null, "Editada", "Texto", "Fuente", null, false), "Editar nota libre de MEDIOS");
+using (var db = libresFactory.Create())
+    Verificar(await db.NotasVersion.AnyAsync(v => v.NotaId == notaMedios && v.EsActual && v.EstadoRevision == "Aprobada"), "Editar mantiene aprobación");
+var borradorMedios = await libresSesiones.CrearAsync(1, fecha, "Matutina", "medios");
+Verificar(!await libresSesiones.AgregarNotaExistenteAsync(borradorMedios, notaDelegacion, "medios"), "No incorporar nota de otra delegación");
+Verificar(await libresSesiones.AgregarNotaExistenteAsync(borradorMedios, notaMedios, "medios"), "MEDIOS agrega después su nota al borrador");
+Verificar(!(await notasService.GetNotasLibresAsync("Nombre Medios")).Any(), "La nota incorporada sale de Mis Notas libres");
+
+Console.WriteLine($"OK: {comprobaciones} comprobaciones de notas libres, publicación, modificación y bandejas.");
 
 sealed class MemoriaFactory : IMediosDbContextFactory
 {
