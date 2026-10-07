@@ -7,7 +7,6 @@
       <page title="Mis Borradores" icon="fa fa-pencil-square-o" href="~/sesion/mias" />
       <page title="Bandeja" icon="fa fa-inbox" href="~/sesion/bandeja" />
       <page title="Consolidar" icon="fa fa-object-group" href="~/sintesis/consolidar" />
-      <page title="Generadas" icon="fa fa-check-square-o" href="~/sintesis/listado" />
       <page title="Publicadas" icon="fa fa-newspaper-o" href="~/sintesis/publicadas" />
     </group>
     <group title="Notas" icon="fa fa-newspaper-o">
