@@ -263,49 +263,63 @@ namespace Medios.Services
 
         public async Task<bool> EliminarBorradorAsync(int sesionId, string usuarioCarga, bool eliminarNotas = true)
         {
-            using var db = _factory.Create();
-            var sesion = await db.SesionesPrensas
-                .Include(s => s.Notas)
-                .FirstOrDefaultAsync(s => s.Id == sesionId);
-
-            if (sesion == null || sesion.UsuarioCarga != usuarioCarga || sesion.Estado != "Borrador")
-                return false;
-
-            if (sesion.Notas.Any())
+            using var strategyDb = _factory.Create();
+            return await strategyDb.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
             {
-                if (eliminarNotas)
+                using var db = _factory.Create();
+                var sesion = await db.SesionesPrensas
+                    .Include(s => s.Notas)
+                    .FirstOrDefaultAsync(s => s.Id == sesionId);
+
+                if (sesion == null || sesion.UsuarioCarga != usuarioCarga || sesion.Estado != "Borrador")
+                    return false;
+
+                // El borrado en bloque usa varias operaciones: un fallo no debe dejar la sesión
+                // sin notas o con enlaces eliminados parcialmente.
+                using var transaction = eliminarNotas && sesion.Notas.Any()
+                    ? await db.Database.BeginTransactionAsync() : null;
+
+                if (sesion.Notas.Any())
                 {
-                    var notaIds = sesion.Notas.Select(n => n.Id).ToList();
+                    if (eliminarNotas)
+                    {
+                        var notaIds = sesion.Notas.Select(n => n.Id).ToList();
 
-                    // Limpiar tablas que referencian notas_prensa por FK RESTRICT
-                    var sinNotas = await db.SintesisNotas
-                        .Where(sn => notaIds.Contains(sn.NotaPrensaId)).ToListAsync();
-                    db.SintesisNotas.RemoveRange(sinNotas);
+                        // Limpiar tablas que referencian notas_prensa por FK RESTRICT
+                        var sinNotas = await db.SintesisNotas
+                            .Where(sn => notaIds.Contains(sn.NotaPrensaId)).ToListAsync();
+                        db.SintesisNotas.RemoveRange(sinNotas);
 
-                    var relaciones = await db.NotasRelaciones
-                        .Where(r => notaIds.Contains(r.NotaId) || notaIds.Contains(r.NotaRelacionadaId))
-                        .ToListAsync();
-                    db.NotasRelaciones.RemoveRange(relaciones);
-                    await db.SaveChangesAsync();
+                        var relaciones = await db.NotasRelaciones
+                            .Where(r => notaIds.Contains(r.NotaId) || notaIds.Contains(r.NotaRelacionadaId))
+                            .ToListAsync();
+                        db.NotasRelaciones.RemoveRange(relaciones);
+                        await db.SaveChangesAsync();
 
-                    // Romper FKs circulares directo en DB (EF no genera UPDATE para entidades
-                    // en estado Deleted, así que hay que bypasear el change tracker) y eliminar.
-                    await db.NotasVersion.Where(v => notaIds.Contains(v.NotaId))
-                        .ExecuteUpdateAsync(s => s.SetProperty(v => v.ParentVersionId, (int?)null));
-                    await db.NotasPrensa.Where(n => notaIds.Contains(n.Id))
-                        .ExecuteUpdateAsync(s => s.SetProperty(n => n.VersionActualId, (int?)null));
-                    await db.NotasPrensa.Where(n => notaIds.Contains(n.Id)).ExecuteDeleteAsync();
+                        // Romper FKs circulares directo en DB (EF no genera UPDATE para entidades
+                        // en estado Deleted, así que hay que bypasear el change tracker) y eliminar.
+                        await db.NotasVersion.Where(v => notaIds.Contains(v.NotaId))
+                            .ExecuteUpdateAsync(s => s.SetProperty(v => v.ParentVersionId, (int?)null));
+                        await db.NotasPrensa.Where(n => notaIds.Contains(n.Id))
+                            .ExecuteUpdateAsync(s => s.SetProperty(n => n.VersionActualId, (int?)null));
+                        await db.NotasPrensa.Where(n => notaIds.Contains(n.Id)).ExecuteDeleteAsync();
+                        // ExecuteDelete no actualiza las entidades ya cargadas. Evitar que EF
+                        // intente borrarlas/actualizarlas otra vez al eliminar la sesión.
+                        db.ChangeTracker.Clear();
+                        sesion.Notas.Clear();
+                    }
+                    else
+                    {
+                        // Las notas quedan libres (SesionPrensaId = null via SetNull)
+                        // EF Core lo maneja automáticamente al borrar la sesión
+                    }
                 }
-                else
-                {
-                    // Las notas quedan libres (SesionPrensaId = null via SetNull)
-                    // EF Core lo maneja automáticamente al borrar la sesión
-                }
-            }
 
-            db.SesionesPrensas.Remove(sesion);
-            await db.SaveChangesAsync();
-            return true;
+                db.SesionesPrensas.Remove(sesion);
+                await db.SaveChangesAsync();
+                if (transaction != null) await transaction.CommitAsync();
+                return true;
+            });
         }
 
         public async Task<bool> AgregarNotaExistenteAsync(int sesionId, int notaId, string usuario)
@@ -344,9 +358,12 @@ namespace Medios.Services
             using var db = _factory.Create();
             var sesion = await db.SesionesPrensas
                 .Include(s => s.Notas)
+                    .ThenInclude(n => n.VersionActual)
                 .FirstOrDefaultAsync(s => s.Id == sesionId);
 
             if (sesion == null || sesion.Estado != "Borrador" || !sesion.Notas.Any()) return -1;
+            if (!string.Equals(sesion.UsuarioCarga, operador, StringComparison.OrdinalIgnoreCase)) return -1;
+            if (sesion.Notas.Any(n => n.VersionActual == null)) return -1;
 
             // Validar unicidad: Matutina y Vespertina solo 1 por delegación por día
             if (TiposUnicos.Contains(sesion.Turno) && sesion.DelegacionId.HasValue)
@@ -369,22 +386,16 @@ namespace Medios.Services
                 DelegacionId = sesion.DelegacionId
             };
             db.Sintesis.Add(sintesis);
-            await db.SaveChangesAsync();
 
             var notaIds = sesion.Notas.Select(n => n.Id).ToList();
-            var versionMap = await db.NotasPrensa
-                .Where(n => notaIds.Contains(n.Id))
-                .Select(n => new { n.Id, n.VersionActualId })
-                .ToDictionaryAsync(x => x.Id, x => x.VersionActualId ?? 0);
 
             int orden = 0;
             foreach (var nota in sesion.Notas)
             {
-                db.SintesisNotas.Add(new SintesisNota
+                sintesis.NotasIncluidas.Add(new SintesisNota
                 {
-                    SintesisId = sintesis.Id,
-                    NotaPrensaId = nota.Id,
-                    NotaVersionId = versionMap.TryGetValue(nota.Id, out var vid) ? vid : 0,
+                    Nota = nota,
+                    NotaVersion = nota.VersionActual!,
                     Orden = orden++
                 });
             }
@@ -405,7 +416,8 @@ namespace Medios.Services
                     .Where(v => notaIds.Contains(v.NotaId) && v.EsActual)
                     .ToListAsync();
                 foreach (var v in versionesPropias)
-                    if (v.EstadoRevision is "Aprobada" or "Agregada")
+                    if (string.IsNullOrWhiteSpace(v.MotivoDescarte)
+                        && v.EstadoRevision is "Borrador" or "Sin Remitir" or "Remitida" or "Aprobada" or "Agregada")
                         v.EstadoRevision = "Finalizada";
             }
 
@@ -418,7 +430,8 @@ namespace Medios.Services
                 .Where(v => allNotaIds.Contains(v.NotaId) && v.EsActual && v.EstadoRevision == "Sin Remitir")
                 .ToListAsync();
             foreach (var v in versionesSinRemitir)
-                v.EstadoRevision = "Borrador";
+                if (v.EstadoRevision == "Sin Remitir" && string.IsNullOrWhiteSpace(v.MotivoDescarte))
+                    v.EstadoRevision = "Borrador";
 
             await db.SaveChangesAsync();
             return sintesis.Id;
@@ -615,8 +628,8 @@ namespace Medios.Services
 
         // ── MEDIOS: revertir una Finalizada propia (creada por MEDIOS, no de una Delegación)
         //    de vuelta a Borrador, para poder seguir editándola. Deshace lo que hizo
-        //    ConvertirASintesisAsync: borra la Síntesis asociada (si todavía no fue remitida
-        //    ni informada) y su PDF, y las notas vuelven a "Borrador".
+        //    ConvertirASintesisAsync: borra la Síntesis propia y su PDF si las notas no
+        //    fueron incluidas en una publicación informada. Conserva la sesión y las notas.
         public async Task<bool> RevertirFinalizadaABorradorAsync(int sesionId)
         {
             using var db = _factory.Create();
@@ -639,8 +652,10 @@ namespace Medios.Services
                 .ToListAsync();
             var sintesisList = await db.Sintesis.Where(s => sintesisIds.Contains(s.Id)).ToListAsync();
 
-            // Si ya se remitió/informó a alguien, no se puede deshacer silenciosamente.
-            if (sintesisList.Any(s => s.Estado is "Remitida" or "Informada")) return false;
+            // "Remitida" en una síntesis propia significa Finalizar, no informar a terceros.
+            // Las publicaciones informadas y sus snapshots deben permanecer inmutables.
+            if (await db.SintesisNotas.AnyAsync(sn => notaIds.Contains(sn.NotaPrensaId)
+                && sn.Sintesis.Estado == "Informada")) return false;
 
             foreach (var s in sintesisList)
             {
@@ -649,7 +664,8 @@ namespace Medios.Services
                 if (File.Exists(ruta)) File.Delete(ruta);
             }
 
-            await db.SintesisNotas.Where(sn => sintesisIds.Contains(sn.SintesisId)).ExecuteDeleteAsync();
+            var enlaces = await db.SintesisNotas.Where(sn => sintesisIds.Contains(sn.SintesisId)).ToListAsync();
+            db.SintesisNotas.RemoveRange(enlaces);
             db.Sintesis.RemoveRange(sintesisList);
 
             var versiones = await db.NotasVersion
@@ -660,6 +676,8 @@ namespace Medios.Services
 
             sesion.Estado = "Borrador";
             sesion.FechaRemision = null;
+            sesion.PDFPath = null;
+            sesion.FechaGeneracionPdf = null;
 
             await db.SaveChangesAsync();
             return true;

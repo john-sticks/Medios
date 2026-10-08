@@ -2,7 +2,7 @@
 @model List<Sintesis>
 
 @{
-    ViewData["Title"] = "Síntesis";
+    ViewData["Title"] = User.IsInRole("DELEGACION") ? "Bandeja" : "Síntesis";
     Layout = "~/Views/Shared/_Layout.cshtml";
     var puedeCrear = User.IsInRole("MEDIOS");
     var puedeModificar = puedeCrear || User.IsInRole("DELEGACION");
@@ -39,7 +39,7 @@
 
         <div class="box box-primary">
             <div class="box-header with-border">
-                <h3 class="box-title">Síntesis de Prensa</h3>
+                <h3 class="box-title">@(esDelegacion ? "Bandeja de Síntesis" : "Síntesis de Prensa")</h3>
                 @if (puedeCrear)
                 {
                     <div class="box-tools">
@@ -62,7 +62,7 @@
                         <i class="fa fa-list"></i> Todas <span class="badge">@Model.Count</span>
                     </a>
                     <a href="#" class="btn btn-sm btn-default tab-sint" data-tab="generada" style="margin-left:4px;">
-                        <i class="fa fa-file-pdf-o"></i> Generadas <span class="badge bg-light-blue">@cntGenerada</span>
+                        <i class="fa fa-inbox"></i> Bandeja <span class="badge bg-light-blue">@cntGenerada</span>
                     </a>
                     <a href="#" class="btn btn-sm btn-default tab-sint" data-tab="remitida" style="margin-left:4px;">
                         <i class="fa fa-send"></i> Remitidas <span class="badge bg-orange">@cntRemitida</span>

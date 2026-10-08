@@ -18,3 +18,10 @@ El proveedor InMemory es una dependencia exclusiva de este proyecto de prueba.
 No comprueba restricciones ni ejecución SQL de MySQL, ni genera PDF físicos.
 La comprobación productiva se realiza después del despliegue manual, sin borrar
 las sesiones vacías históricas ni ejecutar migraciones para esta corrección.
+
+También comprueba publicación y reversión de síntesis propias de MEDIOS,
+bloqueo de notas incluidas en publicaciones informadas, elegibilidad de notas
+históricas para consolidar y el orden y formato del modelo PDF. El campo de
+operador utiliza OperadorGenera y no requiere cambios del esquema.
+Estas comprobaciones no reemplazan la verificación de restricciones MySQL;
+el ciclo completo se verificó en test con MySQL antes de trasladarlo.

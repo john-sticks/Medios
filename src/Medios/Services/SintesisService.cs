@@ -564,11 +564,6 @@ namespace Medios.Services
                 .Where(sn => !(sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir"
                               && !string.IsNullOrEmpty(sn.Nota?.VersionActual?.MotivoDescarte)))
                 .ToList();
-            var notas = incluidas.Select(sn => sn.NotaVersion).ToList();
-
-            // Jerarquía: ÁMBITO (Nacional → Provincial → Partido) y, dentro de cada ámbito,
-            // las CATEGORÍAS (Institucionales, Denuncias, etc.). Un solo titular por ámbito.
-            int OrdenAmbito(string? a) => a switch { "Nacional" => 0, "Provincial" => 1, _ => 2 };
 
             // Geo sin duplicar: el nombre de Localidad (dato externo sincronizado) ya trae el
             // partido entre paréntesis para desambiguar localidades homónimas de otros partidos
@@ -588,35 +583,8 @@ namespace Medios.Services
             // Sin punto final (el instructivo lo prohíbe en título y fuente)
             static string SinPuntoFinal(string s) => s.TrimEnd().TrimEnd('.');
 
-            // Fuente + repercusión en otros medios: "(CLARIN, LANACION, LANOTICIA1)"
-            static string FormatFuente(string? fuente, string? otrosMedios)
-            {
-                var medios = new List<string>();
-                if (!string.IsNullOrWhiteSpace(fuente)) medios.Add(SinPuntoFinal(fuente.ToUpper()));
-                if (!string.IsNullOrWhiteSpace(otrosMedios))
-                    medios.AddRange(otrosMedios
-                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                        .Select(m => SinPuntoFinal(m.ToUpper())));
-                return medios.Count > 0 ? $"({string.Join(", ", medios)})" : "";
-            }
-
-            var porAmbito = notas
-                .GroupBy(v => string.IsNullOrEmpty(v.AmbitoNota) ? "Partido" : v.AmbitoNota!)
-                .OrderBy(g => OrdenAmbito(g.Key))
-                .Select(ga => new
-                {
-                    Ambito = ga.Key,
-                    // Sin categoría (ámbito Nacional/Provincial, o Partido sin categoría asignada)
-                    // va agrupado al final, bajo una etiqueta sintética "SIN CATEGORÍA".
-                    Categorias = ga.GroupBy(v => new
-                        {
-                            Id = v.Categoria?.Id ?? 0,
-                            Nombre = v.Categoria?.Nombre ?? "Sin categoría",
-                            Orden = v.Categoria?.Orden ?? int.MaxValue
-                        })
-                        .OrderBy(c => c.Key.Orden).ToList()
-                })
-                .ToList();
+            // El índice y el cuerpo comparten exactamente la misma jerarquía y orden.
+            var porAmbito = SintesisPdfModel.Agrupar(incluidas);
 
             // Línea de tiempo: cuerpo anclado en v1 + actualizaciones (ResumenCambio)
             var versionPorNota = incluidas
@@ -637,18 +605,6 @@ namespace Medios.Services
             var esAmpliacion = sintesis.Tipo.StartsWith("Ampliacion", StringComparison.OrdinalIgnoreCase);
             var fechaLarga = $"{sintesis.Fecha.Day} de {meses[sintesis.Fecha.Month]} de {sintesis.Fecha.Year}"
                 + (esAmpliacion ? " - AMPLIACIÓN" : "");
-
-            // Nombre de la Delegación (si la síntesis pertenece a una sola) — usado para
-            // reemplazar la etiqueta genérica "ÁMBITO PARTIDO" en el índice y el cuerpo.
-            var delegNombre = sintesis.Delegacion?.DelegacionPrometheus?.Nombre
-                           ?? sintesis.Delegacion?.Nombre;
-
-            // "ÁMBITO PARTIDO" es genérico; cuando la síntesis pertenece a una sola Delegación
-            // se usa su nombre real (ej. "ÁMBITO LA PLATA"). En la consolidada (sin Delegación
-            // única) no hay a quién atribuírselo y se mantiene el genérico.
-            string EtiquetaAmbito(string amb) => amb == "Partido" && !string.IsNullOrWhiteSpace(delegNombre)
-                ? delegNombre!.ToUpper()
-                : amb.ToUpper();
 
             // Banner de cabecera por Tipo (Vespertina/Matutina/Especial). "Ampliacion Matutina/
             // Vespertina" usa la misma portada que su franja base (la fecha ya distingue que es
@@ -733,10 +689,9 @@ namespace Medios.Services
 
                         foreach (var amb in porAmbito)
                         {
-                            var ambSectionId = $"amb-{amb.Ambito}";
-                            FilaIndice($"ÁMBITO {EtiquetaAmbito(amb.Ambito)}", ambSectionId);
+                            FilaIndice(amb.Titulo, amb.SectionId);
                             foreach (var cat in amb.Categorias)
-                                FilaIndice(cat.Key.Nombre.ToUpper(), $"amb-{amb.Ambito}-cat-{cat.Key.Id}");
+                                if (cat.Titulo != null) FilaIndice(cat.Titulo, cat.SectionId);
                         }
 
                         // El cuerpo de las notas arranca en una página nueva, separado del índice.
@@ -744,61 +699,48 @@ namespace Medios.Services
 
                         foreach (var amb in porAmbito)
                         {
+                          col.Item().EnsureSpace(110).Column(ambCol =>
+                          {
                             // ── Encabezado de ÁMBITO (un solo titular) ── (marcado como Section
                             // para que el índice pueda referenciar la página donde arranca)
-                            col.Item().Section($"amb-{amb.Ambito}").PaddingTop(10).Text($"ÁMBITO {EtiquetaAmbito(amb.Ambito)}")
+                            ambCol.Item().Section(amb.SectionId).PaddingTop(10).Text(amb.Titulo)
                                 .FontSize(14).Bold().FontColor(Color.FromHex("#1a5276"));
-                            col.Item().PaddingBottom(2).LineHorizontal(1.5f).LineColor(Color.FromHex("#1a5276"));
+                            ambCol.Item().PaddingBottom(2).LineHorizontal(1.5f).LineColor(Color.FromHex("#1a5276"));
 
                           foreach (var grupo in amb.Categorias)
                           {
+                            ambCol.Item().EnsureSpace(85).Column(catCol =>
+                            {
                             // ── Subsección por CATEGORÍA ── (marcada como Section para el índice)
-                            var sectionId = $"amb-{amb.Ambito}-cat-{grupo.Key.Id}";
-                            col.Item().Section(sectionId).PaddingTop(6).Text(grupo.Key.Nombre.ToUpper())
-                                .FontSize(12).Bold().FontColor(Color.FromHex("#8B4513"));
+                            if (grupo.Titulo != null)
+                            {
+                                catCol.Item().Section(grupo.SectionId).PaddingTop(6).Text(grupo.Titulo)
+                                    .FontSize(12).Bold().FontColor(Color.FromHex("#8B4513"));
+                                catCol.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Color.FromHex("#8B4513"));
+                            }
 
-                            col.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Color.FromHex("#8B4513"));
-
-                            foreach (var snap in grupo.OrderBy(v => v.Partido?.Nombre ?? ""))
+                            foreach (var snap in grupo.Notas)
                             {
                                 // Cuerpo anclado en la versión original (v1) si la noticia evolucionó
                                 lineas.TryGetValue(snap.NotaId, out var linea);
                                 var tieneHist = linea != null && linea.Actualizaciones.Any();
                                 var nota = (tieneHist ? linea!.Ancla : null) ?? snap;
 
-                                col.Item().PaddingTop(4).Column(notaCol =>
+                                catCol.Item().EnsureSpace(65).PaddingTop(4).Column(notaCol =>
                                 {
                                     var geo = FormatGeo(nota.Partido, nota.Localidad);
                                     if (geo.Length > 0)
-                                        notaCol.Item().Text(geo).FontSize(9).Bold();
+                                        notaCol.Item().Text(geo).FontSize(SintesisPdfModel.TamanoTitulo).Bold().FontFamily("URW Bookman");
 
                                     notaCol.Item().Text(SinPuntoFinal(nota.Titulo.ToUpper()))
-                                        .Bold().FontSize(14).FontFamily("URW Bookman");
+                                        .Bold().FontSize(SintesisPdfModel.TamanoTitulo).FontFamily("URW Bookman");
 
-                                    if (!string.IsNullOrEmpty(nota.Sintesis))
-                                    {
-                                        notaCol.Item().Text(nota.Sintesis).FontSize(14).FontFamily("URW Bookman")
-                                            .LineHeight(1.15f).Justify();
-                                        notaCol.Item().Text("(Síntesis IA)").FontSize(8).Italic()
-                                            .FontColor(Colors.Grey.Medium);
-                                    }
-                                    else
-                                    {
-                                        notaCol.Item().Text(nota.Texto).FontSize(14).FontFamily("URW Bookman")
-                                            .LineHeight(1.15f).Justify();
-                                    }
+                                    notaCol.Item().Text(SintesisPdfModel.CuerpoConFuente(nota)).FontSize(14).FontFamily("URW Bookman")
+                                        .LineHeight(1.15f).Justify();
 
-                                    var fuenteTexto = FormatFuente(nota.Fuente, nota.OtrosMedios);
-                                    if (fuenteTexto.Length > 0)
-                                        notaCol.Item().Text(fuenteTexto)
-                                            .FontSize(14).FontFamily("URW Bookman");
-
-                                    if (!string.IsNullOrEmpty(nota.Link))
-                                        notaCol.Item().PaddingBottom(10).Text(nota.Link)
-                                            .FontSize(12).FontFamily("URW Bookman").FontColor(Colors.Blue.Medium);
-
-                                    if (!string.IsNullOrEmpty(nota.VideoUrl))
-                                        notaCol.Item().PaddingBottom(10).Text($"Video: {nota.VideoUrl}")
+                                    var linkVisible = SintesisPdfModel.LinkVisible(nota);
+                                    if (!string.IsNullOrWhiteSpace(linkVisible))
+                                        notaCol.Item().PaddingBottom(10).Text(linkVisible)
                                             .FontSize(12).FontFamily("URW Bookman").FontColor(Colors.Blue.Medium);
 
                                     // Actualizaciones posteriores (ampliaciones) como anotaciones
@@ -822,8 +764,10 @@ namespace Medios.Services
                                 });
                             }
 
-                            col.Item().PaddingVertical(6).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten2);
+                            catCol.Item().PaddingVertical(6).LineHorizontal(0.5f).LineColor(Colors.Grey.Lighten2);
+                            });
                           } // categorías del ámbito
+                          });
                         } // ámbitos
 
                         col.Item().PaddingTop(8).Text(
@@ -847,8 +791,8 @@ namespace Medios.Services
             var s = await db.Sintesis.FindAsync(sintesisId);
             if (s != null)
             {
-                // Si ya estaba Remitida, mantener Remitida (no regresar a Generada)
-                if (s.Estado != "Remitida")
+                // Regenerar el archivo no deshace una publicación ya remitida o informada.
+                if (s.Estado is not "Remitida" and not "Informada")
                     s.Estado = "Generada";
                 s.PDFPath = $"/pdf/{nombreArchivo}";
                 s.FechaGeneracion = DateTime.Now;

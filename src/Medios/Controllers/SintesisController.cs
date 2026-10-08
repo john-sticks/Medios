@@ -112,6 +112,7 @@ namespace Medios.Controllers
             ViewBag.Fecha = fechaFiltro?.ToString("yyyy-MM-dd") ?? "";
             ViewBag.Destinos = new[] { "Matutina", "Vespertina", "Especial" };
             ViewBag.FechaHoy = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd");
+            ViewBag.Operador = GetNombre();
 
             // Para avisar en el Paso 3 si la combinación Fecha+Tipo elegida ya tiene una
             // consolidada generada, antes de que el guard de CrearAsync la rechace recién al enviar.
@@ -145,9 +146,15 @@ namespace Medios.Controllers
         [HasPermission("CREAR_SINTESIS")]
         [HttpPost]
         public async Task<IActionResult> Consolidar(string fecha, string destino, string sesionIdsJson,
-            string? notaNacProvIdsJson = null, string? notaIdsJson = null)
+            string? notaNacProvIdsJson = null, string? notaIdsJson = null, string? operador = null)
         {
             if (!PuedeConsolidar()) return Forbid();
+            var operadorConsolidada = string.IsNullOrWhiteSpace(operador) ? GetNombre() : operador.Trim();
+            if (operadorConsolidada.Length > 100)
+            {
+                TempData["Error"] = "El operador debe tener como máximo 100 caracteres.";
+                return RedirectToAction(nameof(Consolidar), new { fecha });
+            }
 
             if (!DateOnly.TryParse(fecha, out var fechaParsed))
                 fechaParsed = DateOnly.FromDateTime(DateTime.Today);
@@ -174,11 +181,8 @@ namespace Medios.Controllers
 
             // Notas de las sesiones elegidas que van a la consolidada (aprobadas/finalizadas/
             // agregadas). Se excluyen las descartadas (Descartada o "Sin Remitir" con motivo).
-            var notas = sesiones.SelectMany(s => s.Notas)
-                .Where(n => n.VersionActual != null
-                    && (n.VersionActual.EstadoRevision == "Aprobada"
-                     || n.VersionActual.EstadoRevision == "Finalizada"
-                     || n.VersionActual.EstadoRevision == "Agregada"))
+            var notas = sesiones.SelectMany(s => s.Notas
+                .Where(n => SintesisWorkflowPolicy.PuedeConsolidarNota(s, n)))
                 .ToList();
             var notaIds = notas.Select(n => n.Id).ToList();
             if (!notaIds.Any())
@@ -225,7 +229,7 @@ namespace Medios.Controllers
             }
 
             var sintesisId = await _sintesisService.CrearAsync(
-                fechaParsed, destino, GetNombre(), finalNotaIds,
+                fechaParsed, destino, operadorConsolidada, finalNotaIds,
                 delegacionId: null, versionOverride: versionOverride, consolidada: true);
 
             if (sintesisId == -2)
@@ -241,7 +245,7 @@ namespace Medios.Controllers
             try { await _sintesisService.GenerarPdfAsync(sintesisId); } catch { }
 
             await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "sintesis", "POST", "consolidar",
-                new { sintesisId, fecha, destino, sesiones = sesionIds.Count, notas = finalNotaIds.Count });
+                new { sintesisId, fecha, destino, operadorConsolidada, sesiones = sesionIds.Count, notas = finalNotaIds.Count });
             await _traza.RegistrarAsync(TrazaService.SintesisConsolidada, GetNombre(), GetRol(),
                 sintesisId: sintesisId, estado: "Generada",
                 detalle: $"{destino} — {fechaParsed:dd/MM/yyyy} · {finalNotaIds.Count} notas de {sesionIds.Count} sesiones");

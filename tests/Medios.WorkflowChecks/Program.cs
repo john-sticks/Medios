@@ -128,6 +128,8 @@ Verificar(!await libresSesiones.AgregarNotaExistenteAsync(borradorMedios, notaDe
 Verificar(await libresSesiones.AgregarNotaExistenteAsync(borradorMedios, notaMedios, "medios"), "MEDIOS agrega después su nota al borrador");
 Verificar(!(await notasService.GetNotasLibresAsync("Nombre Medios")).Any(), "La nota incorporada sale de Mis Notas libres");
 
+comprobaciones += await SintesisMediosChecks.RunAsync();
+
 Console.WriteLine($"OK: {comprobaciones} comprobaciones de notas libres, publicación, modificación y bandejas.");
 
 sealed class MemoriaFactory : IMediosDbContextFactory

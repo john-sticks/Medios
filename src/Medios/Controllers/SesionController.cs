@@ -419,14 +419,19 @@ namespace Medios.Controllers
                 }
                 if (sintesisId <= 0)
                 {
-                    TempData["Error"] = "No se pudo publicar: el borrador debe tener al menos una nota.";
+                    TempData["Error"] = "No se pudo publicar: verificá que el borrador sea propio y tenga notas completas.";
                     return RedirectToAction(nameof(Detalle), new { id });
                 }
 
                 await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "sesiones_prensa", "POST", "publicar_sintesis",
                     new { sesionId = id, sintesisId });
 
-                TempData["Ok"] = "Síntesis creada. En Generadas podés generar el PDF y luego remitirla.";
+                if (User.IsInRole("MEDIOS"))
+                {
+                    TempData["Ok"] = "Síntesis finalizada. Ya está disponible para consolidar.";
+                    return Redirect("/Sesion/Bandeja#finalizadas");
+                }
+                TempData["Ok"] = "Síntesis creada. En Bandeja podés generar el PDF y luego remitirla.";
                 return Redirect("/Sintesis/Listado#generadas");
             }
             catch (Exception ex)
@@ -442,6 +447,7 @@ namespace Medios.Controllers
         [HttpPost]
         public async Task<IActionResult> RevertirFinalizada(int id)
         {
+            if (!User.IsInRole("MEDIOS")) return Forbid();
             var ok = await _sesionService.RevertirFinalizadaABorradorAsync(id);
             if (ok)
             {
@@ -451,9 +457,9 @@ namespace Medios.Controllers
             }
             else
             {
-                TempData["Error"] = "No se pudo revertir: ya fue remitida/informada, o no es una síntesis propia de MEDIOS.";
+                TempData["Error"] = "No se pudo revertir: ya fue informada/consolidada, o no es una finalizada propia de MEDIOS.";
             }
-            return RedirectToAction(nameof(Bandeja));
+            return Redirect(ok ? "/Sesion/Bandeja#borradores" : "/Sesion/Bandeja#finalizadas");
         }
 
         [HasPermission("CREAR_SESION")]

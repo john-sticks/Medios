@@ -1,4 +1,5 @@
 @using Medios.Entities
+@using Medios.Services
 @model List<SesionPrensa>
 
 @{
@@ -93,10 +94,7 @@ else
                                         var agregadas = s.Notas.Count(n => n.VersionActual?.EstadoRevision == "Agregada");
                                         // Solo notas que van a la consolidada (aprobadas/finalizadas/agregadas).
                                         // Las descartadas (Descartada o Sin Remitir con motivo) NO se listan.
-                                        var sesionNotas = s.Notas.Where(n => n.VersionActual != null
-                                            && (n.VersionActual.EstadoRevision == "Aprobada"
-                                             || n.VersionActual.EstadoRevision == "Finalizada"
-                                             || n.VersionActual.EstadoRevision == "Agregada")).ToList();
+                                        var sesionNotas = s.Notas.Where(n => SintesisWorkflowPolicy.PuedeConsolidarNota(s, n)).ToList();
                                         string AmbColor(string? a) => a == "Nacional" ? "#c0392b" : a == "Provincial" ? "#1a5276" : "#2471a3";
                                         <div class="sesion-wrap" style="margin-bottom:4px;">
                                             <div class="sesion-item" style="border:1px solid #ddd; border-radius:3px; padding:8px 10px; cursor:pointer;"
@@ -213,6 +211,11 @@ else
                                 <input type="date" name="fecha" id="fechaInput" class="form-control"
                                        value="@(string.IsNullOrEmpty(fecha) ? fechaHoy : fecha)" required
                                        onchange="chequearDuplicado()" />
+                            </div>
+                            <div class="form-group" style="margin-right:14px;">
+                                <label for="operadorConsolidada" style="margin-right:6px;">Operador</label>
+                                <input type="text" id="operadorConsolidada" name="operador" class="form-control"
+                                       value="@ViewBag.Operador" maxlength="100" required />
                             </div>
                             <button type="submit" class="btn btn-success btn-lg" onclick="return prepararSubmit()">
                                 <i class="fa fa-object-group"></i> Generar Consolidada
