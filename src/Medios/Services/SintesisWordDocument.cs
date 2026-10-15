@@ -95,10 +95,14 @@ public static class SintesisWordDocument
                                 body.Append(Parrafo(act.ResumenCambio ?? "", 9, fuente: "Arial"));
                             }
                     }
-                    var separador = Parrafo("", 1, antes: 120, despues: 120);
-                    separador.ParagraphProperties!.InsertBefore(new W.ParagraphBorders(new W.BottomBorder
-                        { Val = W.BorderValues.Single, Color = "DDDDDD", Size = 4 }), separador.ParagraphProperties.GetFirstChild<W.SpacingBetweenLines>());
-                    body.Append(separador);
+                    // El borde pertenece al último párrafo: un párrafo vacío adicional
+                    // puede saltar solo a una página nueva al alcanzar el margen inferior.
+                    var ultimo = body.Elements<W.Paragraph>().Last();
+                    var propiedades = ultimo.ParagraphProperties!;
+                    propiedades.InsertBefore(new W.ParagraphBorders(new W.BottomBorder
+                        { Val = W.BorderValues.Single, Color = "DDDDDD", Size = 4, Space = 6 }),
+                        propiedades.GetFirstChild<W.SpacingBetweenLines>());
+                    propiedades.GetFirstChild<W.SpacingBetweenLines>()!.After = "240";
                 }
             }
             if (string.Equals(sintesis.Tipo, "Vespertina", StringComparison.OrdinalIgnoreCase))
