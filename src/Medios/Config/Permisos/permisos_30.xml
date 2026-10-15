@@ -39,6 +39,8 @@
     <page href="~/nota/editarlibre" />
     <page href="~/sesion/agregarnotaexistente" />
     <page href="~/sintesis/detalle" />
+    <page href="~/sintesis/vincularrechazada" />
+    <page href="~/sintesis/eliminarrechazada" />
     <page href="~/sintesis/descargarpdf" />
     <page href="~/mockswitch" />
     <page href="~/notabuscador/detalle" />

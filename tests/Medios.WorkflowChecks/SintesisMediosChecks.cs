@@ -71,10 +71,10 @@ static class SintesisMediosChecks
 
         var modelo = DatosModelo();
         var grupos = SintesisPdfModel.Agrupar(modelo);
-        Check(grupos.Select(g => g.Titulo).SequenceEqual(new[] { "ÁMBITO NACIONAL", "ÁMBITO PROVINCIAL", "ÁMBITO LA PLATA", "ÁMBITO MAR DEL PLATA" }), "Orden de ámbitos y partido elegido");
+        Check(grupos.Select(g => g.Titulo).SequenceEqual(new[] { "ÁMBITO NACIONAL", "ÁMBITO PROVINCIAL", "ÁMBITO LA PLATA", "INSTITUCIONALES", "ÁMBITO PENITENCIARIO", "ÁMBITO DEPORTIVO", "REPERCUSIONES PERIODÍSTICAS" }), "Orden de ámbitos y partido elegido");
         Check(grupos.Take(2).All(g => g.Categorias.Single().Titulo == null), "Nacional y Provincial no muestran Sin categoría");
-        Check(grupos[2].Categorias.Select(c => c.Titulo).SequenceEqual(new string?[] { null, "INSTITUCIONALES", "ÁMBITO PENITENCIARIO", "ÁMBITO DEPORTIVO", "REPERCUSIONES PERIODÍSTICAS" }), "Orden del modelo prima sobre orden configurado de categorías");
-        Check(!grupos.SelectMany(g => g.Categorias).Any(c => c.Titulo == "DENUNCIAS"), "No agregar categorías vacías");
+        Check(grupos.Single(g => g.Titulo == "INSTITUCIONALES").Categorias.Single().Notas.Count == 2, "Orden del modelo prima sobre orden configurado de categorías");
+        Check(!grupos.Any(g => g.Titulo == "DENUNCIAS"), "No agregar categorías vacías");
         var conVideo = modelo.First(sn => sn.NotaVersion.VideoUrl != null).NotaVersion;
         Check(SintesisPdfModel.LinkVisible(conVideo) == null, "Ocultar enlaces cuando existe video");
         Check(SintesisPdfModel.CuerpoConFuente(conVideo) == "Resumen de prueba. (DIARIO, OTRO MEDIO)", "Fuente inmediatamente después del texto, sin salto de línea ni marca IA");
@@ -102,6 +102,7 @@ static class SintesisMediosChecks
             NotaVersion = new NotaVersion
             {
                 AmbitoNota = dato.Item1, Partido = dato.Item3,
+                Localidad = dato.Item3.Nombre == "La Plata" ? new Localidad { Nombre = "TOLOSA (LA PLATA)" } : new Localidad { Nombre = "BATAN" },
                 Categoria = dato.Item2.Length > 0 ? new CategoriaNoticia { Nombre = dato.Item2, Orden = index } : null,
                 Titulo = "Nota de prueba " + index,
                 Texto = "Texto original de prueba.", Sintesis = "Resumen de prueba.\n",
@@ -112,7 +113,7 @@ static class SintesisMediosChecks
         }).ToList();
     }
 
-    public static async Task GenerarMuestraPdfAsync(string directorio)
+    public static async Task GenerarMuestraPdfAsync(string directorio, string tipo = "Especial")
     {
         QuestPDF.Settings.License = LicenseType.Community;
         Directory.CreateDirectory(directorio);
@@ -127,9 +128,11 @@ static class SintesisMediosChecks
         int id;
         using (var db = factory.Create())
         {
-            var sintesis = new Sintesis { Fecha = new DateOnly(2026, 10, 8), Tipo = "Especial", OperadorGenera = "Operador de prueba" };
+            var sintesis = new Sintesis { Fecha = new DateOnly(2026, 10, 8), Tipo = tipo, OperadorGenera = "Operador de prueba" };
             foreach (var incluida in DatosModelo())
             {
+                if (incluida.NotaVersion.AmbitoNota == "Nacional")
+                    incluida.NotaVersion.Sintesis = string.Join(" ", Enumerable.Repeat("Esta es una noticia ficticia utilizada para verificar el interlineado y el espaciado del documento. La información describe una actividad de prueba en la que participan distintas instituciones y permite comprobar la lectura de un párrafo extenso.", 3));
                 var nota = new NotaPrensa();
                 incluida.NotaVersion.Nota = nota;
                 nota.VersionActual = incluida.NotaVersion;

@@ -25,3 +25,10 @@ históricas para consolidar y el orden y formato del modelo PDF. El campo de
 operador utiliza OperadorGenera y no requiere cambios del esquema.
 Estas comprobaciones no reemplazan la verificación de restricciones MySQL;
 el ciclo completo se verificó en test con MySQL antes de trasladarlo.
+
+Incluye prevención de borradores duplicados, recuperación y eliminación de notas
+rechazadas por la delegación, conservación de notas al eliminar solo el borrador,
+selección de ámbito desde Categoría y bloqueo de finalización con notas pendientes.
+Los contadores excluyen remisiones vacías. El modelo PDF agrupa por categoría y partido.
+Las pruebas de autenticación de producción siguen en Medios.AuthChecks (Cerberus);
+no se trasladan pruebas ni cambios del acceso Mock del NAS.

@@ -46,6 +46,7 @@ for (var ciclo = 0; ciclo < 3; ciclo++)
     var bandeja = await sesionService.GetBandejaAnalistaAsync();
     Verificar(bandeja.Count == 1 && bandeja[0].Notas.Count == 2, "Una remisión con dos notas, sin residuos vacíos");
     Verificar((await sesionService.GetBandejaAsync()).Count == 1, "La otra bandeja tampoco cuenta residuos");
+    Verificar((await sesionService.GetMetricasAsync()).SesionesRevisadas == 1, "Inicio cuenta la misma remisión con notas que la Bandeja y excluye residuos vacíos");
 
     int? delegacionId;
     using (var db = factory.Create())
@@ -128,9 +129,48 @@ Verificar(!await libresSesiones.AgregarNotaExistenteAsync(borradorMedios, notaDe
 Verificar(await libresSesiones.AgregarNotaExistenteAsync(borradorMedios, notaMedios, "medios"), "MEDIOS agrega después su nota al borrador");
 Verificar(!(await notasService.GetNotasLibresAsync("Nombre Medios")).Any(), "La nota incorporada sale de Mis Notas libres");
 
-comprobaciones += await SintesisMediosChecks.RunAsync();
+// El cierre requiere una decisión explícita para cada nota.
+var cierreFactory = new MemoriaFactory();
+var cierreService = new SesionService(cierreFactory, null!, null!, null!);
+int cierreId;
+using (var db = cierreFactory.Create())
+{
+    var sesion = new SesionPrensa { Estado = "Remitida", Fecha = fecha };
+    var nota = new NotaPrensa { Sesion = sesion };
+    var version = new NotaVersion { Nota = nota, EsActual = true, EstadoRevision = "Remitida" };
+    nota.VersionActual = version;
+    db.NotasPrensa.Add(nota);
+    await db.SaveChangesAsync();
+    cierreId = sesion.Id;
+}
+foreach (var estado in new[] { "Remitida", "Pendiente", "Borrador", "Sin Remitir", "Aprobada", "Descartada", "Agregada", "Finalizada" })
+{
+    using (var db = cierreFactory.Create())
+    {
+        var version = await db.NotasVersion.SingleAsync();
+        version.EstadoRevision = estado;
+        await db.SaveChangesAsync();
+    }
+    var atendida = estado is "Aprobada" or "Descartada" or "Agregada" or "Finalizada";
+    Verificar(await cierreService.TodasNotasRevisadasAsync(cierreId) == atendida, "Finalizar depende de atender la nota: " + estado);
+    if (!atendida)
+        Verificar(!await cierreService.MarcarFinalizadaAsync(cierreId), "El servidor bloquea finalizar con nota " + estado);
+}
+Verificar(!SintesisWorkflowPolicy.PuedeFinalizar(new SesionPrensa { Estado = "Remitida" }), "Una sesión vacía no puede finalizarse");
+var incompleta = new SesionPrensa { Estado = "Remitida" };
+incompleta.Notas.Add(new NotaPrensa());
+Verificar(!SintesisWorkflowPolicy.PuedeFinalizar(incompleta), "Una nota sin versión no está atendida");
+incompleta.Notas.Add(new NotaPrensa { VersionActual = new NotaVersion { EstadoRevision = "Aprobada" } });
+Verificar(!SintesisWorkflowPolicy.PuedeFinalizar(incompleta), "Aprobar una nota no habilita finalizar si otra sigue pendiente");
 
-Console.WriteLine($"OK: {comprobaciones} comprobaciones de notas libres, publicación, modificación y bandejas.");
+
+comprobaciones += await SintesisMediosChecks.RunAsync();
+comprobaciones += await RechazadasChecks.RunAsync();
+comprobaciones += await BorradorUnicidadChecks.RunAsync();
+comprobaciones += await CategoriaChecks.RunAsync();
+if (args.Length >= 2 && args[0] == "--pdf-sample")
+    await SintesisMediosChecks.GenerarMuestraPdfAsync(args[1], args.Length > 2 ? args[2] : "Especial");
+Console.WriteLine($"OK: {comprobaciones} comprobaciones de notas, publicación, reversión, consolidación y modelo PDF.");
 
 sealed class MemoriaFactory : IMediosDbContextFactory
 {

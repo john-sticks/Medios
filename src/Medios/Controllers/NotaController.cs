@@ -4,6 +4,7 @@ using Medios.Services;
 
 namespace Medios.Controllers
 {
+    [TypeFilter(typeof(CategoriaNotaFilter))]
     public class NotaController : Controller
     {
         private readonly NotaService _notaService;

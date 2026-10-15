@@ -25,13 +25,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" />
     <style>
         .leaflet-container { height: 100%; width: 100%; }
-        /* Corrector ortográfico: subraya las palabras mal escritas dentro del campo */
-        .spell-backdrop mark {
-            background: transparent;
-            color: transparent;
-            text-decoration: underline wavy #dd4b39;
-            text-decoration-skip-ink: none;
-        }
     </style>
     @RenderSection("Styles", required: false)
 </head>
@@ -52,7 +45,6 @@
                 </a>
                 <div class="navbar-custom-menu">
                     <ul class="nav navbar-nav">
-                        @await Html.PartialAsync("_MockSwitcher")
                         @if (User.Identity!.IsAuthenticated)
                         {
                             <li class="dropdown user user-menu">
@@ -124,35 +116,6 @@
         function showLoader(texto) { texto = texto || "Procesando..."; $("#globalLoader div div").text(texto); $("#globalLoader").fadeIn(100); }
         function hideLoader() { $("#globalLoader").fadeOut(100); }
 
-        // ── Selector compartido Ámbito → Categoría ──────────────────────────
-        // Cada formulario de nota llama initAmbitoSelector(prefix, catIdExistente)
-        // IDs esperados: selAmbito{p}, contCat{p}, selCat{p}, hCatId{p}
-        window.initAmbitoSelector = function(p, catId) {
-            var selAmbito = document.getElementById('selAmbito' + p);
-            var contCat   = document.getElementById('contCat' + p);
-            var selCat    = document.getElementById('selCat' + p);
-            var hCatId    = document.getElementById('hCatId' + p);
-            if (!selAmbito || !hCatId) return;
-
-            function sync() {
-                var a = selAmbito.value;
-                if (a === 'nacional')   { hCatId.value = '1'; if (contCat) contCat.style.display = 'none'; }
-                else if (a === 'provincial') { hCatId.value = '2'; if (contCat) contCat.style.display = 'none'; }
-                else if (a === 'partido') {
-                    if (contCat) contCat.style.display = '';
-                    hCatId.value = selCat ? selCat.value : '';
-                } else { hCatId.value = ''; if (contCat) contCat.style.display = 'none'; }
-            }
-
-            selAmbito.addEventListener('change', sync);
-            if (selCat) selCat.addEventListener('change', function() { hCatId.value = this.value; });
-
-            // Pre-inicializar al editar
-            var ambito = catId == 1 ? 'nacional' : catId == 2 ? 'provincial' : catId ? 'partido' : '';
-            selAmbito.value = ambito;
-            if (ambito === 'partido' && selCat) selCat.value = catId;
-            sync();
-        };
         $(document).ajaxStart(function () { showLoader(); });
         $(document).ajaxStop(function () { hideLoader(); });
 

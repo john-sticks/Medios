@@ -192,6 +192,13 @@ namespace Medios.Services
         {
             using var db = _factory.Create();
 
+            // La publicación también ocupa el turno aunque su sesión ya no exista.
+            // Aplicar al crear la misma restricción de Matutina/Vespertina que al publicar.
+            if (delegacionId.HasValue && TiposUnicos.Contains(turno)
+                && await db.Sintesis.AnyAsync(s => s.DelegacionId == delegacionId
+                    && s.Fecha == fecha && s.Tipo == turno && s.Estado != "Borrador"))
+                return 0;
+
             bool existe;
             if (delegacionId.HasValue)
             {
@@ -261,7 +268,8 @@ namespace Medios.Services
             return true;
         }
 
-        public async Task<bool> EliminarBorradorAsync(int sesionId, string usuarioCarga, bool eliminarNotas = true)
+        public async Task<bool> EliminarBorradorAsync(int sesionId, string usuarioCarga,
+            bool eliminarNotas = true, string? nombreUsuario = null)
         {
             using var strategyDb = _factory.Create();
             return await strategyDb.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
@@ -269,9 +277,10 @@ namespace Medios.Services
                 using var db = _factory.Create();
                 var sesion = await db.SesionesPrensas
                     .Include(s => s.Notas)
+                        .ThenInclude(n => n.VersionActual)
                     .FirstOrDefaultAsync(s => s.Id == sesionId);
 
-                if (sesion == null || sesion.UsuarioCarga != usuarioCarga || sesion.Estado != "Borrador")
+                if (sesion == null || !string.Equals(sesion.UsuarioCarga, usuarioCarga, StringComparison.OrdinalIgnoreCase) || sesion.Estado != "Borrador")
                     return false;
 
                 // El borrado en bloque usa varias operaciones: un fallo no debe dejar la sesión
@@ -310,8 +319,9 @@ namespace Medios.Services
                     }
                     else
                     {
-                        // Las notas quedan libres (SesionPrensaId = null via SetNull)
-                        // EF Core lo maneja automáticamente al borrar la sesión
+                        foreach (var nota in sesion.Notas.ToList())
+                            await _notaService.PrepararLiberacionAsync(db, nota,
+                                sesion.DelegacionId, nombreUsuario ?? usuarioCarga);
                     }
                 }
 
@@ -586,8 +596,7 @@ namespace Medios.Services
             var sesion = await db.SesionesPrensas
                 .Include(s => s.Notas).ThenInclude(n => n.VersionActual)
                 .FirstOrDefaultAsync(s => s.Id == sesionId);
-            if (sesion == null || sesion.Estado != "Remitida") return false;
-            return !sesion.Notas.Any(n => n.VersionActual?.EstadoRevision is "Borrador" or "Remitida" or "Pendiente");
+            return sesion != null && SintesisWorkflowPolicy.PuedeFinalizar(sesion);
         }
 
         // El ANALISTA, tras revisar todas las notas de una sesión Remitida, la marca Finalizada
@@ -600,7 +609,7 @@ namespace Medios.Services
             var sesion = await db.SesionesPrensas
                 .Include(s => s.Notas).ThenInclude(n => n.VersionActual)
                 .FirstOrDefaultAsync(s => s.Id == sesionId);
-            if (sesion == null || sesion.Estado != "Remitida") return false;
+            if (sesion == null || !SintesisWorkflowPolicy.PuedeFinalizar(sesion)) return false;
 
             // Versión que la síntesis realmente contiene (snapshot si existe, sino la actual)
             var notaIds = sesion.Notas.Select(n => n.Id).ToList();
@@ -904,7 +913,8 @@ namespace Medios.Services
 
             // ── ANALISTA ───────────────────────────────────────────────
             // Sesiones "Remitidas": pendientes de revisar/finalizar por el ANALISTA
-            var sesionesRevisadas = db.SesionesPrensas.Where(s => s.Estado == "Remitida");
+            var sesionesRevisadas = db.SesionesPrensas
+                .Where(s => s.Estado == "Remitida" && s.Notas.Any());
             // Sesiones "Finalizadas" hoy (análisis completado hoy)
             var sesionesFinalizadasHoy = db.SesionesPrensas
                 .Where(s => s.Estado == "Finalizada" && s.Fecha == hoy);

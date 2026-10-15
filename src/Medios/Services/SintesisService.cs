@@ -703,9 +703,8 @@ namespace Medios.Services
                           {
                             // ── Encabezado de ÁMBITO (un solo titular) ── (marcado como Section
                             // para que el índice pueda referenciar la página donde arranca)
-                            ambCol.Item().Section(amb.SectionId).PaddingTop(10).Text(amb.Titulo)
-                                .FontSize(14).Bold().FontColor(Color.FromHex("#1a5276"));
-                            ambCol.Item().PaddingBottom(2).LineHorizontal(1.5f).LineColor(Color.FromHex("#1a5276"));
+                            ambCol.Item().Section(amb.SectionId).ShowEntire().PaddingTop(10).PaddingBottom(10).Text(amb.Titulo)
+                                .FontSize(14).Bold().FontFamily("URW Bookman").FontColor(Color.FromHex("#8B4513"));
 
                           foreach (var grupo in amb.Categorias)
                           {
@@ -716,7 +715,6 @@ namespace Medios.Services
                             {
                                 catCol.Item().Section(grupo.SectionId).PaddingTop(6).Text(grupo.Titulo)
                                     .FontSize(12).Bold().FontColor(Color.FromHex("#8B4513"));
-                                catCol.Item().PaddingBottom(4).LineHorizontal(0.5f).LineColor(Color.FromHex("#8B4513"));
                             }
 
                             foreach (var snap in grupo.Notas)
@@ -728,15 +726,15 @@ namespace Medios.Services
 
                                 catCol.Item().EnsureSpace(65).PaddingTop(4).Column(notaCol =>
                                 {
-                                    var geo = FormatGeo(nota.Partido, nota.Localidad);
+                                    var geo = amb.SoloLocalidad ? SintesisPdfModel.LocalidadDentroPartido(nota) : FormatGeo(nota.Partido, nota.Localidad);
                                     if (geo.Length > 0)
                                         notaCol.Item().Text(geo).FontSize(SintesisPdfModel.TamanoTitulo).Bold().FontFamily("URW Bookman");
 
-                                    notaCol.Item().Text(SinPuntoFinal(nota.Titulo.ToUpper()))
-                                        .Bold().FontSize(SintesisPdfModel.TamanoTitulo).FontFamily("URW Bookman");
+                                    notaCol.Item().ShowEntire().Text(SinPuntoFinal(nota.Titulo.ToUpper()))
+                                        .Bold().FontSize(SintesisPdfModel.TamanoTitulo).FontFamily("URW Bookman").LineHeight(1.0f);
 
                                     notaCol.Item().Text(SintesisPdfModel.CuerpoConFuente(nota)).FontSize(14).FontFamily("URW Bookman")
-                                        .LineHeight(1.15f).Justify();
+                                        .LineHeight(1.0f).Justify();
 
                                     var linkVisible = SintesisPdfModel.LinkVisible(nota);
                                     if (!string.IsNullOrWhiteSpace(linkVisible))
@@ -770,10 +768,13 @@ namespace Medios.Services
                           });
                         } // ámbitos
 
-                        col.Item().PaddingTop(8).Text(
-                            "Nota: La información suministrada por las agencias de noticias son anticipos que refieren " +
-                            "a posibles temas a tratar en el día de mañana, en los medios periodísticos nacionales o locales.")
-                            .FontSize(8).Italic().FontColor(Colors.Grey.Darken2);
+                        if (string.Equals(sintesis.Tipo, "Vespertina", StringComparison.OrdinalIgnoreCase))
+                        {
+                            col.Item().PaddingTop(8).Text(
+                                "Nota: La información suministrada por las agencias de noticias son anticipos que refieren " +
+                                "a posibles temas a tratar en el día de mañana, en los medios periodísticos nacionales o locales.")
+                                .FontSize(8).Italic().FontColor(Colors.Grey.Darken2);
+                        }
                     });
 
                     // ── FOOTER ──

@@ -49,38 +49,36 @@ public static class SintesisPdfModel
         return orden < OrdenCategorias.Count ? OrdenCategorias[orden] : nombre.ToUpperInvariant();
     }
 
-    private static int OrdenAmbito(string ambito) => ambito switch
+    private static (int Orden, string Titulo, bool SoloLocalidad) Grupo(NotaVersion nota)
     {
-        "Nacional" => 0,
-        "Provincial" => 1,
-        _ => 2
-    };
+        var ambito = CategoriaNotaPolicy.AmbitoDeNota(nota);
+        if (ambito == "Nacional") return (0, "ÁMBITO NACIONAL", false);
+        if (ambito == "Provincial") return (1, "ÁMBITO PROVINCIAL", false);
+        var categoria = Categoria(nota);
+        if (categoria.Length == 0 || nota.Categoria == null)
+            return (2, "ÁMBITO " + (nota.Partido?.Nombre ?? "Partido").Trim().ToUpperInvariant(), true);
+        return (3 + OrdenCategoria(categoria), categoria, false);
+    }
 
-    public static List<AmbitoPdf> Agrupar(IEnumerable<SintesisNota> incluidas)
+    public static List<AmbitoPdf> Agrupar(IEnumerable<SintesisNota> incluidas) =>
+        incluidas.OrderBy(sn => sn.Orden)
+            .GroupBy(sn => Grupo(sn.NotaVersion))
+            .OrderBy(g => g.Key.Orden)
+            .ThenBy(g => g.Key.Titulo, StringComparer.OrdinalIgnoreCase)
+            .Select((grupo, index) => new AmbitoPdf($"grupo-{index}", grupo.Key.Titulo,
+                new List<CategoriaPdf> { new($"grupo-{index}-notas", null,
+                    grupo.Select(sn => sn.NotaVersion).ToList()) }, grupo.Key.SoloLocalidad))
+            .ToList();
+
+    public static string LocalidadDentroPartido(NotaVersion nota)
     {
-        return incluidas.OrderBy(sn => sn.Orden)
-            .GroupBy(sn => new
-            {
-                Ambito = sn.NotaVersion.AmbitoNota is "Nacional" or "Provincial"
-                    ? sn.NotaVersion.AmbitoNota! : "Partido",
-                Partido = sn.NotaVersion.AmbitoNota is "Nacional" or "Provincial"
-                    ? "" : (sn.NotaVersion.Partido?.Nombre ?? "Partido").Trim().ToUpperInvariant()
-            })
-            .OrderBy(g => OrdenAmbito(g.Key.Ambito))
-            .ThenBy(g => g.Key.Partido, StringComparer.OrdinalIgnoreCase)
-            .Select((grupo, ambitoIndex) =>
-            {
-                var id = $"amb-{ambitoIndex}";
-                var categorias = grupo.GroupBy(sn => grupo.Key.Ambito == "Partido" ? Categoria(sn.NotaVersion) : "")
-                    .OrderBy(g => OrdenCategoria(g.Key))
-                    .ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
-                    .Select((categoria, index) => new CategoriaPdf($"{id}-cat-{index}",
-                        string.IsNullOrEmpty(categoria.Key) ? null : categoria.Key,
-                        categoria.Select(sn => sn.NotaVersion).ToList()))
-                    .ToList();
-                var titulo = grupo.Key.Ambito == "Partido" ? grupo.Key.Partido : grupo.Key.Ambito.ToUpperInvariant();
-                return new AmbitoPdf(id, $"ÁMBITO {titulo}", categorias);
-            }).ToList();
+        var localidad = nota.Localidad?.Nombre ?? "";
+        var partido = nota.Partido?.Nombre ?? "";
+        var sufijo = $"({partido})";
+        if (localidad.EndsWith(sufijo, StringComparison.OrdinalIgnoreCase))
+            localidad = localidad[..^sufijo.Length].Trim();
+        return string.Equals(localidad, partido, StringComparison.OrdinalIgnoreCase)
+            ? "" : localidad.ToUpperInvariant();
     }
 
     public static string CuerpoConFuente(NotaVersion nota)
@@ -96,5 +94,5 @@ public static class SintesisPdfModel
     public static string? LinkVisible(NotaVersion nota) => string.IsNullOrWhiteSpace(nota.VideoUrl) ? nota.Link : null;
 }
 
-public sealed record AmbitoPdf(string SectionId, string Titulo, List<CategoriaPdf> Categorias);
+public sealed record AmbitoPdf(string SectionId, string Titulo, List<CategoriaPdf> Categorias, bool SoloLocalidad = false);
 public sealed record CategoriaPdf(string SectionId, string? Titulo, List<NotaVersion> Notas);

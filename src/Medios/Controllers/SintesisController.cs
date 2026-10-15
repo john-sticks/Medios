@@ -14,10 +14,11 @@ namespace Medios.Controllers
         private readonly EmailService _email;
         private readonly TrazaService _traza;
         private readonly DelegacionService _delegService;
+        private readonly NotaService _notaService;
 
         public SintesisController(SintesisService sintesisService, SesionService sesionService,
             AuditoriaService auditoria, MenuXmlService menuService, EmailService email, TrazaService traza,
-            DelegacionService delegService)
+            DelegacionService delegService, NotaService notaService)
         {
             _sintesisService = sintesisService;
             _sesionService = sesionService;
@@ -26,6 +27,7 @@ namespace Medios.Controllers
             _email = email;
             _traza = traza;
             _delegService = delegService;
+            _notaService = notaService;
         }
 
         private string GetRol() => User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
@@ -61,9 +63,9 @@ namespace Medios.Controllers
                 var deleg = await _sesionService.GetDelegacionEfectivaAsync(User);
                 var rechazadas = deleg == null
                     ? new List<Medios.Entities.NotaPrensa>()
-                    : (await _sesionService.GetNotasSinRemitirByDelegacionAsync(deleg.Id))
-                        .Where(n => !string.IsNullOrEmpty(n.VersionActual?.MotivoDescarte))
-                        .ToList();
+                    : await _notaService.GetRechazadasAsync(deleg.Id);
+                ViewBag.BorradoresRechazadas = (await _sesionService.GetMiasAsync(GetUsuario()))
+                    .Where(s => s.Estado == "Borrador" && s.DelegacionId == deleg?.Id).ToList();
 
                 var notasRechazadas = rechazadas
                     .Select(n => new {
@@ -78,6 +80,44 @@ namespace Medios.Controllers
             }
 
             return View(lista);
+        }
+
+        [HasPermission("VER_SINTESIS")]
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> VincularRechazada(int notaId, int sesionId)
+        {
+            if (!EsDelegacion()) return Forbid();
+            var delegacion = await _sesionService.GetDelegacionEfectivaAsync(User);
+            if (delegacion == null) return Forbid();
+            var ok = await _notaService.VincularRechazadaAsync(notaId, sesionId,
+                delegacion.Id, GetUsuario(), GetNombre());
+            if (!ok)
+            {
+                TempData["Error"] = "No se pudo vincular: elegí un borrador propio de tu delegación y una nota rechazada disponible.";
+                return Redirect("/Sintesis/Listado#descartadas");
+            }
+            await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "notas_prensa", "POST",
+                "vincular_rechazada", new { notaId, sesionId });
+            TempData["Ok"] = "Nota vinculada al borrador. Corregila antes de publicar la síntesis.";
+            return Redirect($"/Sesion/Detalle/{sesionId}");
+        }
+
+        [HasPermission("VER_SINTESIS")]
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> EliminarRechazada(int notaId)
+        {
+            if (!EsDelegacion()) return Forbid();
+            var delegacion = await _sesionService.GetDelegacionEfectivaAsync(User);
+            if (delegacion == null) return Forbid();
+            var ok = await _notaService.EliminarRechazadaAsync(notaId, delegacion.Id);
+            if (ok)
+            {
+                await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "notas_prensa", "POST",
+                    "eliminar_rechazada", new { notaId });
+                TempData["Ok"] = "Nota rechazada eliminada.";
+            }
+            else TempData["Error"] = "No se pudo eliminar: la nota no está disponible o está vinculada a otra publicación.";
+            return Redirect("/Sintesis/Listado#descartadas");
         }
 
         // ── MEDIOS: consolidar síntesis de delegaciones ──

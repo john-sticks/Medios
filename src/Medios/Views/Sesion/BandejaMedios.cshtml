@@ -1,4 +1,5 @@
 @using Medios.Entities
+@using Medios.Services
 @model List<SesionPrensa>
 
 @{
@@ -101,7 +102,7 @@
                     </button>
                     <button type="button" class="btn btn-sm btn-warning" style="margin-left:4px;" id="tabRemitidas" onclick="mostrarTab('remitidas')">
                         <i class="fa fa-inbox"></i> Remitidas
-                        <span class="badge" style="background:rgba(255,255,255,0.3);">@remitidasCount</span>
+                        <span class="badge" style="background:rgba(255,255,255,0.3);color:#000;">@remitidasCount</span>
                     </button>
                     <button type="button" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabProcesando" onclick="mostrarTab('procesando')">
                         <i class="fa fa-spinner"></i> Procesando
@@ -164,11 +165,11 @@
                                     <td class="text-right" style="white-space:nowrap;">
                                         <a href="/Sesion/Detalle/@s.Id" class="btn btn-xs btn-primary"><i class="fa fa-eye"></i> Ver</a>
                                         <a href="/Sesion/ExportarExcel/@s.Id" class="btn btn-xs btn-success" title="Excel"><i class="fa fa-file-excel-o"></i></a>
-                                        @if (s.Estado == "Remitida")
+                                        @if (SintesisWorkflowPolicy.PuedeFinalizar(s))
                                         {
                                             <form method="post" asp-controller="Sesion" asp-action="FinalizarSesion" style="display:inline;margin-left:2px;">
                                                 <input type="hidden" name="id" value="@s.Id" />
-                                                <button type="submit" class="btn btn-xs btn-navy" onclick="return confirm('¿Finalizar esta síntesis? Las notas sin atender no se podrán revisar después.')">
+                                                <button type="submit" class="btn btn-xs btn-navy" onclick="return confirm('¿Finalizar esta síntesis? Todas sus notas fueron atendidas.')">
                                                     <i class="fa fa-flag-checkered"></i> Finalizar
                                                 </button>
                                             </form>

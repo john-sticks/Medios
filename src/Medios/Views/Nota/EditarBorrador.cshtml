@@ -39,7 +39,7 @@
                                 @await Html.PartialAsync("_AmbitoCategoria")
                                 <div class="col-md-3">
                                     <div class="form-group">
-                                        <label>Partido <span class="text-red">*</span> <small class="text-muted">(si Ámbito = Partido)</small></label>
+                                        <label>Partido <span class="text-red">*</span> <small class="text-muted">(según categoría)</small></label>
                                         <select name="partidoId" id="selPartido" class="form-control">
                                             <option value="">— Todos —</option>
                                             @foreach (var p in partidos!)
@@ -71,7 +71,7 @@
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="form-group">
-                                        <label>Fuente <span class="text-red">*</span></label>
+                                        <label>Fuente (medio periodístico) <span class="text-red">*</span></label>
                                         <input type="text" name="fuente" class="form-control"
                                                value="@v?.Fuente" maxlength="200" required />
                                     </div>
@@ -89,6 +89,10 @@
                                                value="@v?.Link" maxlength="2000" />
                                     </div>
                                 </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Otros medios <small class="text-muted">(repercusión periodística, separados por coma)</small></label>
+                                <input type="text" name="otrosMedios" class="form-control" value="@v?.OtrosMedios" maxlength="300" placeholder="Ej: LANACION,INFOBAE" />
                             </div>
                             <div class="form-group">
                                 <label>Título <span class="text-red">*</span></label>
@@ -116,10 +120,6 @@
                                 </label>
                                 <textarea name="sintesis" id="ebSintesis" class="form-control" rows="3"
                                           placeholder="Síntesis generada por IA (opcional, editable)">@v?.Sintesis</textarea>
-                            </div>
-                            <div class="form-group">
-                                <label>Otros medios <small class="text-muted">(repercusión periodística, separados por coma)</small></label>
-                                <input type="text" name="otrosMedios" class="form-control" value="@v?.OtrosMedios" maxlength="300" placeholder="Ej: LANACION,INFOBAE" />
                             </div>
                             <div class="form-group">
                                 <label>

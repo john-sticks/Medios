@@ -1,8 +1,8 @@
 /* Corrector ortográfico + reglas de estilo/puntuación (cliente, sin enviar datos a terceros).
-   - Ortografía: Typo.js + diccionario Hunspell español local. Subraya las palabras
-     no reconocidas dentro del campo y permite Cambiar / Omitir / Agregar al diccionario.
+   - Ortografía: Typo.js + diccionario Hunspell español local. Lista las palabras
+     no reconocidas debajo del campo y permite Cambiar / Omitir / Agregar al diccionario.
    - Estilo/puntuación: reglas básicas (espacios, signos ¿¡, etc.) con corrección automática.
-   Cubre los campos Título y Texto de las notas en todos los formularios. */
+   Cubre los campos Título, Texto y Síntesis de las notas en todos los formularios. */
 (function () {
     var typo = null, cargando = false, cola = [];
     var revisores = [];                                   // re-revisar todos los campos
@@ -81,12 +81,6 @@
 
     function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-    function pintarHtml(texto, set) {
-        return escHtml(texto).replace(RE_PAL, function (w) {
-            return set[w.toLowerCase()] ? '<mark>' + w + '</mark>' : w;
-        }) + '\n';
-    }
-
     function reemplazar(campo, palabra, nueva) {
         var re = new RegExp('(^|[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ])(' +
             palabra.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') +
@@ -95,58 +89,16 @@
         campo.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
-    var PROPS = ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'letterSpacing',
-        'lineHeight', 'textTransform', 'wordSpacing', 'textAlign', 'paddingTop', 'paddingRight',
-        'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderRightWidth',
-        'borderBottomWidth', 'borderLeftWidth', 'boxSizing'];
-    function sincronizarEstilo(campo, backdrop) {
-        var cs = getComputedStyle(campo);
-        PROPS.forEach(function (p) { backdrop.style[p] = cs[p]; });
-        backdrop.style.borderStyle = 'solid';
-        backdrop.style.borderColor = 'transparent';
-        // Compensar el ancho del scrollbar vertical del textarea (angosta el área de texto)
-        var sb = campo.offsetWidth - campo.clientWidth
-               - parseFloat(cs.borderLeftWidth || 0) - parseFloat(cs.borderRightWidth || 0);
-        if (sb > 0) backdrop.style.paddingRight = (parseFloat(cs.paddingRight || 0) + sb) + 'px';
-    }
-
     function revisarTodos() { revisores.forEach(function (f) { f(); }); }
 
     function init(campo) {
         if (campo.dataset.spellInit) return;
         campo.dataset.spellInit = '1';
-        // Overlay de subrayado solo en textarea (en inputs de 1 línea el texto va centrado
-        // verticalmente y el overlay se desalinea → para el Título se usa el chip subrayado).
-        var esTextarea = campo.tagName.toLowerCase() === 'textarea';
-
-        var backdrop = null;
+        // Revisar en el panel inferior, sin superponer marcas dentro del campo.
+        if (campo.tagName.toLowerCase() === 'textarea') campo.spellcheck = false;
         var panel = document.createElement('div');
         panel.style.cssText = 'margin-top:4px; line-height:1.9;';
-
-        if (esTextarea) {
-            var wrap = document.createElement('div');
-            wrap.style.position = 'relative';
-            campo.parentNode.insertBefore(wrap, campo);
-
-            backdrop = document.createElement('div');
-            backdrop.className = 'spell-backdrop';
-            backdrop.style.cssText = 'position:absolute; top:0; left:0; right:0; bottom:0; ' +
-                'overflow:hidden; pointer-events:none; color:transparent; ' +
-                'white-space:pre-wrap; word-wrap:break-word; margin:0;';
-            wrap.appendChild(backdrop);
-            wrap.appendChild(campo);
-            campo.style.position = 'relative';
-            campo.style.background = 'transparent';
-            wrap.insertAdjacentElement('afterend', panel);
-            campo.addEventListener('scroll', function () {
-                backdrop.scrollTop = campo.scrollTop; backdrop.scrollLeft = campo.scrollLeft;
-            });
-        } else {
-            campo.insertAdjacentElement('afterend', panel);
-        }
-        function sincronizarScroll() {
-            if (backdrop) { backdrop.scrollTop = campo.scrollTop; backdrop.scrollLeft = campo.scrollLeft; }
-        }
+        campo.insertAdjacentElement('afterend', panel);
 
         function renderPanel(t, lista, obs) {
             panel.innerHTML = '';
@@ -218,13 +170,8 @@
             cargarDiccionario(function (t) {
                 ultimoTexto = campo.value;
                 var texto = campo.value;
-                if (!texto.trim()) { if (backdrop) backdrop.innerHTML = ''; panel.innerHTML = ''; return; }
+                if (!texto.trim()) { panel.innerHTML = ''; return; }
                 var d = detectar(t, texto);
-                if (backdrop) {
-                    sincronizarEstilo(campo, backdrop);
-                    backdrop.innerHTML = pintarHtml(texto, d.set);
-                    sincronizarScroll();
-                }
                 renderPanel(t, d.lista, analizarGramatica(texto));
             });
         }

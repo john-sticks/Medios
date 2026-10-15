@@ -9,6 +9,7 @@
     var puedeRemitir = puedeCrear || User.IsInRole("DELEGACION");
     var puedeGenerar = puedeCrear || User.IsInRole("DELEGACION");
     var esDelegacion = User.IsInRole("DELEGACION");
+    var borradoresRechazadas = ViewBag.BorradoresRechazadas as List<SesionPrensa> ?? new List<SesionPrensa>();
     var notasRechazadasGlobal = esDelegacion
         ? (ViewBag.NotasRechazadas as IEnumerable<dynamic> ?? Enumerable.Empty<dynamic>())
         : Enumerable.Empty<dynamic>();
@@ -32,6 +33,10 @@
 @if (TempData["Ok"] != null)
 {
     <div class="alert alert-success alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Ok"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
 }
 
 <div class="row">
@@ -97,6 +102,8 @@
                         <tbody>
                             @foreach (var s in Model)
                             {
+                                var clasificacion = Clasificar(s);
+                                var estadoTexto = s.Estado == "Borrador" ? "Pendiente de PDF" : s.Estado;
                                 var estadoClass = s.Estado switch {
                                     "Borrador"  => "label-default",
                                     "Generada"  => "bg-light-blue",
@@ -108,11 +115,16 @@
                                 var descartadas   = s.NotasIncluidas.Count(sn => sn.Nota?.VersionActual?.EstadoRevision == "Descartada"
                                     || (sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir" && !string.IsNullOrEmpty(sn.Nota.VersionActual.MotivoDescarte)));
                                 var actualizadas  = s.NotasIncluidas.Count(sn => sn.Nota?.VersionActualId != sn.NotaVersionId);
-                                var esAprobada    = Clasificar(s) == "aprobada";
-                                <tr data-clase="@Clasificar(s)">
+                                var esAprobada    = clasificacion == "aprobada";
+                                if (esDelegacion && esAprobada)
+                                {
+                                    estadoTexto = "Aprobadas";
+                                    estadoClass = "bg-green";
+                                }
+                                <tr data-clase="@clasificacion">
                                     <td><strong>@s.Fecha.ToString("dd/MM/yyyy")</strong></td>
                                     <td>@s.Tipo</td>
-                                    <td><span class="label @estadoClass">@(s.Estado == "Borrador" ? "Pendiente de PDF" : s.Estado)</span></td>
+                                    <td><span class="label @estadoClass">@estadoTexto</span></td>
                                     <td>
                                         <span class="badge bg-blue" title="@totalNotas notas">@totalNotas</span>
                                         @if (!esDelegacion || esAprobada)
@@ -213,6 +225,32 @@
                                     <a href="/NotaBuscador/Detalle/@item.Nota.Id?versionId=@item.NotaVersionId" class="btn btn-xs btn-default" target="_blank">
                                         <i class="fa fa-eye"></i> Ver nota
                                     </a>
+                                    <form method="post" action="/Sintesis/EliminarRechazada" style="display:inline"
+                                          onsubmit="return confirm('¿Eliminar esta nota rechazada? Se eliminarán la nota y sus versiones.');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="notaId" value="@item.Nota.Id" />
+                                        <button class="btn btn-xs btn-danger" type="submit"><i class="fa fa-trash"></i> Eliminar</button>
+                                    </form>
+                                    @if (borradoresRechazadas.Any())
+                                    {
+                                        <form method="post" action="/Sintesis/VincularRechazada" style="margin-top:8px;">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="notaId" value="@item.Nota.Id" />
+                                            <label for="borrador-rechazada-@item.Nota.Id">Vincular a un borrador existente</label>
+                                            <select id="borrador-rechazada-@item.Nota.Id" name="sesionId" class="form-control" required style="display:inline-block;width:auto;max-width:100%;">
+                                                <option value="">Seleccioná un borrador</option>
+                                                @foreach (var borrador in borradoresRechazadas)
+                                                {
+                                                    <option value="@borrador.Id">@borrador.Fecha.ToString("dd/MM/yyyy") — @borrador.Turno</option>
+                                                }
+                                            </select>
+                                            <button class="btn btn-xs btn-warning" type="submit"><i class="fa fa-link"></i> Vincular</button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <p class="text-muted" style="margin-top:8px;">No tenés borradores disponibles. <a href="/Sesion/Nueva">Crear un borrador</a></p>
+                                    }
                                 </div>
                             </div>
                         }

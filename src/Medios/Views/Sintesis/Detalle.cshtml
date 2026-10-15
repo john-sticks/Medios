@@ -15,14 +15,9 @@
     var borradores = ViewBag.BorradoresPropios as List<SesionPrensa> ?? new List<SesionPrensa>();
     var sesionPorOrigen = ViewBag.SesionPorNotaOrigen as Dictionary<int, SesionPrensa> ?? new Dictionary<int, SesionPrensa>();
 
-    // Jerarquía Ámbito (Nacional → Provincial → Partido) → Categoría
-    int OrdenAmbitoD(string? a) => a switch { "Nacional" => 0, "Provincial" => 1, _ => 2 };
-    var porAmbito = Model.NotasIncluidas
-        .OrderBy(sn => sn.Orden)
-        .GroupBy(sn => string.IsNullOrEmpty(sn.NotaVersion.AmbitoNota) ? "Partido" : sn.NotaVersion.AmbitoNota!)
-        .OrderBy(g => OrdenAmbitoD(g.Key))
-        .ToList();
-    string AmbitoColor(string? a) => a switch { "Nacional" => "#c0392b", "Provincial" => "#1a5276", _ => "#2471a3" };
+    var porAmbito = Medios.Services.SintesisPdfModel.Agrupar(Model.NotasIncluidas);
+    var snapshotsPorVersion = Model.NotasIncluidas.GroupBy(sn => sn.NotaVersionId).ToDictionary(g => g.Key, g => g.First());
+    string AmbitoColor(string? a) => a switch { "Nacional" or "ÁMBITO NACIONAL" => "#c0392b", "Provincial" or "ÁMBITO PROVINCIAL" => "#1a5276", _ => "#2471a3" };
 
     // Geo sin duplicar: si la Localidad ya trae el partido entre paréntesis para desambiguar
     // (ej. "SAN GENARO (MONTE)"), o directamente coincide con el nombre del Partido, no repetirlo.
@@ -220,21 +215,13 @@
                 @foreach (var amb in porAmbito)
                 {
                     <!-- Encabezado de ámbito (un solo titular) -->
-                    <div style="background:@AmbitoColor(amb.Key); color:white; padding:8px 14px; font-weight:bold; font-size:15px; margin-top:14px;">
-                        <i class="fa fa-globe"></i> ÁMBITO @amb.Key.ToUpper()
+                    <div style="background:@AmbitoColor(amb.Titulo); color:white; padding:8px 14px; font-weight:bold; font-size:15px; margin-top:14px;">
+                        <i class="fa fa-globe"></i> @amb.Titulo
                     </div>
-                    @foreach (var grupo in amb.GroupBy(sn => new
-                        {
-                            Id = sn.NotaVersion.Categoria?.Id ?? 0,
-                            Nombre = sn.NotaVersion.Categoria?.Nombre ?? "Sin categoría",
-                            Orden = sn.NotaVersion.Categoria?.Orden ?? int.MaxValue
-                        }).OrderBy(c => c.Key.Orden))
+                    @foreach (var grupo in amb.Categorias)
                     {
                     <div style="margin-bottom:20px;">
-                        <div style="background:#8B4513; color:white; padding:6px 12px; font-weight:bold; font-size:13px;">
-                            @grupo.Key.Nombre.ToUpper() <span style="opacity:.85;">(@grupo.Count())</span>
-                        </div>
-                        @foreach (var sn in grupo.OrderBy(sn => sn.NotaVersion.Partido?.Nombre ?? ""))
+                        @foreach (var sn in grupo.Notas.Select(v => snapshotsPorVersion[v.Id]))
                         {
                             var nota = sn.NotaVersion;
                             var tieneInfoNueva = sn.Nota.VersionActualId != sn.NotaVersionId;
@@ -327,7 +314,7 @@
                                         }
                                         @if (nota.Partido != null)
                                         {
-                                            @FormatGeoCorta(nota.Partido, nota.Localidad)
+                                            @(amb.SoloLocalidad ? Medios.Services.SintesisPdfModel.LocalidadDentroPartido(nota) : FormatGeoCorta(nota.Partido, nota.Localidad))
                                         }
                                     </div>
                                 }

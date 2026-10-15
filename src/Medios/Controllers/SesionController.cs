@@ -6,6 +6,7 @@ using ClosedXML.Excel;
 
 namespace Medios.Controllers
 {
+    [TypeFilter(typeof(CategoriaNotaFilter))]
     public class SesionController : Controller
     {
         private readonly SesionService _sesionService;
@@ -141,7 +142,7 @@ namespace Medios.Controllers
         [HttpPost]
         public async Task<IActionResult> EliminarBorrador(int id, bool eliminarNotas = true)
         {
-            var ok = await _sesionService.EliminarBorradorAsync(id, GetUsuario(), eliminarNotas);
+            var ok = await _sesionService.EliminarBorradorAsync(id, GetUsuario(), eliminarNotas, GetNombre());
             if (!ok)
             {
                 TempData["Error"] = "No se puede eliminar esta sesión";
@@ -216,7 +217,7 @@ namespace Medios.Controllers
 
             if (sesionId == 0)
             {
-                TempData["Error"] = $"Ya existe una sesión {turno} para el {fechaParsed:dd/MM/yyyy}. No se pueden crear dos sesiones del mismo turno en el mismo día.";
+                TempData["Error"] = $"Ya existe un borrador o una síntesis {turno} de tu delegación para el {fechaParsed:dd/MM/yyyy}. Usá el borrador existente o elegí una ampliación para agregar nuevas notas.";
                 return RedirectToAction(nameof(Nueva));
             }
 

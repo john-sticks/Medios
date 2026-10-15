@@ -13,6 +13,18 @@ namespace Medios.Services
             _factory = factory;
         }
 
+        public async Task<SeleccionCategoriaNota> ValidarSeleccionCategoriaAsync(int? categoriaId, int? partidoId)
+        {
+            using var db = _factory.Create();
+            var categoria = await db.CategoriasNoticia.FirstOrDefaultAsync(c => c.Id == categoriaId && c.Activa);
+            if (categoria == null) return new(null, "Seleccioná una categoría válida.");
+            var ambito = CategoriaNotaPolicy.Ambito(categoria.Nombre);
+            if (ambito == "Partido" && (!partidoId.HasValue
+                || !await db.Partidos.AnyAsync(p => p.IdPartido == partidoId)))
+                return new(null, "Seleccioná el partido para esta categoría.");
+            return new(ambito, null);
+        }
+
         public async Task<List<CaratulaQuiron>> GetCaratulasAsync()
         {
             using var db = _factory.Create();
@@ -86,7 +98,7 @@ namespace Medios.Services
             string? sintesis = null, DateTime? fechaNoticia = null,
             int? caratulaQuironId = null, int? modalidadQuironId = null,
             string? ambitoNota = null, string? imagenUrl = null, string? videoUrl = null,
-            string? imagenesExtraJson = null, string? otrosMedios = null)
+            string? imagenesExtraJson = null, string? otrosMedios = null, bool guardarCambios = true)
         {
             // Marcar versión anterior como no actual
             if (nota.VersionActualId.HasValue)
@@ -137,9 +149,29 @@ namespace Medios.Services
             // obtiene su Id y actualiza VersionActualId en el mismo SaveChanges
             nota.VersionActual = nueva;
             db.NotasVersion.Add(nueva);
-            await db.SaveChangesAsync();
+            if (guardarCambios) await db.SaveChangesAsync();
 
             return nueva;
+        }
+
+        // La sesión conserva el dueño y la delegación de notas históricas. Antes de
+        // quitarla, registramos la liberación sin modificar sus versiones anteriores.
+        internal async Task PrepararLiberacionAsync(MediosDbContext db, NotaPrensa nota,
+            int? delegacionId, string usuario)
+        {
+            var anterior = nota.VersionActual;
+            nota.DelegacionId ??= delegacionId;
+            nota.SesionPrensaId = null;
+            nota.Sesion = null;
+            if (anterior == null) return;
+            await CrearVersionAsync(db, nota, anterior.CategoriaId, anterior.PartidoId, anterior.LocalidadId,
+                anterior.Titulo, anterior.Texto, anterior.Fuente, anterior.Link, anterior.EsRepercusion,
+                anterior.EstadoRevision, anterior.MotivoDescarte, anterior.OperadorRevision,
+                usuario, "Modificacion", "Conservada al eliminar solamente el borrador",
+                anterior.Direccion, anterior.Latitud, anterior.Longitud, anterior.Sintesis,
+                anterior.FechaNoticia, anterior.CaratulaQuironId, anterior.ModalidadQuironId,
+                anterior.AmbitoNota, anterior.ImagenUrl, anterior.VideoUrl, anterior.ImagenesUrls,
+                anterior.OtrosMedios, guardarCambios: false);
         }
 
         // ── Agregar nota a sesión (delegación) ────────────────────────
@@ -1024,6 +1056,76 @@ namespace Medios.Services
                 .Where(n => n.SesionPrensaId == null && n.VersionActual!.Usuario == usuario)
                 .OrderByDescending(n => n.FechaRegistro)
                 .ToListAsync();
+        }
+
+        private static IQueryable<NotaPrensa> NotasRechazadasQuery(MediosDbContext db, int delegacionId) =>
+            db.NotasPrensa.Where(n =>
+                (n.Sesion != null ? n.Sesion.DelegacionId : n.DelegacionId) == delegacionId
+                && (n.Sesion == null || n.Sesion.Estado != "Borrador")
+                && n.VersionActual != null
+                && n.VersionActual.EstadoRevision == "Sin Remitir"
+                && n.VersionActual.MotivoDescarte != null && n.VersionActual.MotivoDescarte != "");
+
+        public async Task<List<NotaPrensa>> GetRechazadasAsync(int delegacionId)
+        {
+            using var db = _factory.Create();
+            return await NotasRechazadasQuery(db, delegacionId)
+                .Include(n => n.Sesion)
+                .Include(n => n.VersionActual!).ThenInclude(v => v.Partido)
+                .OrderByDescending(n => n.FechaRegistro).ToListAsync();
+        }
+
+        public async Task<bool> VincularRechazadaAsync(int notaId, int sesionId,
+            int delegacionId, string usuario, string nombre)
+        {
+            using var db = _factory.Create();
+            var destino = await db.SesionesPrensas.FirstOrDefaultAsync(s => s.Id == sesionId
+                && s.Estado == "Borrador" && s.DelegacionId == delegacionId
+                && s.UsuarioCarga == usuario);
+            if (destino == null) return false;
+            var nota = await NotasRechazadasQuery(db, delegacionId)
+                .Include(n => n.VersionActual).FirstOrDefaultAsync(n => n.Id == notaId);
+            if (nota == null || await db.SintesisNotas.AnyAsync(sn => sn.NotaPrensaId == notaId))
+                return false;
+
+            var anterior = nota.VersionActual!;
+            nota.Sesion = destino;
+            nota.DelegacionId = delegacionId;
+            // Una nueva versión conserva el rechazo anterior y permite corregir/reenviar.
+            await CrearVersionAsync(db, nota, anterior.CategoriaId, anterior.PartidoId, anterior.LocalidadId,
+                anterior.Titulo, anterior.Texto, anterior.Fuente, anterior.Link, anterior.EsRepercusion,
+                "Borrador", null, null, nombre, "Modificacion", "Recuperada de notas rechazadas",
+                anterior.Direccion, anterior.Latitud, anterior.Longitud, anterior.Sintesis,
+                anterior.FechaNoticia, anterior.CaratulaQuironId, anterior.ModalidadQuironId,
+                anterior.AmbitoNota, anterior.ImagenUrl, anterior.VideoUrl, anterior.ImagenesUrls,
+                anterior.OtrosMedios);
+            return true;
+        }
+
+        public async Task<bool> EliminarRechazadaAsync(int notaId, int delegacionId)
+        {
+            using var strategyDb = _factory.Create();
+            return await strategyDb.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+            {
+                using var db = _factory.Create();
+                if (!await NotasRechazadasQuery(db, delegacionId).AnyAsync(n => n.Id == notaId))
+                    return false;
+                // No borrar snapshots publicados ni el origen de copias/versiones de otras notas.
+                if (await db.SintesisNotas.AnyAsync(sn => sn.NotaPrensaId == notaId)
+                    || await db.NotasPrensa.AnyAsync(n => n.NotaOrigenId == notaId)
+                    || await db.NotasVersion.AnyAsync(v => v.NotaId != notaId
+                        && v.ParentVersion != null && v.ParentVersion.NotaId == notaId))
+                    return false;
+
+                using var transaction = await db.Database.BeginTransactionAsync();
+                await db.NotasVersion.Where(v => v.NotaId == notaId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(v => v.ParentVersionId, (int?)null));
+                await db.NotasPrensa.Where(n => n.Id == notaId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(n => n.VersionActualId, (int?)null));
+                await db.NotasPrensa.Where(n => n.Id == notaId).ExecuteDeleteAsync();
+                await transaction.CommitAsync();
+                return true;
+            });
         }
 
         // Notas descartadas por el Analista que NO tienen copia en ningún borrador/sesión activa

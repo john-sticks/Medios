@@ -4,6 +4,10 @@ namespace Medios.Services;
 
 public static class SintesisWorkflowPolicy
 {
+    public static bool PuedeFinalizar(SesionPrensa sesion) =>
+        sesion.Estado == "Remitida" && sesion.Notas.Count > 0
+        && sesion.Notas.All(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Descartada" or "Agregada" or "Finalizada");
+
     public static bool PuedeConsolidarNota(SesionPrensa sesion, NotaPrensa nota)
     {
         if (sesion.Estado != "Finalizada") return false;
