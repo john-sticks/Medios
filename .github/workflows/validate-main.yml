@@ -33,6 +33,27 @@ jobs:
       - name: Check synthesis publishing and modification
         run: dotnet run --project tests/Medios.WorkflowChecks/Medios.WorkflowChecks.csproj --configuration Release
 
+      - name: Render editable Word samples
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libreoffice-writer fonts-urw-base35 poppler-utils
+          mkdir -p "$RUNNER_TEMP/word-qa/docx" "$RUNNER_TEMP/word-qa/rendered" "$HOME/.config/fontconfig/conf.d"
+          printf '%s' '<fontconfig><alias><family>Bookman Old Style</family><prefer><family>URW Bookman</family></prefer></alias></fontconfig>' > "$HOME/.config/fontconfig/conf.d/99-bookman.conf"
+          fc-cache -f
+          dotnet run --project tests/Medios.WorkflowChecks/Medios.WorkflowChecks.csproj -c Release --no-build -- --word-samples "$RUNNER_TEMP/word-qa/docx"
+          libreoffice -env:UserInstallation="file://$RUNNER_TEMP/lo-word-qa" --headless --convert-to pdf --outdir "$RUNNER_TEMP/word-qa/rendered" "$RUNNER_TEMP/word-qa/docx/"*.docx
+          for tipo in Matutina Vespertina Ampliacion_Vespertina Especial; do
+            pdfinfo "$RUNNER_TEMP/word-qa/rendered/$tipo.pdf"
+            pdftoppm -scale-to 1500 -png "$RUNNER_TEMP/word-qa/rendered/$tipo.pdf" "$RUNNER_TEMP/word-qa/rendered/$tipo"
+          done
+
+      - name: Save Word preview for visual review
+        uses: actions/upload-artifact@v4
+        with:
+          name: word-export-preview
+          path: ${{ runner.temp }}/word-qa
+          retention-days: 5
+
       - name: Build production image
         run: docker build --tag medios:validate .
 

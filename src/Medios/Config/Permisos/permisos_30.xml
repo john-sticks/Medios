@@ -42,6 +42,7 @@
     <page href="~/sintesis/vincularrechazada" />
     <page href="~/sintesis/eliminarrechazada" />
     <page href="~/sintesis/descargarpdf" />
+    <page href="~/sintesis/descargarword" />
     <page href="~/mockswitch" />
     <page href="~/notabuscador/detalle" />
     <page href="~/notabuscador/buscarparaRelacionar" />

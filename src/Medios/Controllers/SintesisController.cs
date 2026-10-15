@@ -586,6 +586,22 @@ namespace Medios.Controllers
             return File(bytes, "application/pdf", nombreDescarga);
         }
 
+        [HasPermission("VER_SINTESIS")]
+        [HttpGet]
+        public async Task<IActionResult> DescargarWord(int id)
+        {
+            var sintesis = await _sintesisService.GetByIdAsync(id);
+            if (sintesis == null) return NotFound();
+            if (EsDelegacion() && !await DelegacionPuedeVerAsync(sintesis)) return Forbid();
+            if (string.IsNullOrEmpty(sintesis.PDFPath)) return NotFound();
+            var filePath = Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/'));
+            if (!System.IO.File.Exists(filePath)) return NotFound();
+
+            var bytes = await _sintesisService.GenerarWordAsync(id);
+            return File(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                $"sintesis_{sintesis.Tipo}_{sintesis.Fecha:ddMMyyyy}.docx");
+        }
+
         private IWebHostEnvironment _env =>
             HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
     }

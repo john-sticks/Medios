@@ -553,6 +553,20 @@ namespace Medios.Services
 
         // ── Generar PDF ───────────────────────────────────────────────
 
+        public async Task<byte[]> GenerarWordAsync(int sintesisId)
+        {
+            var sintesis = await GetByIdAsync(sintesisId)
+                ?? throw new InvalidOperationException("Síntesis no encontrada");
+            var incluidas = sintesis.NotasIncluidas.OrderBy(sn => sn.Orden)
+                .Where(sn => !(sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir"
+                              && !string.IsNullOrEmpty(sn.Nota?.VersionActual?.MotivoDescarte)))
+                .ToList();
+            var versiones = incluidas.Where(sn => sn.NotaVersion != null)
+                .GroupBy(sn => sn.NotaPrensaId).ToDictionary(g => g.Key, g => g.First().NotaVersion);
+            var lineas = await _notaService.GetLineasTiempoAsync(versiones);
+            return SintesisWordDocument.Crear(sintesis, incluidas, lineas, _env.WebRootPath);
+        }
+
         public async Task<string> GenerarPdfAsync(int sintesisId)
         {
             var sintesis = await GetByIdAsync(sintesisId);

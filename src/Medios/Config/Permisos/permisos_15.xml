@@ -83,6 +83,7 @@
     <page href="~/sintesis/notasnacprov" />
     <page href="~/sintesis/detalle" />
     <page href="~/sintesis/descargarpdf" />
+    <page href="~/sintesis/descargarword" />
     <page href="~/hechos/detalle" />
     <page href="~/hechos/nuevo" />
     <page href="~/delegacion/editar" />

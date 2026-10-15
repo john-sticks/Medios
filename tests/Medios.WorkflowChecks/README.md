@@ -32,3 +32,11 @@ selección de ámbito desde Categoría y bloqueo de finalización con notas pend
 Los contadores excluyen remisiones vacías. El modelo PDF agrupa por categoría y partido.
 Las pruebas de autenticación de producción siguen en Medios.AuthChecks (Cerberus);
 no se trasladan pruebas ni cambios del acceso Mock del NAS.
+
+La exportación Word se valida con OpenXmlValidator y cuatro tipos de síntesis;
+comprueba texto editable, portada, orden, fuentes periodísticas, historial,
+restricción del aviso a Vespertina y conservación del estado y PDF originales.
+Para generar muestras ficticias: agregar -- --word-samples <directorio> al comando.
+El Action productivo también renderiza esas muestras con LibreOffice y conserva
+las vistas previas durante cinco días. El DOCX es editable; la paginación depende
+del procesador de textos y las fuentes instaladas.

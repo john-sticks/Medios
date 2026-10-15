@@ -104,9 +104,7 @@
                         }
                         @if (!string.IsNullOrEmpty(Model.PDFPath))
                         {
-                            <a href="/Sintesis/DescargarPdf/@Model.Id" class="btn btn-success btn-sm">
-                                <i class="fa fa-download"></i> Descargar PDF
-                            </a>
+                            <partial name="_Descargas" model="Model.Id" />
                         }
                         @if (Model.Estado != "Informada")
                         {
@@ -146,9 +144,7 @@
                         }
                         @if (!string.IsNullOrEmpty(Model.PDFPath))
                         {
-                            <a href="/Sintesis/DescargarPdf/@Model.Id" class="btn btn-success btn-sm">
-                                <i class="fa fa-download"></i> Descargar PDF
-                            </a>
+                            <partial name="_Descargas" model="Model.Id" />
                             @if (Model.Estado == "Generada" && puedeRemitir)
                             {
                                 <form method="post" asp-controller="Sintesis" asp-action="Remitir" style="display:inline"
