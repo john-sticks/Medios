@@ -20,7 +20,7 @@ public class Sintesis
     public DateOnly Fecha { get; set; }
 
     // Borrador | Generada | Distribuida
-    [StringLength(20)]
+    [ConcurrencyCheck, StringLength(20)]
     public string Estado { get; set; } = "Borrador";
 
     [StringLength(500)]

@@ -40,3 +40,5 @@ Para generar muestras ficticias: agregar -- --word-samples <directorio> al coman
 El Action productivo también renderiza esas muestras con LibreOffice y conserva
 las vistas previas durante cinco días. El DOCX es editable; la paginación depende
 del procesador de textos y las fuentes instaladas.
+
+InformarChecks verifica reserva persistente Informando, concurrencia por Estado, rechazo de doble POST, publicación para todos los roles y bloqueo de Word para Delegación. No envía correos reales. Si un envío queda con resultado incierto, revisar los registros e historial antes de recuperar manualmente su estado. No requiere migración de esquema.

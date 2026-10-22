@@ -92,7 +92,7 @@
                     @if (esConsolidada && esMedios)
                     {
                         @* ── Síntesis CONSOLIDADA: Revertir consolidar + Informar ── *@
-                        @if (Model.Estado != "Informada")
+                        @if (Model.Estado is not "Informada" and not "Informando")
                         {
                             <form method="post" asp-controller="Sintesis" asp-action="RevertirConsolidar" style="display:inline"
                                   onsubmit="return confirm('¿Revertir la consolidación? La síntesis consolidada se eliminará y las sesiones volverán a estado Finalizada para poder modificarlas.')">
@@ -106,21 +106,19 @@
                         {
                             <partial name="_Descargas" model="Model.Id" />
                         }
-                        @if (Model.Estado != "Informada")
+                        @if (Model.Estado is not "Informada" and not "Informando")
                         {
                             <a href="/Sintesis/Informar/@Model.Id" class="btn btn-warning btn-sm">
                                 <i class="fa fa-send"></i> Informar
                             </a>
                         }
+                        else if (Model.Estado == "Informando")
+                        {
+                            <span class="label bg-orange">Informando...</span>
+                        }
                         else
                         {
-                            <span class="label bg-teal" style="font-size:12px; padding:6px 10px;"><i class="fa fa-check"></i> Informada</span>
-                            @if (esMedios)
-                            {
-                                <a href="/Sintesis/Informar/@Model.Id" class="btn btn-info btn-sm">
-                                    <i class="fa fa-pencil"></i> Editar
-                                </a>
-                            }
+                            <span class="label bg-teal"><i class="fa fa-check"></i> Informada</span>
                         }
                         @if (esMedios)
                         {
@@ -316,9 +314,9 @@
                                 }
                                 <div style="font-weight:bold;">
                                     @nota.Titulo
-                                    <a href="/NotaBuscador/Detalle/@sn.Nota.Id?versionId=@sn.NotaVersionId" title="Ver ficha completa (versión capturada)"
-                                       style="font-size:11px; font-weight:normal; margin-left:6px; color:#aaa;">
-                                        <i class="fa fa-external-link"></i>
+                                    <a href="/NotaBuscador/Detalle/@sn.Nota.Id?versionId=@sn.NotaVersionId" title="Ver Nota Completa (versión capturada)"
+                                       style="font-size:14px; font-weight:normal; margin-left:6px; color:#000;">
+                                        <i class="fa fa-external-link" style="font-size:16px;"></i> Ver Nota Completa
                                     </a>
                                 </div>
                                 @if (!string.IsNullOrEmpty(nota.Sintesis))
@@ -326,7 +324,7 @@
                                     <div class="nota-sintesis-ia" style="font-size:13px; color:#444; margin-top:4px;">
                                         @nota.Sintesis
                                         <small class="text-muted" style="display:block; margin-top:2px;">
-                                            <i class="fa fa-magic"></i> Síntesis IA &nbsp;
+                                            <i class="fa fa-magic"></i> Síntesis &nbsp;
                                             <a href="#" class="toggle-texto" style="font-size:11px;">ver texto completo</a>
                                         </small>
                                     </div>

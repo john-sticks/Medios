@@ -39,7 +39,7 @@
             ambito.value = opcion ? opcion.getAttribute('data-ambito') || '' : '';
             var esPartido = ambito.value === 'Partido';
             if (partido) partido.required = esPartido;
-            if (direccion) direccion.required = esPartido;
+            if (direccion) direccion.required = false;
             if (localidad) localidad.required = false;
         }
         select.addEventListener('change', sync);

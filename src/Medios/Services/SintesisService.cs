@@ -169,6 +169,25 @@ namespace Medios.Services
             return true;
         }
 
+        public async Task<bool> IniciarInformacionAsync(int id)
+        {
+            using var db = _factory.Create();
+            var s = await db.Sintesis.FindAsync(id);
+            if (s == null || s.DelegacionId != null || s.Estado is "Informando" or "Informada") return false;
+            s.Estado = "Informando";
+            try { await db.SaveChangesAsync(); return true; }
+            catch (DbUpdateConcurrencyException) { return false; }
+        }
+
+        public async Task CancelarInformacionAsync(int id, string estadoAnterior)
+        {
+            using var db = _factory.Create();
+            var s = await db.Sintesis.FindAsync(id);
+            if (s?.Estado != "Informando") return;
+            s.Estado = estadoAnterior;
+            await db.SaveChangesAsync();
+        }
+
         // Informa la síntesis consolidada por los canales seleccionados (todos los roles, mails
         // y/o visibilidad in-app para delegaciones específicas o todas).
         public async Task<bool> InformarConCanalesAsync(int sintesisId, bool todosRoles, string? mails,
@@ -176,7 +195,7 @@ namespace Medios.Services
         {
             using var db = _factory.Create();
             var s = await db.Sintesis.FindAsync(sintesisId);
-            if (s == null || s.DelegacionId != null) return false;
+            if (s == null || s.DelegacionId != null || s.Estado != "Informando") return false;
             s.Estado = "Informada";
             s.CanalTodosRoles = todosRoles;
             s.CanalTodasDelegaciones = todasDelegaciones;
@@ -205,7 +224,7 @@ namespace Medios.Services
                 .Include(x => x.NotasIncluidas)
                 .FirstOrDefaultAsync(x => x.Id == sintesisId);
             if (s == null || s.DelegacionId != null) return false;
-            if (s.Estado == "Informada") return false; // no se revierte una ya informada
+            if (s.Estado is "Informada" or "Informando") return false;
 
             db.SintesisNotas.RemoveRange(s.NotasIncluidas);
             db.Sintesis.Remove(s);
@@ -807,7 +826,7 @@ namespace Medios.Services
             if (s != null)
             {
                 // Regenerar el archivo no deshace una publicación ya remitida o informada.
-                if (s.Estado is not "Remitida" and not "Informada")
+                if (s.Estado is not "Remitida" and not "Informada" and not "Informando")
                     s.Estado = "Generada";
                 s.PDFPath = $"/pdf/{nombreArchivo}";
                 s.FechaGeneracion = DateTime.Now;

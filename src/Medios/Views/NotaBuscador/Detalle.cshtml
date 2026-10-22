@@ -166,7 +166,7 @@
 
                 <div id="verSintesis" style="display:@(!string.IsNullOrEmpty(v?.Sintesis) ? "block" : "none"); background:#f9f9f9; border-left:3px solid #3c8dbc; padding:10px 14px; margin:12px 0; border-radius:0 4px 4px 0;">
                     <div style="font-size:11px; color:#888; margin-bottom:4px;">
-                        <i class="fa fa-magic"></i> <strong>Síntesis IA</strong>
+                        <i class="fa fa-magic"></i> <strong>Síntesis</strong>
                     </div>
                     <p id="verSintesisTexto" style="margin:0; font-size:13px; white-space:pre-wrap;">@v?.Sintesis</p>
                 </div>
@@ -443,15 +443,9 @@
                     </tr>
                 </table>
                 <div style="margin-top:8px;">
-                    @if (!esLibre)
-                    {
-                        <a href="/Sesion/Detalle/@sesion!.Id" class="btn btn-xs btn-default">
-                            <i class="fa fa-external-link"></i> Ver sesión
-                        </a>
-                    }
-                    <a href="/NotaBuscador" class="btn btn-xs btn-default">
-                        <i class="fa fa-arrow-left"></i> Volver al buscador
-                    </a>
+                    <button type="button" class="btn btn-xs btn-default" onclick="window.history.back()">
+                        <i class="fa fa-arrow-left"></i> Volver
+                    </button>
                 </div>
             </div>
         </div>
@@ -655,7 +649,7 @@
             // Texto (con diff)
             $('#verTexto').html(diffHtml(prevData ? prevData.texto : '', data.texto));
 
-            // Síntesis IA (con diff)
+            // Síntesis (con diff)
             if (data.sintesis) {
                 $('#verSintesisTexto').html(diffHtml(prevData ? prevData.sintesis : '', data.sintesis));
                 $('#verSintesis').show();

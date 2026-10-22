@@ -38,33 +38,19 @@
                     </p>
                 </div>
 
-                <form method="post" asp-controller="Sintesis" asp-action="Informar" asp-route-id="@Model.Id">
+                <form id="formInformar" method="post" asp-controller="Sintesis" asp-action="Informar" asp-route-id="@Model.Id">
 
                     <p class="text-muted"><strong>Seleccioná los canales de información final:</strong></p>
 
-                    <!-- Canal 1: Todos los Roles -->
-                    <div class="box box-solid box-default" style="margin-bottom:14px;">
-                        <div class="box-body">
-                            <label style="font-weight:normal; cursor:pointer; margin:0; display:flex; align-items:flex-start; gap:10px;">
-                                <input type="checkbox" name="todosRoles" value="true" style="margin-top:4px;" @(Model.CanalTodosRoles ? "checked" : "") />
-                                <span>
-                                    <strong><i class="fa fa-users"></i> Todos los Roles</strong><br />
-                                    <small class="text-muted">
-                                        La síntesis quedará visible para todos los usuarios del sistema en
-                                        <strong>Síntesis → Publicadas</strong>.
-                                    </small>
-                                </span>
-                            </label>
-                        </div>
-                    </div>
+                    <input type="hidden" name="todosRoles" value="true" />
 
                     <!-- Canal 2: Delegaciones (visibilidad in-app) -->
                     <div class="box box-solid box-default" style="margin-bottom:14px;">
                         <div class="box-body">
                             <label style="font-weight:bold;"><i class="fa fa-building"></i> Delegaciones (visibilidad en la plataforma)</label>
                             <p class="text-muted" style="font-size:12px; margin:4px 0 8px;">
-                                La síntesis quedará visible en <strong>Síntesis → Publicadas</strong> solo para las
-                                delegaciones elegidas (independiente del envío por correo).
+                                La síntesis quedará visible en <strong>Síntesis → Publicadas</strong> para las
+                                delegaciones elegidas (independiente del envío por correo). La publicación también será visible para todos los roles del sistema.
                             </p>
                             <div style="margin:8px 0;">
                                 <label style="font-weight:normal; cursor:pointer; font-size:12px;">
@@ -150,6 +136,14 @@
 
 @section Scripts {
     <script>
+        document.getElementById('formInformar').addEventListener('submit', function (event) {
+            if (this.dataset.informando === 'true') { event.preventDefault(); return; }
+            this.dataset.informando = 'true';
+            const boton = this.querySelector('button[type="submit"]');
+            boton.disabled = true;
+            boton.setAttribute('aria-busy', 'true');
+            boton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Informando...';
+        });
         document.getElementById('chkTodasDeleg')?.addEventListener('change', function () {
             var chk = this.checked;
             document.querySelectorAll('.chkDeleg').forEach(function (c) { if (!c.disabled) c.checked = chk; });

@@ -5,6 +5,9 @@
     </button>
     <ul class="dropdown-menu dropdown-menu-right">
         <li><a href="@Url.Action("DescargarPdf", "Sintesis", new { id = Model })"><i class="fa fa-file-pdf-o"></i> PDF</a></li>
-        <li><a href="@Url.Action("DescargarWord", "Sintesis", new { id = Model })"><i class="fa fa-file-word-o"></i> Word (.docx)</a></li>
+        @if (!User.IsInRole("DELEGACION"))
+        {
+            <li><a href="@Url.Action("DescargarWord", "Sintesis", new { id = Model })"><i class="fa fa-file-word-o"></i> Word (.docx)</a></li>
+        }
     </ul>
 </div>

@@ -308,6 +308,8 @@ namespace Medios.Controllers
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null || sintesis.DelegacionId != null) return NotFound();
 
+            if (sintesis.Estado is "Informada" or "Informando")
+                return RedirectToAction(nameof(Detalle), new { id });
             ViewData["Title"] = "Informar Síntesis Consolidada";
             ViewBag.SmtpConfigurado = await _email.EstaConfiguradoAsync();
             var delegacionesActivas = await _delegService.GetTodasAsync(soloActivas: true);
@@ -326,12 +328,13 @@ namespace Medios.Controllers
         // POST: procesa los canales de información final
         [HasPermission("CREAR_SINTESIS")]
         [HttpPost]
-        [ActionName("Informar")]
-        public async Task<IActionResult> InformarPost(int id, bool todosRoles = false,
+        [ActionName("Informar"), ValidateAntiForgeryToken]
+        public async Task<IActionResult> InformarPost(int id, bool todosRoles = true,
             List<string>? delegacionMails = null, string? mails = null,
             bool todasDelegaciones = false, List<int>? delegacionIds = null)
         {
             if (!PuedeConsolidar()) return Forbid();
+            todosRoles = true;
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null || sintesis.DelegacionId != null) return NotFound();
 
@@ -343,58 +346,69 @@ namespace Medios.Controllers
                         if (!listaMails.Any(x => string.Equals(x, unico, StringComparison.OrdinalIgnoreCase)))
                             listaMails.Add(unico);
 
-            var hayDelegaciones = todasDelegaciones || (delegacionIds != null && delegacionIds.Count > 0);
-            if (!todosRoles && listaMails.Count == 0 && !hayDelegaciones)
+            var estadoAnterior = sintesis.Estado;
+            if (!await _sintesisService.IniciarInformacionAsync(id))
             {
-                TempData["Error"] = "Seleccioná al menos un canal: Todos los Roles, delegaciones y/o correos.";
-                return RedirectToAction(nameof(Informar), new { id });
+                TempData["Error"] = "Esta síntesis ya fue informada o tiene un envío en curso. No se repitió el envío.";
+                return RedirectToAction(nameof(Detalle), new { id });
             }
-
-            // Envío de mails con el PDF adjunto
-            if (listaMails.Count > 0)
+            try
             {
-                if (string.IsNullOrEmpty(sintesis.PDFPath))
+                // Envío de mails con el PDF adjunto
+                if (listaMails.Count > 0)
                 {
-                    try { await _sintesisService.GenerarPdfAsync(id); sintesis = await _sintesisService.GetByIdAsync(id); }
-                    catch { }
-                }
-                string? pdfFisico = null;
-                if (!string.IsNullOrEmpty(sintesis!.PDFPath))
-                    pdfFisico = Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                    if (string.IsNullOrEmpty(sintesis.PDFPath))
+                    {
+                        try { await _sintesisService.GenerarPdfAsync(id); sintesis = await _sintesisService.GetByIdAsync(id); }
+                        catch { }
+                    }
+                    string? pdfFisico = null;
+                    if (!string.IsNullOrEmpty(sintesis!.PDFPath))
+                        pdfFisico = Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
 
-                var asunto = $"Síntesis de Prensa {sintesis.Tipo} — {sintesis.Fecha:dd/MM/yyyy}";
-                var cuerpo = $"<p>Se adjunta la Síntesis de Prensa <strong>{sintesis.Tipo}</strong> del " +
-                             $"{sintesis.Fecha:dd/MM/yyyy}.</p><p>División Medios O.S.INT — Superintendencia de Inteligencia Criminal.</p>";
-                var (okMail, errMail) = await _email.EnviarAsync(listaMails, asunto, cuerpo,
-                    pdfFisico, $"sintesis_{sintesis.Tipo.ToLower()}_{sintesis.Fecha:yyyyMMdd}.pdf");
+                    var asunto = $"Síntesis de Prensa {sintesis.Tipo} — {sintesis.Fecha:dd/MM/yyyy}";
+                    var cuerpo = $"<p>Se adjunta la Síntesis de Prensa <strong>{sintesis.Tipo}</strong> del " +
+                                 $"{sintesis.Fecha:dd/MM/yyyy}.</p><p>División Medios O.S.INT — Superintendencia de Inteligencia Criminal.</p>";
+                    var (okMail, errMail) = await _email.EnviarAsync(listaMails, asunto, cuerpo,
+                        pdfFisico, $"sintesis_{sintesis.Tipo.ToLower()}_{sintesis.Fecha:yyyyMMdd}.pdf");
 
-                if (!okMail)
-                {
-                    await _traza.RegistrarAsync(TrazaService.SintesisInformada, GetNombre(), GetRol(),
-                        sintesisId: id, estado: "Error",
-                        detalle: $"Falló el envío por correo a: {string.Join("; ", listaMails)} · Error: {errMail}");
-                    TempData["Error"] = $"No se pudo enviar por correo: {errMail}";
-                    return RedirectToAction(nameof(Informar), new { id });
+                    if (!okMail)
+                    {
+                        await _traza.RegistrarAsync(TrazaService.SintesisInformada, GetNombre(), GetRol(),
+                            sintesisId: id, estado: "Error",
+                            detalle: $"Falló el envío por correo a: {string.Join("; ", listaMails)} · Error: {errMail}");
+                        await _sintesisService.CancelarInformacionAsync(id, estadoAnterior);
+                        TempData["Error"] = $"No se pudo enviar por correo: {errMail}";
+                        return RedirectToAction(nameof(Informar), new { id });
+                    }
                 }
+
+                if (!await _sintesisService.InformarConCanalesAsync(id, todosRoles, string.Join("; ", listaMails),
+                    todasDelegaciones, delegacionIds)) throw new InvalidOperationException("No se pudo confirmar la publicación.");
+                await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "sintesis", "POST", "informar",
+                    new { id, todosRoles, mails = listaMails.Count, todasDelegaciones, delegaciones = delegacionIds?.Count ?? 0 });
+
+                var canales = new List<string>();
+                if (todosRoles) canales.Add("Todos los Roles");
+                if (todasDelegaciones) canales.Add("Todas las delegaciones");
+                else if (delegacionIds is { Count: > 0 }) canales.Add($"{delegacionIds.Count} delegación(es)");
+                if (listaMails.Count > 0) canales.Add($"{listaMails.Count} correo(s)");
+                // Registro de los destinatarios efectivos en la traza
+                var detalleTraza = $"Canales: {string.Join(" + ", canales)}"
+                    + (listaMails.Count > 0 ? $" · Correos: {string.Join("; ", listaMails)}" : "");
+                await _traza.RegistrarAsync(TrazaService.SintesisInformada, GetNombre(), GetRol(),
+                    sintesisId: id, estado: "Informada", detalle: detalleTraza);
+                TempData["Ok"] = $"Síntesis informada por: {string.Join(" + ", canales)}.";
+                return Redirect("/Sesion/Bandeja#informadas");
             }
-
-            await _sintesisService.InformarConCanalesAsync(id, todosRoles, string.Join("; ", listaMails),
-                todasDelegaciones, delegacionIds);
-            await _auditoria.RegistrarAsync(GetNombre(), GetIp(), "sintesis", "POST", "informar",
-                new { id, todosRoles, mails = listaMails.Count, todasDelegaciones, delegaciones = delegacionIds?.Count ?? 0 });
-
-            var canales = new List<string>();
-            if (todosRoles) canales.Add("Todos los Roles");
-            if (todasDelegaciones) canales.Add("Todas las delegaciones");
-            else if (delegacionIds is { Count: > 0 }) canales.Add($"{delegacionIds.Count} delegación(es)");
-            if (listaMails.Count > 0) canales.Add($"{listaMails.Count} correo(s)");
-            // Registro de los destinatarios efectivos en la traza
-            var detalleTraza = $"Canales: {string.Join(" + ", canales)}"
-                + (listaMails.Count > 0 ? $" · Correos: {string.Join("; ", listaMails)}" : "");
-            await _traza.RegistrarAsync(TrazaService.SintesisInformada, GetNombre(), GetRol(),
-                sintesisId: id, estado: "Informada", detalle: detalleTraza);
-            TempData["Ok"] = $"Síntesis informada por: {string.Join(" + ", canales)}.";
-            return Redirect("/Sesion/Bandeja#informadas");
+            catch (Exception ex)
+            {
+                HttpContext.RequestServices.GetRequiredService<ILogger<SintesisController>>()
+                    .LogError(ex, "No se pudo confirmar la información de la síntesis {Id}", id);
+                // No liberar automáticamente: SMTP puede haber aceptado el envío antes del fallo.
+                TempData["Error"] = "No se pudo confirmar el resultado del envío. Se bloqueó la repetición; revisá el historial y los registros antes de reintentar.";
+                return RedirectToAction(nameof(Detalle), new { id });
+            }
         }
 
         // ── Revertir consolidación ────────────────────────────────────
@@ -406,7 +420,7 @@ namespace Medios.Controllers
             if (!PuedeConsolidar()) return Forbid();
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null || sintesis.DelegacionId != null) return NotFound();
-            if (sintesis.Estado == "Informada")
+            if (sintesis.Estado is "Informada" or "Informando")
             {
                 TempData["Error"] = "No se puede revertir una síntesis que ya fue informada.";
                 return RedirectToAction(nameof(Detalle), new { id });
@@ -590,6 +604,7 @@ namespace Medios.Controllers
         [HttpGet]
         public async Task<IActionResult> DescargarWord(int id)
         {
+            if (EsDelegacion()) return Forbid();
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null) return NotFound();
             if (EsDelegacion() && !await DelegacionPuedeVerAsync(sintesis)) return Forbid();
