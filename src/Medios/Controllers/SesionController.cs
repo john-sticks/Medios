@@ -217,7 +217,9 @@ namespace Medios.Controllers
 
             if (sesionId == 0)
             {
-                TempData["Error"] = $"Ya existe un borrador o una síntesis {turno} de tu delegación para el {fechaParsed:dd/MM/yyyy}. Usá el borrador existente o elegí una ampliación para agregar nuevas notas.";
+                TempData["Error"] = turno is "Ampliacion Matutina" or "Ampliacion Vespertina"
+                    ? $"Ya existe un borrador abierto de {turno} de tu delegación para el {fechaParsed:dd/MM/yyyy}. Agregá las notas a ese borrador y remitilo antes de crear otra ampliación."
+                    : $"Ya existe un borrador o una síntesis {turno} de tu delegación para el {fechaParsed:dd/MM/yyyy}. Usá el borrador existente o elegí una ampliación para agregar nuevas notas.";
                 return RedirectToAction(nameof(Nueva));
             }
 

@@ -185,12 +185,16 @@ namespace Medios.Services
                 .FirstOrDefaultAsync(s => s.Id == id);
         }
 
-        // Retorna el Id de la sesión creada, o 0 si ya existe una para esa delegación+fecha+turno.
+        // Las ampliaciones pueden repetirse después de remitir el borrador anterior.
+        // Retorna 0 si la combinación delegación+fecha+turno sigue ocupada.
         // Cuando delegacionId es null (sesión División Medios sin delegación asignada) la unicidad
         // se evalúa por usuarioCarga, porque distintos operadores pueden crear sus propias sesiones.
         public async Task<int> CrearAsync(int? delegacionId, DateOnly fecha, string turno, string usuarioCarga)
         {
             using var db = _factory.Create();
+
+            var esAmpliacion = string.Equals(turno, "Ampliacion Matutina", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(turno, "Ampliacion Vespertina", StringComparison.OrdinalIgnoreCase);
 
             // La publicación también ocupa el turno aunque su sesión ya no exista.
             // Aplicar al crear la misma restricción de Matutina/Vespertina que al publicar.
@@ -205,7 +209,8 @@ namespace Medios.Services
                 existe = await db.SesionesPrensas.AnyAsync(s =>
                     s.DelegacionId == delegacionId.Value &&
                     s.Fecha == fecha &&
-                    s.Turno == turno);
+                    s.Turno == turno &&
+                    (!esAmpliacion || s.Estado == "Borrador"));
             }
             else
             {
@@ -214,7 +219,8 @@ namespace Medios.Services
                     s.DelegacionId == null &&
                     s.UsuarioCarga == usuarioCarga &&
                     s.Fecha == fecha &&
-                    s.Turno == turno);
+                    s.Turno == turno &&
+                    (!esAmpliacion || s.Estado == "Borrador"));
             }
 
             if (existe) return 0;
