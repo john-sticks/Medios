@@ -164,12 +164,13 @@ namespace Medios.Controllers
         {
             // Verificar si la nota es una ampliación (está en otra sesión) o una nota libre
             var nota = await _notaService.GetDetalleAsync(notaId);
-            bool esAmpliacion = nota?.SesionPrensaId != null && nota.SesionPrensaId != sesionId;
+            bool esAmpliacion = (nota?.SesionPrensaId != null && nota.SesionPrensaId != sesionId)
+                || (nota?.VersionActual?.EstadoRevision == "Sin Remitir" && !string.IsNullOrWhiteSpace(nota.VersionActual.MotivoDescarte));
 
             if (esAmpliacion)
             {
                 // Nota ampliada: crear copia en el borrador (sin mover la original)
-                var copiaId = await _notaService.AgregarDesdeVersionAsync(sesionId, notaId, GetNombre());
+                var copiaId = await _notaService.AgregarDesdeVersionAsync(sesionId, notaId, GetNombre(), GetUsuario());
                 if (copiaId == 0)
                     TempData["Error"] = "No se pudo agregar la nota al borrador";
                 else
@@ -381,7 +382,7 @@ namespace Medios.Controllers
                 return Redirigir();
             }
 
-            var notaId = await _notaService.AgregarDesdeVersionAsync(sesionId, notaOrigenId, GetNombre());
+            var notaId = await _notaService.AgregarDesdeVersionAsync(sesionId, notaOrigenId, GetNombre(), GetUsuario());
             if (notaId == 0)
             {
                 TempData["Error"] = "No se pudo agregar la nota";

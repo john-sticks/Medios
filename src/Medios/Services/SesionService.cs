@@ -456,7 +456,7 @@ namespace Medios.Services
         public async Task<List<NotaPrensa>> GetNotasSinRemitirByDelegacionAsync(int delegacionId)
         {
             using var db = _factory.Create();
-            return await db.NotasPrensa
+            return await NotaService.NotasSinRemitirQuery(db, delegacionId)
                 .Include(n => n.Sesion)
                 .Include(n => n.VersionActual)
                     .ThenInclude(v => v!.Categoria)
@@ -464,9 +464,7 @@ namespace Medios.Services
                     .ThenInclude(v => v!.Partido)
                 .Include(n => n.Versiones.OrderBy(v => v.Version))
                     .ThenInclude(v => v.Categoria)
-                .Where(n => n.SesionPrensaId != null
-                         && n.Sesion!.DelegacionId == delegacionId
-                         && n.VersionActual!.EstadoRevision == "Sin Remitir")
+
                 .OrderByDescending(n => n.VersionActual!.FechaVersion)
                 .ToListAsync();
         }

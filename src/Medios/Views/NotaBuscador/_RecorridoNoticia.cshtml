@@ -1,0 +1,37 @@
+@model Medios.Services.NotaHistorial
+@if (Model != null && Model.Eventos.Count > 0)
+{
+    <div class="box box-default collapsed-box">
+        <div class="box-header with-border">
+            <h3 class="box-title"><i class="fa fa-history"></i> Recorrido por sesiones</h3>
+            <div class="box-tools pull-right">
+                <button type="button" class="btn btn-box-tool" data-widget="collapse"><i class="fa fa-plus"></i></button>
+            </div>
+        </div>
+        <div class="box-body table-responsive">
+            <table class="table table-condensed" style="font-size:12px;">
+                <thead><tr><th>Fecha</th><th>Movimiento</th><th>Sesión</th><th>Detalle</th></tr></thead>
+                <tbody>
+                    @foreach (var paso in Model.Eventos)
+                    {
+                        <tr>
+                            <td>@paso.Fecha.ToString("dd/MM/yyyy HH:mm")</td>
+                            <td>@paso.Evento<br /><span class="text-muted">@paso.Usuario · Nota #@paso.NotaId</span></td>
+                            <td>
+                                @if (paso.SesionId.HasValue && Model.Sesiones.TryGetValue(paso.SesionId.Value, out var sesion))
+                                {
+                                    <span>@sesion.Turno #@sesion.Id<br />@sesion.Fecha.ToString("dd/MM/yyyy")</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">—</span>
+                                }
+                            </td>
+                            <td>@paso.Estado<br />@paso.Detalle</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

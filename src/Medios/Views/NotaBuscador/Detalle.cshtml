@@ -7,7 +7,17 @@
     // Si se llegó desde una síntesis con ?versionId=X, mostrar esa versión específica
     var versionFijada = ViewBag.VersionMostrada as NotaVersion;
     var v = versionFijada ?? Model.VersionActual;
+    var historial = ViewBag.HistorialNoticia as Medios.Services.NotaHistorial;
+    var versionesHistorial = historial?.Versiones ?? Model.Versiones.ToList();
     var sesion = Model.Sesion;
+    if (versionFijada != null && historial != null)
+    {
+        var paso = historial.Eventos.FirstOrDefault(t => t.NotaId == Model.Id && t.SesionId.HasValue
+            && (t.Version == versionFijada.Version
+                || (t.Evento == "NOTA_DESCARTADA" && !string.IsNullOrEmpty(versionFijada.MotivoDescarte))));
+        if (paso?.SesionId is int sesionIdHistorica && historial.Sesiones.TryGetValue(sesionIdHistorica, out var historica))
+            sesion = historica;
+    }
     var esLibre = sesion == null;
     var puedeAmpliar = versionFijada == null && (bool)(ViewBag.PuedeAmpliar ?? false);
     // En modo lectura (versión fijada), no permitir modificar relaciones
@@ -16,6 +26,9 @@
     var sesionRemitida = !esLibre && (sesion!.Estado == "Remitida" || sesion.Estado == "Revisada");
     var esSinRemitir = v?.EstadoRevision == "Sin Remitir";
     var sintesisPorVersion = ViewBag.SintesisPorVersion as Dictionary<int, Sintesis> ?? new Dictionary<int, Sintesis>();
+    if (historial != null)
+        foreach (var entrada in historial.SintesisPorVersion)
+            sintesisPorVersion[entrada.Key] = entrada.Value.First();
     // Síntesis que capturó la versión actualmente mostrada (para el panel Síntesis)
     Sintesis? sinFijada = null;
     if (v != null) sintesisPorVersion.TryGetValue(v.Id, out sinFijada);
@@ -244,15 +257,24 @@
             }
         </div>
 
+        @if (historial != null && historial.NotaVigenteId != Model.Id)
+        {
+            <div class="alert alert-info">
+                Este registro pertenece a la noticia original #@historial.NotaOriginalId.
+                <a href="/NotaBuscador/Detalle/@historial.NotaVigenteId">Ver la última recuperación o ampliación</a>.
+                Los registros anteriores se conservan en el historial.
+            </div>
+        }
+        <partial name="_RecorridoNoticia" model="historial" />
         <!-- Historial de versiones -->
-        <div class="box box-default @(Model.Versiones.Count <= 1 ? "collapsed-box" : "")">
+        <div class="box box-default @(versionesHistorial.Count <= 1 ? "collapsed-box" : "")">
             <div class="box-header with-border">
                 <h3 class="box-title">
-                    <i class="fa fa-history"></i> Historial de versiones (@Model.Versiones.Count)
+                    <i class="fa fa-history"></i> Historial de la noticia (@versionesHistorial.Count versiones)
                 </h3>
                 <div class="box-tools pull-right">
                     <button type="button" class="btn btn-box-tool" data-widget="collapse">
-                        <i class="fa fa-@(Model.Versiones.Count <= 1 ? "plus" : "minus")"></i>
+                        <i class="fa fa-@(versionesHistorial.Count <= 1 ? "plus" : "minus")"></i>
                     </button>
                 </div>
             </div>
@@ -269,9 +291,9 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var ver in Model.Versiones.OrderByDescending(x => x.Version))
+                        @foreach (var ver in versionesHistorial.OrderByDescending(x => x.FechaVersion).ThenByDescending(x => x.Id))
                         {
-                            var esActual = ver.EsActual;
+                            var esActual = ver.Id == Model.VersionActualId;
                             sintesisPorVersion.TryGetValue(ver.Id, out var sinVer);
                             var verData = new {
                                 titulo      = ver.Titulo,
@@ -305,7 +327,7 @@
                                 estadoV = sinVer.Estado switch { "Remitida" or "Distribuida" => sinVer.Estado, "Borrador" => "Borrador", _ => "Sin Remitir" };
                                 badgeV  = sinVer.Estado switch { "Remitida" => "info", "Distribuida" => "success", "Borrador" => "default", _ => "warning" };
                             }
-                            else if (!esLibre && sesion!.Estado == "Borrador")
+                            else if (esActual && !esLibre && sesion!.Estado == "Borrador")
                             {
                                 // Nota en borrador → todas las versiones muestran "Borrador"
                                 estadoV = "Borrador";
@@ -340,6 +362,10 @@
                                 title="Clic para ver esta versión">
                                 <td>
                                     <span class="label @(esFijada ? "bg-blue" : "bg-gray")">v@(ver.Version)</span>
+                                    @if (ver.NotaId != Model.Id)
+                                    {
+                                        <br /><a href="/NotaBuscador/Detalle/@ver.NotaId?versionId=@ver.Id" title="Registro histórico relacionado">Nota #@ver.NotaId</a>
+                                    }
                                 </td>
                                 <td>
                                     <span class="label label-default" style="font-size:10px;">@ver.TipoEvento</span>
@@ -359,13 +385,14 @@
                                     }
                                 </td>
                                 <td style="font-size:11px;">
-                                    @if (sinVer != null)
+                                    @if (historial != null && historial.SintesisPorVersion.TryGetValue(ver.Id, out var referencias))
                                     {
-                                        <a href="/Sintesis/Detalle/@sinVer.Id" class="text-info">
-                                            <i class="fa fa-file-text-o"></i>
-                                            @sinVer.Tipo<br />
-                                            <span class="text-muted">@sinVer.Fecha.ToString("dd/MM/yyyy")</span>
-                                        </a>
+                                        @foreach (var referencia in referencias)
+                                        {
+                                            <a href="/Sintesis/Detalle/@referencia.Id" class="text-info">
+                                                @referencia.Tipo #@referencia.Id — @referencia.Fecha.ToString("dd/MM/yyyy")
+                                            </a><br />
+                                        }
                                     }
                                     else
                                     {

@@ -134,6 +134,7 @@ namespace Medios.Controllers
             ViewBag.PuedeDescartarBorrador = nota.VersionActual?.EstadoRevision == "Borrador"
                 && (EsDelegacion() || User.IsInRole("MEDIOS"));
             ViewBag.SintesisPorVersion = await _notaService.GetSintesisPorVersionAsync(nota.Id);
+            ViewBag.HistorialNoticia = await _notaService.GetHistorialNoticiaAsync(nota.Id);
             return View(nota);
         }
 

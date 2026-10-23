@@ -4,7 +4,7 @@ using Medios.Infrastructure.Data;
 
 namespace Medios.Services
 {
-    public class NotaService
+    public partial class NotaService
     {
         private readonly IMediosDbContextFactory _factory;
 
@@ -212,17 +212,28 @@ namespace Medios.Services
             return nota.Id;
         }
 
-        public async Task<int> AgregarDesdeVersionAsync(int sesionId, int notaOrigenId, string usuario)
+        public async Task<int> AgregarDesdeVersionAsync(int sesionId, int notaOrigenId, string usuario, string? usuarioLogin = null)
         {
             using var db = _factory.Create();
 
             var origen = await db.NotasPrensa
+                .Include(n => n.Sesion)
                 .Include(n => n.VersionActual)
                 .FirstOrDefaultAsync(n => n.Id == notaOrigenId);
-
-            if (origen?.VersionActual == null) return 0;
+            var login = usuarioLogin ?? usuario;
+            var destino = await db.SesionesPrensas.FirstOrDefaultAsync(s => s.Id == sesionId
+                && s.Estado == "Borrador" && s.UsuarioCarga == login);
+            if (origen?.VersionActual == null || destino == null
+                || (origen.Sesion?.DelegacionId ?? origen.DelegacionId) != destino.DelegacionId)
+                return 0;
 
             var v = origen.VersionActual;
+            if (v.EstadoRevision == "Sin Remitir" && !string.IsNullOrWhiteSpace(v.MotivoDescarte))
+            {
+                if (!destino.DelegacionId.HasValue) return 0;
+                return await VincularRechazadaAsync(notaOrigenId, sesionId,
+                    destino.DelegacionId.Value, login, usuario) ? notaOrigenId : 0;
+            }
 
             var nota = new NotaPrensa
             {
@@ -1058,13 +1069,19 @@ namespace Medios.Services
                 .ToListAsync();
         }
 
-        private static IQueryable<NotaPrensa> NotasRechazadasQuery(MediosDbContext db, int delegacionId) =>
+        // Mismo criterio para Denegadas y alertas de Inicio, Borradores y Notas.
+        internal static IQueryable<NotaPrensa> NotasSinRemitirQuery(MediosDbContext db, int delegacionId) =>
             db.NotasPrensa.Where(n =>
                 (n.Sesion != null ? n.Sesion.DelegacionId : n.DelegacionId) == delegacionId
-                && (n.Sesion == null || n.Sesion.Estado != "Borrador")
-                && n.VersionActual != null
-                && n.VersionActual.EstadoRevision == "Sin Remitir"
-                && n.VersionActual.MotivoDescarte != null && n.VersionActual.MotivoDescarte != "");
+                && n.VersionActual != null && n.VersionActual.EstadoRevision == "Sin Remitir"
+                && (n.VersionActual.MotivoDescarte == null || n.VersionActual.MotivoDescarte == ""
+                    || ((n.Sesion == null || n.Sesion.Estado != "Borrador")
+                        && !db.NotasPrensa.Any(c => c.NotaOrigenId == n.Id
+                            && (c.Sesion != null ? c.Sesion.DelegacionId : c.DelegacionId) == delegacionId))));
+
+        private static IQueryable<NotaPrensa> NotasRechazadasQuery(MediosDbContext db, int delegacionId) =>
+            NotasSinRemitirQuery(db, delegacionId)
+                .Where(n => n.VersionActual!.MotivoDescarte != null && n.VersionActual.MotivoDescarte != "");
 
         public async Task<List<NotaPrensa>> GetRechazadasAsync(int delegacionId)
         {
@@ -1089,6 +1106,13 @@ namespace Medios.Services
                 return false;
 
             var anterior = nota.VersionActual!;
+            db.TrazaEventos.Add(new TrazaEventoEntity
+            {
+                NotaId = nota.Id, SesionId = nota.SesionPrensaId,
+                Version = anterior.Version + 1, Usuario = nombre,
+                Evento = "NOTA_RECUPERADA", Estado = "Borrador",
+                Detalle = $"Recuperada de sesión #{nota.SesionPrensaId} a borrador #{destino.Id}; versión anterior #{anterior.Id}."
+            });
             nota.Sesion = destino;
             nota.DelegacionId = delegacionId;
             // Una nueva versión conserva el rechazo anterior y permite corregir/reenviar.
@@ -1132,30 +1156,11 @@ namespace Medios.Services
         public async Task<List<NotaPrensa>> GetDescartadasSinVincularAsync(int delegacionId)
         {
             using var db = _factory.Create();
-            var descartadas = await db.NotasPrensa
-                .Include(n => n.VersionActual!)
-                    .ThenInclude(v => v.Categoria)
-                .Include(n => n.VersionActual!)
-                    .ThenInclude(v => v.Partido)
+            return await NotasRechazadasQuery(db, delegacionId)
                 .Include(n => n.Sesion)
-                .Where(n => n.SesionPrensaId != null
-                         && n.Sesion!.DelegacionId == delegacionId
-                         && n.VersionActual!.EstadoRevision == "Sin Remitir"
-                         && n.VersionActual.MotivoDescarte != null)
-                .OrderByDescending(n => n.FechaRegistro)
-                .ToListAsync();
-
-            if (!descartadas.Any()) return descartadas;
-
-            // Excluir las que ya tienen copia en cualquier sesión (borrador o remitida)
-            var ids = descartadas.Select(n => n.Id).ToList();
-            var conCopia = await db.NotasPrensa
-                .Where(n => n.NotaOrigenId.HasValue && ids.Contains(n.NotaOrigenId!.Value))
-                .Select(n => n.NotaOrigenId!.Value)
-                .Distinct()
-                .ToListAsync();
-
-            return descartadas.Where(n => !conCopia.Contains(n.Id)).ToList();
+                .Include(n => n.VersionActual!).ThenInclude(v => v.Categoria)
+                .Include(n => n.VersionActual!).ThenInclude(v => v.Partido)
+                .OrderByDescending(n => n.FechaRegistro).ToListAsync();
         }
 
         public async Task<int> AgregarLibreAsync(

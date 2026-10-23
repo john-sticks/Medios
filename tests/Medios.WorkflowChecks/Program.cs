@@ -166,6 +166,7 @@ Verificar(!SintesisWorkflowPolicy.PuedeFinalizar(incompleta), "Aprobar una nota 
 
 comprobaciones += await SintesisMediosChecks.RunAsync();
 comprobaciones += await RechazadasChecks.RunAsync();
+comprobaciones += await RecuperacionChecks.RunAsync();
 comprobaciones += await BorradorUnicidadChecks.RunAsync();
 comprobaciones += await CategoriaChecks.RunAsync();
 comprobaciones += await InformarChecks.RunAsync();
