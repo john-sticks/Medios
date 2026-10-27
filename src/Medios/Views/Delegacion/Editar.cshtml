@@ -125,30 +125,9 @@
                         </div>
                     </div>
 
-                    <hr />
-                    <h4><i class="fa fa-cloud"></i> Sincronización / contingencia (Google Drive)</h4>
-                    <p class="text-muted" style="font-size:12px;">
-                        IDs de las planillas de respuestas de Google Forms desde donde el sistema
-                        captura notas y síntesis de esta delegación. El ID está en la URL de la planilla:
-                        <code>docs.google.com/spreadsheets/d/<strong>ESTE_ID</strong>/edit</code>.
-                        Compartí cada planilla con el email de la cuenta de servicio (rol Editor).
-                    </p>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Planilla de Notas (ID)</label>
-                                <input type="text" name="driveSheetNotas" class="form-control"
-                                       value="@Model.DriveSheetNotas" placeholder="1AbC...xyz" />
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label>Planilla de Síntesis (ID)</label>
-                                <input type="text" name="driveSheetSintesis" class="form-control"
-                                       value="@Model.DriveSheetSintesis" placeholder="1AbC...xyz" />
-                            </div>
-                        </div>
-                    </div>
+                    @* Configuración de contingencia oculta temporalmente; conservar los valores al guardar. *@
+                    <input type="hidden" name="driveSheetNotas" value="@Model.DriveSheetNotas" />
+                    <input type="hidden" name="driveSheetSintesis" value="@Model.DriveSheetSintesis" />
 
                     <div style="margin-top:16px;">
                         <button type="submit" class="btn btn-primary">
