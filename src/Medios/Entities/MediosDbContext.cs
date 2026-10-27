@@ -95,6 +95,10 @@ public class MediosDbContext : DbContext
             .HasForeignKey(sn => sn.NotaVersionId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<Sintesis>()
+            .HasOne(s => s.SintesisOrigen).WithMany()
+            .HasForeignKey(s => s.SintesisOrigenId).OnDelete(DeleteBehavior.Restrict);
+
         // SintesisDelegacionDestino: cascade con la síntesis, restrict con la delegación
         modelBuilder.Entity<SintesisDelegacionDestino>()
             .HasOne(d => d.Sintesis)

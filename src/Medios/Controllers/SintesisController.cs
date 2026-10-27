@@ -5,7 +5,7 @@ using System.Security.Claims;
 
 namespace Medios.Controllers
 {
-    public class SintesisController : Controller
+    public partial class SintesisController : Controller
     {
         private readonly SintesisService _sintesisService;
         private readonly SesionService _sesionService;
@@ -346,6 +346,12 @@ namespace Medios.Controllers
                         if (!listaMails.Any(x => string.Equals(x, unico, StringComparison.OrdinalIgnoreCase)))
                             listaMails.Add(unico);
 
+            if (sintesis.EsFiltrada && (string.IsNullOrEmpty(sintesis.PDFPath)
+                || !System.IO.File.Exists(Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/')))))
+            {
+                TempData["Error"] = "Generá el PDF de la filtrada antes de informar.";
+                return RedirectToAction(nameof(Detalle), new { id });
+            }
             var estadoAnterior = sintesis.Estado;
             if (!await _sintesisService.IniciarInformacionAsync(id))
             {
@@ -366,7 +372,7 @@ namespace Medios.Controllers
                     if (!string.IsNullOrEmpty(sintesis!.PDFPath))
                         pdfFisico = Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
 
-                    var asunto = $"Síntesis de Prensa {sintesis.Tipo} — {sintesis.Fecha:dd/MM/yyyy}";
+                    var asunto = $"Síntesis de Prensa {sintesis.Tipo}{(sintesis.EsFiltrada ? " filtrada" : "")} — {sintesis.Fecha:dd/MM/yyyy}";
                     var cuerpo = $"<p>Se adjunta la Síntesis de Prensa <strong>{sintesis.Tipo}</strong> del " +
                                  $"{sintesis.Fecha:dd/MM/yyyy}.</p><p>División Medios O.S.INT — Superintendencia de Inteligencia Criminal.</p>";
                     var (okMail, errMail) = await _email.EnviarAsync(listaMails, asunto, cuerpo,
@@ -426,6 +432,11 @@ namespace Medios.Controllers
                 return RedirectToAction(nameof(Detalle), new { id });
             }
 
+            if (sintesis.EsFiltrada)
+            {
+                TempData["Error"] = "Usá Eliminar filtrada; la síntesis de origen y sus sesiones no se revierten.";
+                return RedirectToAction(nameof(Detalle), new { id });
+            }
             // Devolver las sesiones a Finalizada y eliminar la síntesis consolidada
             await _sesionService.RevertirConsolidacionAsync(id);
             await _sintesisService.EliminarConsolidadaAsync(id);

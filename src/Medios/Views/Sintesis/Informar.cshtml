@@ -26,6 +26,7 @@
 
                 <div class="callout callout-info" style="margin-bottom:20px;">
                     <h4 style="margin-top:0;">@Model.Tipo — @Model.Fecha.ToString("dd/MM/yyyy")</h4>
+                    @if (Model.EsFiltrada) { <p><strong>Síntesis filtrada de #@Model.SintesisOrigenId.</strong> Este envío tiene su propio historial y destinatarios.</p> }
                     <p style="margin:0;">@Model.NotasIncluidas.Count nota(s) consolidada(s).
                         @if (!string.IsNullOrEmpty(Model.PDFPath))
                         {

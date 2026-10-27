@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 
 namespace Medios.Services
 {
-    public class SintesisService
+    public partial class SintesisService
     {
         private readonly IMediosDbContextFactory _factory;
         private readonly IWebHostEnvironment _env;
@@ -73,6 +73,7 @@ namespace Medios.Services
         {
             using var db = _factory.Create();
             return await db.Sintesis
+                .Include(s => s.SintesisOrigen)
                 .Include(s => s.Delegacion)
                     .ThenInclude(d => d!.AreaResponsabilidad)
                 .Include(s => s.Delegacion)
@@ -415,7 +416,7 @@ namespace Medios.Services
         {
             using var db = _factory.Create();
             var rows = await db.Sintesis
-                .Where(s => s.DelegacionId == null && s.Estado != "Borrador" && s.Tipo != "Especial")
+                .Where(s => s.DelegacionId == null && s.Estado != "Borrador" && s.Tipo != "Especial" && s.SintesisOrigenId == null)
                 .Select(s => new { s.Fecha, s.Tipo })
                 .Distinct()
                 .ToListAsync();
@@ -527,7 +528,7 @@ namespace Medios.Services
             if (consolidada && !string.Equals(tipo, "Especial", StringComparison.OrdinalIgnoreCase))
             {
                 var existeCons = await db.Sintesis.AnyAsync(s =>
-                    s.Tipo == tipo &&
+                    s.SintesisOrigenId == null && s.Tipo == tipo &&
                     s.Fecha == fecha &&
                     s.DelegacionId == null &&
                     s.Estado != "Borrador");
@@ -577,7 +578,7 @@ namespace Medios.Services
             var sintesis = await GetByIdAsync(sintesisId)
                 ?? throw new InvalidOperationException("Síntesis no encontrada");
             var incluidas = sintesis.NotasIncluidas.OrderBy(sn => sn.Orden)
-                .Where(sn => !(sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir"
+                .Where(sn => sintesis.EsFiltrada || !(sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir"
                               && !string.IsNullOrEmpty(sn.Nota?.VersionActual?.MotivoDescarte)))
                 .ToList();
             var versiones = incluidas.Where(sn => sn.NotaVersion != null)
@@ -594,7 +595,7 @@ namespace Medios.Services
             // Usar versión snapshot, saltando notas rechazadas (Sin Remitir con MotivoDescarte)
             var incluidas = sintesis.NotasIncluidas
                 .OrderBy(sn => sn.Orden)
-                .Where(sn => !(sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir"
+                .Where(sn => sintesis.EsFiltrada || !(sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir"
                               && !string.IsNullOrEmpty(sn.Nota?.VersionActual?.MotivoDescarte)))
                 .ToList();
 
@@ -693,6 +694,9 @@ namespace Medios.Services
                                 .FontSize(9).Italic();
                         }
 
+                        if (sintesis.EsFiltrada)
+                            col.Item().ShowOnce().PaddingTop(5).AlignCenter()
+                                .Text($"SÍNTESIS FILTRADA · Origen #{sintesis.SintesisOrigenId}").FontSize(10).Bold();
                         col.Item().ShowOnce().PaddingTop(10).AlignCenter().Text(fechaLarga)
                             .FontSize(20).Bold().FontFamily("URW Bookman");
                     });
@@ -843,7 +847,7 @@ namespace Medios.Services
             using var db = _factory.Create();
             var s = await db.Sintesis.Include(x => x.NotasIncluidas)
                 .FirstOrDefaultAsync(x => x.Id == id);
-            if (s == null || s.Estado != "Generada" || string.IsNullOrEmpty(s.PDFPath)) return false;
+            if (s == null || s.EsFiltrada || s.Estado != "Generada" || string.IsNullOrEmpty(s.PDFPath)) return false;
             s.Estado = "Remitida";
 
             // Marcar notas de la síntesis como "Remitida"
@@ -869,7 +873,7 @@ namespace Medios.Services
             var s = await db.Sintesis
                 .Include(x => x.NotasIncluidas)
                 .FirstOrDefaultAsync(x => x.Id == id);
-            if (s == null || s.Estado == "Remitida") return -1;
+            if (s == null || s.EsFiltrada || s.Estado == "Remitida") return -1;
 
             var notaIds = s.NotasIncluidas.Select(sn => sn.NotaPrensaId).ToList();
             var notas = await db.NotasPrensa.Where(n => notaIds.Contains(n.Id)).ToListAsync();

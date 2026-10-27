@@ -228,7 +228,7 @@
                                     var estadoBadge = sc.Estado == "Generada" ? "bg-green" : "bg-gray";
                                     <tr>
                                         <td><strong>@sc.Fecha.ToString("dd/MM/yyyy")</strong></td>
-                                        <td>@sc.Tipo</td>
+                                        <td>@sc.Tipo @if (sc.EsFiltrada) { <span class="label label-info">Filtrada · origen #@sc.SintesisOrigenId</span> }</td>
                                         <td><span class="badge bg-blue">@sc.NotasIncluidas.Count</span></td>
                                         <td><span class="label @estadoBadge">@sc.Estado</span></td>
                                         <td><small>@sc.FechaCreacion.ToString("dd/MM HH:mm")</small></td>
@@ -263,13 +263,13 @@
                                 {
                                     <tr>
                                         <td><strong>@si.Fecha.ToString("dd/MM/yyyy")</strong></td>
-                                        <td>@si.Tipo</td>
+                                        <td>@si.Tipo @if (si.EsFiltrada) { <span class="label label-info">Filtrada · origen #@si.SintesisOrigenId</span> }</td>
                                         <td><span class="badge bg-blue">@si.NotasIncluidas.Count</span></td>
                                         <td><small>@si.FechaGeneracion?.ToString("dd/MM/yyyy HH:mm")</small></td>
                                         <td class="text-right" style="white-space:nowrap;">
                                             <a href="/Sintesis/Detalle/@si.Id" class="btn btn-xs btn-default"><i class="fa fa-eye"></i> Ver</a>
-                                            <a href="/Sintesis/Informar/@si.Id" class="btn btn-xs btn-info" style="margin-left:4px;" title="Volver a elegir canales / reenviar">
-                                                <i class="fa fa-pencil"></i> Editar
+                                            <a href="/Sintesis/CrearFiltrada/@si.Id" class="btn btn-xs btn-info" style="margin-left:4px;" title="Crear otra síntesis con las notas elegidas">
+                                                <i class="fa fa-filter"></i> Crear filtrada
                                             </a>
                                         </td>
                                     </tr>

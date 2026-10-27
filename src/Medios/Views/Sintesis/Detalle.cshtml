@@ -34,11 +34,11 @@
 
     // Notas actualizadas: versión nueva todavía no remitida (acción pendiente del usuario)
     var cantSinRemitir = Model.NotasIncluidas
-        .Count(sn => sn.Nota.VersionActualId != sn.NotaVersionId
+        .Count(sn => !Model.EsFiltrada && sn.Nota.VersionActualId != sn.NotaVersionId
                   && sn.Nota.VersionActual?.EstadoRevision == "Sin Remitir");
     // Total actualizadas (para referencia)
     var cantInfoNueva = Model.NotasIncluidas
-        .Count(sn => sn.Nota.VersionActualId != sn.NotaVersionId);
+        .Count(sn => !Model.EsFiltrada && sn.Nota.VersionActualId != sn.NotaVersionId);
 }
 
 @if (TempData["Ok"] != null)
@@ -86,13 +86,32 @@
                             _           => "bg-gray"
                         };
                     }
+                    @if (Model.EsFiltrada) { <span class="label label-info">Filtrada · origen #@Model.SintesisOrigenId</span> }
                     &nbsp;<span class="label @estadoBadge">@(Model.Estado == "Borrador" ? "Pendiente de PDF" : Model.Estado)</span>
                 </h3>
                 <div class="box-tools">
+                    @if (Model.EsFiltrada)
+                    {
+                        <a href="/Sintesis/Detalle/@Model.SintesisOrigenId" class="btn btn-default btn-sm">Ver origen #@Model.SintesisOrigenId</a>
+                    }
                     @if (esConsolidada && esMedios)
                     {
+                        @if (Model.Estado == "Informada")
+                        {
+                            <a href="/Sintesis/CrearFiltrada/@Model.Id" class="btn btn-info btn-sm"><i class="fa fa-filter"></i> Crear filtrada</a>
+                        }
+                        @if (Model.EsFiltrada && Model.Estado is not "Informada" and not "Informando")
+                        {
+                            <form method="post" asp-action="EliminarFiltrada" asp-route-id="@Model.Id" style="display:inline" onsubmit="return confirm('¿Eliminar esta filtrada pendiente? La síntesis de origen se conserva.')">
+                                <button type="submit" class="btn btn-danger btn-sm"><i class="fa fa-trash"></i> Eliminar filtrada</button>
+                            </form>
+                            @if (string.IsNullOrEmpty(Model.PDFPath))
+                            {
+                                <form method="post" asp-action="GenerarPdf" asp-route-id="@Model.Id" style="display:inline"><button type="submit" class="btn btn-success btn-sm">Generar PDF</button></form>
+                            }
+                        }
                         @* ── Síntesis CONSOLIDADA: Revertir consolidar + Informar ── *@
-                        @if (Model.Estado is not "Informada" and not "Informando")
+                        @if (!Model.EsFiltrada && Model.Estado is not "Informada" and not "Informando")
                         {
                             <form method="post" asp-controller="Sintesis" asp-action="RevertirConsolidar" style="display:inline"
                                   onsubmit="return confirm('¿Revertir la consolidación? La síntesis consolidada se eliminará y las sesiones volverán a estado Finalizada para poder modificarlas.')">
@@ -218,8 +237,8 @@
                         @foreach (var sn in grupo.Notas.Select(v => snapshotsPorVersion[v.Id]))
                         {
                             var nota = sn.NotaVersion;
-                            var tieneInfoNueva = sn.Nota.VersionActualId != sn.NotaVersionId;
-                            var esRechazada = sn.Nota.VersionActual?.EstadoRevision == "Sin Remitir"
+                            var tieneInfoNueva = !Model.EsFiltrada && sn.Nota.VersionActualId != sn.NotaVersionId;
+                            var esRechazada = !Model.EsFiltrada && sn.Nota.VersionActual?.EstadoRevision == "Sin Remitir"
                                            && !string.IsNullOrEmpty(sn.Nota.VersionActual?.MotivoDescarte);
                             <div style="padding:10px 12px; border-bottom:1px solid #f0f0f0; @(tieneInfoNueva ? "background:#fffdf0;" : esRechazada ? "background:#fdf2f2;" : "")">
                                 <div style="margin-bottom:4px;">

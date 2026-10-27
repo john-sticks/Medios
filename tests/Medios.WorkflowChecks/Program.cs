@@ -170,6 +170,7 @@ comprobaciones += await RecuperacionChecks.RunAsync();
 comprobaciones += await BorradorUnicidadChecks.RunAsync();
 comprobaciones += await CategoriaChecks.RunAsync();
 comprobaciones += await InformarChecks.RunAsync();
+comprobaciones += await FiltradasChecks.RunAsync();
 comprobaciones += WordChecks.Run(args.Length >= 2 && args[0] == "--word-samples" ? args[1] : null);
 if (args.Length >= 2 && args[0] == "--pdf-sample")
     await SintesisMediosChecks.GenerarMuestraPdfAsync(args[1], args.Length > 2 ? args[2] : "Especial");

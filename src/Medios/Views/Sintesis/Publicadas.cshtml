@@ -58,7 +58,7 @@
                                             {
                                                 <div style="padding:10px 12px; border-bottom:1px solid #f0f0f0;">
                                                     <div style="font-weight:bold; font-size:13px;">
-                                                        <i class="fa fa-calendar text-muted"></i> @s.Fecha.ToString("dd/MM/yyyy")
+                                                        <i class="fa fa-calendar text-muted"></i> @s.Fecha.ToString("dd/MM/yyyy") @if (s.EsFiltrada) { <span class="label label-info">Filtrada · origen #@s.SintesisOrigenId</span> }
                                                         @if (s.Tipo != nombre)
                                                         {
                                                             <span class="label label-default" style="font-size:9px;">@s.Tipo</span>

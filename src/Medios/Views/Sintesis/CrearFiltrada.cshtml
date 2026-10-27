@@ -1,0 +1,89 @@
+@using Medios.Entities
+@model Sintesis
+@{
+    ViewData["Title"] = "Crear síntesis filtrada";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var notas = Model.NotasIncluidas.OrderBy(sn => sn.Orden).ThenBy(sn => sn.Id).ToList();
+    var delegaciones = ViewBag.DelegacionesFiltrada as Dictionary<int, string> ?? new();
+    int Delegacion(SintesisNota sn) => sn.Nota.Sesion?.DelegacionId ?? sn.Nota.DelegacionId ?? 0;
+    string NombreDelegacion(int id) => delegaciones.TryGetValue(id, out var nombre) ? nombre : "Sin delegación";
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+<div class="box box-primary">
+    <div class="box-header with-border"><h3 class="box-title"><i class="fa fa-filter"></i> Crear síntesis filtrada</h3></div>
+    <div class="box-body">
+        <p>Origen: <a href="/Sintesis/Detalle/@Model.Id">@Model.Tipo del @Model.Fecha.ToString("dd/MM/yyyy") · #@Model.Id</a>.</p>
+        <p class="text-muted">Se conservarán las versiones informadas en el origen. La selección tendrá su propio PDF y envío.</p>
+        @if (notas.Count == 0)
+        {
+            <div class="callout callout-warning">Esta síntesis no tiene notas estructuradas para seleccionar.</div>
+        }
+        else
+        {
+            <div class="row" style="margin-bottom:12px;">
+                <div class="col-sm-4"><label for="filtroDelegacion">Delegación</label><select id="filtroDelegacion" class="form-control filtro-notas"><option value="">Todas</option>
+                    @foreach (var id in notas.Select(Delegacion).Distinct().OrderBy(NombreDelegacion)) { <option value="@id">@NombreDelegacion(id)</option> }
+                </select></div>
+                <div class="col-sm-4"><label for="filtroCategoria">Categoría</label><select id="filtroCategoria" class="form-control filtro-notas"><option value="">Todas</option>
+                    @foreach (var g in notas.GroupBy(sn => sn.NotaVersion.CategoriaId ?? 0).OrderBy(g => g.First().NotaVersion.Categoria?.Nombre)) { <option value="@g.Key">@(g.First().NotaVersion.Categoria?.Nombre ?? "Sin categoría")</option> }
+                </select></div>
+                <div class="col-sm-4"><label for="filtroPartido">Partido</label><select id="filtroPartido" class="form-control filtro-notas"><option value="">Todos</option>
+                    @foreach (var g in notas.GroupBy(sn => sn.NotaVersion.PartidoId ?? 0).OrderBy(g => g.First().NotaVersion.Partido?.Nombre)) { <option value="@g.Key">@(g.First().NotaVersion.Partido?.Nombre ?? "Sin partido")</option> }
+                </select></div>
+            </div>
+            <p class="text-muted">Los filtros seleccionan las notas que coinciden. Podés ajustar la selección manualmente.</p>
+            <form id="formFiltrada" method="post" asp-action="CrearFiltrada" asp-route-id="@Model.Id">
+                <div style="margin-bottom:10px;">
+                    <button type="button" id="seleccionarVisibles" class="btn btn-default btn-sm">Seleccionar visibles</button>
+                    <button type="button" id="limpiarSeleccion" class="btn btn-default btn-sm">Limpiar selección</button>
+                    <strong id="cuentaSeleccion" style="margin-left:10px;" aria-live="polite"></strong>
+                </div>
+                <div class="table-responsive"><table class="table table-hover"><thead><tr><th>Incluir</th><th>Nota</th><th>Delegación</th><th>Categoría / partido</th></tr></thead><tbody>
+                    @foreach (var sn in notas)
+                    {
+                        <tr class="nota-filtrable" data-delegacion="@Delegacion(sn)" data-categoria="@(sn.NotaVersion.CategoriaId ?? 0)" data-partido="@(sn.NotaVersion.PartidoId ?? 0)">
+                            <td><input type="checkbox" name="seleccionIds" value="@sn.Id" checked aria-label="Incluir @sn.NotaVersion.Titulo" /></td>
+                            <td><strong>@sn.NotaVersion.Titulo</strong><br /><small>Versión @sn.NotaVersion.Version · <a href="/NotaBuscador/Detalle/@sn.NotaPrensaId?versionId=@sn.NotaVersionId" target="_blank" rel="noopener">Ver nota completa</a></small><p>@sn.NotaVersion.Sintesis</p></td>
+                            <td>@NombreDelegacion(Delegacion(sn))</td><td>@sn.NotaVersion.Categoria?.Nombre<br />@sn.NotaVersion.Partido?.Nombre</td>
+                        </tr>
+                    }
+                </tbody></table></div>
+                <button type="submit" class="btn btn-success" id="crearFiltrada"><i class="fa fa-filter"></i> Crear síntesis filtrada</button>
+                <a href="/Sintesis/Detalle/@Model.Id" class="btn btn-default">Cancelar</a>
+            </form>
+        }
+    </div>
+</div>
+@section Scripts {
+<script>
+(() => {
+    const form = document.getElementById('formFiltrada');
+    if (!form) return;
+    const filas = Array.from(form.querySelectorAll('.nota-filtrable'));
+    const filtros = Array.from(document.querySelectorAll('.filtro-notas'));
+    const cantidad = () => filas.filter(f => f.querySelector('input').checked).length;
+    function contar() { document.getElementById('cuentaSeleccion').textContent = cantidad() + ' nota(s) seleccionada(s)'; }
+    filtros.forEach(f => f.addEventListener('change', () => {
+        filas.forEach(fila => {
+            const valores = [fila.dataset.delegacion, fila.dataset.categoria, fila.dataset.partido];
+            fila.hidden = !filtros.every((f, i) => !f.value || f.value === valores[i]);
+            fila.querySelector('input').checked = !fila.hidden;
+        });
+        contar();
+    }));
+    document.getElementById('seleccionarVisibles').addEventListener('click', () => { filas.forEach(f => f.querySelector('input').checked = !f.hidden); contar(); });
+    document.getElementById('limpiarSeleccion').addEventListener('click', () => { filas.forEach(f => f.querySelector('input').checked = false); contar(); });
+    form.addEventListener('change', contar);
+    form.addEventListener('submit', event => {
+        if (cantidad() === 0 || form.dataset.enviando) { event.preventDefault(); return; }
+        form.dataset.enviando = 'true';
+        const boton = document.getElementById('crearFiltrada');
+        boton.disabled = true; boton.textContent = 'Creando...';
+    });
+    contar();
+})();
+</script>
+}

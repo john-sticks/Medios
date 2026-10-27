@@ -406,7 +406,7 @@ namespace Medios.Services
             // delegación la elimina o la re-trata.
             var sn = await db.SintesisNotas
                 .Include(x => x.Sintesis)
-                .Where(x => x.NotaPrensaId == notaId && x.Sintesis.Estado != "Informada")
+                .Where(x => x.NotaPrensaId == notaId && x.Sintesis.Estado != "Informada" && x.Sintesis.SintesisOrigenId == null)
                 .ToListAsync();
             db.SintesisNotas.RemoveRange(sn);
 
@@ -473,7 +473,7 @@ namespace Medios.Services
 
             var refs = await db.SintesisNotas
                 .Include(sn => sn.Sintesis)
-                .Where(sn => sn.NotaPrensaId == notaId && sn.Sintesis.Estado != "Informada")
+                .Where(sn => sn.NotaPrensaId == notaId && sn.Sintesis.Estado != "Informada" && sn.Sintesis.SintesisOrigenId == null)
                 .ToListAsync();
             if (refs.Count == 0) return;
 
@@ -721,7 +721,7 @@ namespace Medios.Services
             // la de su delegación y la consolidada → tomar la más reciente por SintesisId)
             var notaIds = items.Select(i => i.NotaId).Distinct().ToList();
             var sintesisEstados = await db.SintesisNotas
-                .Where(sn => notaIds.Contains(sn.NotaPrensaId))
+                .Where(sn => notaIds.Contains(sn.NotaPrensaId) && sn.Sintesis.SintesisOrigenId == null)
                 .Select(sn => new { sn.NotaPrensaId, sn.SintesisId, sn.Sintesis.Estado })
                 .ToListAsync();
             var sintesisMap = sintesisEstados

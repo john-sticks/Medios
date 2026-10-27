@@ -44,3 +44,5 @@ del procesador de textos y las fuentes instaladas.
 InformarChecks verifica reserva persistente Informando, concurrencia por Estado, rechazo de doble POST, publicación para todos los roles y bloqueo de Word para Delegación. No envía correos reales. Si un envío queda con resultado incierto, revisar los registros e historial antes de recuperar manualmente su estado. No requiere migración de esquema.
 
 RecuperacionChecks verifica recuperación sin duplicar notas, conservación del motivo anterior, historial de copias legadas y síntesis, y exclusión de alertas de Home/Borradores/Notas tras recuperar y remitir. Sin cambios de esquema ni fusión de registros existentes.
+
+FiltradasChecks verifica origen informado, selección válida, snapshots congelados, envío independiente y protección frente a cambios posteriores. Aplicar sql/28_sintesis_filtradas.sql antes del despliegue.

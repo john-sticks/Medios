@@ -48,6 +48,8 @@ public static class SintesisWordDocument
                 body.Append(Parrafo("Diarios del Conurbano e Interior - Agencias de Noticias", 9, fuente: "Arial", centrado: true, cursiva: true));
                 body.Append(Parrafo("— Edición Digital —", 9, fuente: "Arial", centrado: true, cursiva: true));
             }
+            if (sintesis.EsFiltrada)
+                body.Append(Parrafo($"SÍNTESIS FILTRADA · Origen #{sintesis.SintesisOrigenId}", 10, true, centrado: true));
             var fecha = sintesis.Fecha.ToString("d 'de' MMMM 'de' yyyy", CultureInfo.GetCultureInfo("es-AR"));
             body.Append(Parrafo(fecha + (ampliacion ? " - AMPLIACIÓN" : ""), 20, true, centrado: true, antes: 200));
             body.Append(Parrafo("CONTENIDO", 16, true, Marron, "Arial", antes: 720, despues: 400));

@@ -7,6 +7,7 @@ namespace Medios.Entities;
 [Table("sintesis")]
 [Index("Fecha", "Tipo", Name = "idx_sintesis_fecha_tipo")]
 [Index("Estado", Name = "idx_sintesis_estado")]
+[Index("SintesisOrigenId", Name = "idx_sintesis_origen")]
 public class Sintesis
 {
     [Key]
@@ -46,6 +47,13 @@ public class Sintesis
 
     [Column(TypeName = "datetime")]
     public DateTime? FechaInformada { get; set; }
+
+    // Derivada de una consolidada informada; sus snapshots permanecen congelados.
+    public int? SintesisOrigenId { get; set; }
+    [ForeignKey("SintesisOrigenId")]
+    public virtual Sintesis? SintesisOrigen { get; set; }
+    [NotMapped]
+    public bool EsFiltrada => SintesisOrigenId.HasValue;
 
     public int? DelegacionId { get; set; }
 
