@@ -1,3 +1,10 @@
+// Ocultar la ayuda cuando el navegador no expone lectura del portapapeles (por ejemplo, HTTP).
+if (!navigator.clipboard || !navigator.clipboard.readText) {
+    document.querySelectorAll('[data-pegar-link]').forEach(function (boton) {
+        boton.style.display = 'none';
+    });
+}
+
 document.addEventListener('click', async function (event) {
     const boton = event.target.closest('[data-pegar-link]');
     if (!boton) return;
