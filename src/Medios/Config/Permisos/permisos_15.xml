@@ -6,8 +6,8 @@
     <group title="Síntesis" icon="fa fa-file-text">
       <page title="Mis Borradores" icon="fa fa-pencil-square-o" href="~/sesion/mias" />
       <page title="Bandeja" icon="fa fa-inbox" href="~/sesion/bandeja" />
-      <page title="Consolidar" icon="fa fa-object-group" href="~/sintesis/consolidar" />
       <page title="Publicadas" icon="fa fa-newspaper-o" href="~/sintesis/publicadas" />
+      <page title="Archivo de PDF" icon="fa fa-file-pdf-o" href="~/archivopdf" />
     </group>
     <group title="Notas" icon="fa fa-newspaper-o">
       <page title="Nueva Nota" icon="fa fa-plus-circle" href="~/nota/listado" />
@@ -32,6 +32,9 @@
     <page title="Portales" icon="fa fa-globe" href="~/portales/listado" />
   </navigation>
   <notnavigation>
+    <page href="~/archivopdf/index" />
+    <page href="~/archivopdf/descargar" />
+    <page href="~/archivopdf/reemplazar" />
     <page href="~/home/noautorizado" />
     <page href="~/home/miperfil" />
     <page href="~/autorizacion/pendiente" />

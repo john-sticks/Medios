@@ -50,6 +50,14 @@
     <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
 }
 
+@if (Medios.Services.ArchivoPdfService.FechaCargaUtc(Model.PDFPath) is DateTime fechaCarga)
+{
+    <div class="alert alert-info">
+        Este PDF fue modificado localmente y subido el @fechaCarga.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss").
+        La descarga entrega ese archivo. El detalle de las notas no refleja las modificaciones externas y la exportación Word no está disponible para esta versión.
+    </div>
+}
+
 @if (!string.IsNullOrWhiteSpace(Model.TextoImportado))
 {
     <div class="box box-warning">
@@ -123,7 +131,7 @@
                         }
                         @if (!string.IsNullOrEmpty(Model.PDFPath))
                         {
-                            <partial name="_Descargas" model="Model.Id" />
+                            <partial name="_Descargas" model="Model" />
                         }
                         @if (Model.Estado is not "Informada" and not "Informando")
                         {
@@ -161,7 +169,7 @@
                         }
                         @if (!string.IsNullOrEmpty(Model.PDFPath))
                         {
-                            <partial name="_Descargas" model="Model.Id" />
+                            <partial name="_Descargas" model="Model" />
                             @if (Model.Estado == "Generada" && puedeRemitir)
                             {
                                 <form method="post" asp-controller="Sintesis" asp-action="Remitir" style="display:inline"

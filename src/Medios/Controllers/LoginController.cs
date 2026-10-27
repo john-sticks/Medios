@@ -70,6 +70,9 @@ namespace Medios.Controllers
                 return View();
             }
 
+            // Las cuentas Mock usan una identidad canónica también en autorizaciones y claims.
+            if (_auth is MockAuthService) Usuario = loginResult.Usuario ?? Usuario.ToLowerInvariant();
+
             // Cerberus valida credenciales; el acceso y el perfil operativo son locales.
             // No consultar info-servicio, que requiere una asignación previa en Cerberus.
             var usaAutorizacionLocal = _auth.UsaAutorizacionLocal;

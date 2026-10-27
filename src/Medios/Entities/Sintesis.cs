@@ -24,7 +24,7 @@ public class Sintesis
     [ConcurrencyCheck, StringLength(20)]
     public string Estado { get; set; } = "Borrador";
 
-    [StringLength(500)]
+    [ConcurrencyCheck, StringLength(500)]
     public string? PDFPath { get; set; }
 
     [Column(TypeName = "datetime")]

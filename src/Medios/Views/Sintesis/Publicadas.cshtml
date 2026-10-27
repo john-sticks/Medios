@@ -1,92 +1,111 @@
 @using Medios.Entities
 @model List<Sintesis>
-
 @{
     ViewData["Title"] = "Síntesis Publicadas";
-    Layout = "~/Views/Shared/_Layout.cshtml";
     var filtroTipo = ViewBag.FiltroTipo as string;
-
-    // Clasificar en 3 grupos: Matutina, Vespertina, Especiales (el resto)
-    List<Sintesis> Grupo(string tipo) => tipo == "Especiales"
-        ? Model.Where(s => s.Tipo != "Matutina" && s.Tipo != "Vespertina").ToList()
-        : Model.Where(s => s.Tipo == tipo).ToList();
-
-    var grupos = new[]
-    {
-        ("Matutina",   "fa-sun-o",   "#f39c12", Grupo("Matutina")),
-        ("Vespertina", "fa-moon-o",  "#8B4513", Grupo("Vespertina")),
-        ("Especiales", "fa-star",    "#c0392b", Grupo("Especiales"))
-    };
+    bool busquedaRealizada = ViewBag.BusquedaRealizada;
 }
-
-<div class="row">
-    <div class="col-md-12">
-        <div class="box box-primary">
-            <div class="box-header with-border">
-                <h3 class="box-title"><i class="fa fa-newspaper-o"></i> Síntesis Publicadas</h3>
-                <div class="box-tools pull-right">
-                    <span class="text-muted" style="font-size:12px;">Síntesis de prensa consolidadas e informadas</span>
+<div class="box box-primary">
+    <div class="box-header with-border">
+        <h3 class="box-title"><i class="fa fa-search"></i> Buscar síntesis publicadas</h3>
+        <p class="help-block" style="margin-bottom:0">Consultá las síntesis consolidadas e informadas por fecha de síntesis. Período máximo: 15 días, contando ambas fechas.</p>
+    </div>
+    <div class="box-body">
+        <form method="get" asp-action="Publicadas">
+            <input type="hidden" name="buscar" value="true" />
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <div class="row">
+                <div class="col-sm-6 col-md-3 form-group">
+                    <label for="desde">Desde</label>
+                    <input id="desde" name="desde" type="date" value="@ViewBag.Desde" class="form-control" required />
+                </div>
+                <div class="col-sm-6 col-md-3 form-group">
+                    <label for="hasta">Hasta</label>
+                    <input id="hasta" name="hasta" type="date" value="@ViewBag.Hasta" class="form-control" required />
+                </div>
+                <div class="col-sm-6 col-md-3 form-group">
+                    <label for="tipo">Tipo de síntesis</label>
+                    <select id="tipo" name="tipo" class="form-control">
+                        <option value="">Todos los tipos</option>
+                        <option value="Matutina" selected="@(filtroTipo == "Matutina")">Matutina</option>
+                        <option value="Vespertina" selected="@(filtroTipo == "Vespertina")">Vespertina</option>
+                        <option value="Especiales" selected="@(filtroTipo == "Especiales")">Especiales y ampliaciones</option>
+                    </select>
+                </div>
+                <div class="col-sm-6 col-md-3 form-group">
+                    <label class="hidden-xs" style="display:block" aria-hidden="true">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary"><i class="fa fa-search"></i> Buscar</button>
+                    <a asp-action="Publicadas" class="btn btn-default">Limpiar</a>
                 </div>
             </div>
-            <div class="box-body">
-                @if (!Model.Any())
-                {
-                    <div class="text-center text-muted" style="padding:40px;">
-                        <i class="fa fa-newspaper-o fa-3x" style="opacity:0.3;"></i>
-                        <p style="margin-top:12px;">No hay síntesis publicadas todavía.</p>
-                    </div>
-                }
-                else
-                {
-                    <div class="row">
-                        @foreach (var (nombre, icono, color, lista) in grupos)
-                        {
-                            <div class="col-md-4">
-                                <div style="border:1px solid #ddd; border-radius:4px; overflow:hidden; margin-bottom:16px;">
-                                    <div style="background:@color; color:white; padding:8px 12px; font-weight:bold;">
-                                        <i class="fa @icono"></i> @nombre.ToUpper()
-                                        <span class="badge" style="background:rgba(255,255,255,0.3);">@lista.Count</span>
-                                    </div>
-                                    <div style="max-height:480px; overflow-y:auto;">
-                                        @if (!lista.Any())
-                                        {
-                                            <p class="text-muted text-center" style="padding:20px; margin:0; font-size:12px;">Sin síntesis</p>
-                                        }
-                                        else
-                                        {
-                                            @foreach (var s in lista)
-                                            {
-                                                <div style="padding:10px 12px; border-bottom:1px solid #f0f0f0;">
-                                                    <div style="font-weight:bold; font-size:13px;">
-                                                        <i class="fa fa-calendar text-muted"></i> @s.Fecha.ToString("dd/MM/yyyy") @if (s.EsFiltrada) { <span class="label label-info">Filtrada · origen #@s.SintesisOrigenId</span> }
-                                                        @if (s.Tipo != nombre)
-                                                        {
-                                                            <span class="label label-default" style="font-size:9px;">@s.Tipo</span>
-                                                        }
-                                                    </div>
-                                                    <div style="font-size:11px; color:#888; margin:2px 0 6px;">
-                                                        @s.NotasIncluidas.Count nota(s) ·
-                                                        Informada @s.FechaInformada?.ToString("dd/MM HH:mm")
-                                                    </div>
-                                                    <a href="/Sintesis/Detalle/@s.Id" class="btn btn-xs btn-default">
-                                                        <i class="fa fa-eye"></i> Ver
-                                                    </a>
-                                                    @if (!string.IsNullOrEmpty(s.PDFPath))
-                                                    {
-                                                        <a href="/Sintesis/DescargarPdf/@s.Id" class="btn btn-xs btn-success" target="_blank">
-                                                            <i class="fa fa-file-pdf-o"></i> PDF
-                                                        </a>
-                                                    }
-                                                </div>
-                                            }
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
+        </form>
     </div>
 </div>
+<div class="box box-default">
+    <div class="box-header with-border">
+        <h3 class="box-title">Resultados @if (busquedaRealizada && ViewData.ModelState.IsValid) { <span class="badge">@Model.Count</span> }</h3>
+        @if (busquedaRealizada && ViewData.ModelState.IsValid)
+        {
+            <p class="help-block" style="margin-bottom:0">Período: @DateOnly.Parse((string)ViewBag.Desde).ToString("dd/MM/yyyy") al @DateOnly.Parse((string)ViewBag.Hasta).ToString("dd/MM/yyyy"). Ordenadas desde la fecha más reciente.</p>
+        }
+    </div>
+    <div class="box-body">
+        @if (!busquedaRealizada)
+        {
+            <p class="text-muted" style="margin:12px 0"><i class="fa fa-calendar"></i> Elegí un período y presioná <strong>Buscar</strong> para consultar las síntesis publicadas.</p>
+        }
+        else if (!ViewData.ModelState.IsValid)
+        {
+            <p class="text-muted">Revisá los filtros de búsqueda para consultar las publicaciones.</p>
+        }
+        else if (Model.Count == 0)
+        {
+            <p class="text-muted">No hay síntesis publicadas para el período y tipo seleccionados.</p>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead><tr><th>Fecha de síntesis</th><th>Tipo</th><th>Notas</th><th>Informada</th><th>Acciones</th></tr></thead>
+                    <tbody>
+                    @foreach (var sintesis in Model)
+                    {
+                        var color = sintesis.Tipo switch { "Matutina" => "#f39c12", "Vespertina" => "#8B4513", _ => "#c0392b" };
+                        var textoColor = sintesis.Tipo == "Matutina" ? "#111" : "#fff";
+                        <tr>
+                            <td style="vertical-align:middle"><strong>@sintesis.Fecha.ToString("dd/MM/yyyy")</strong></td>
+                            <td style="vertical-align:middle"><span class="label" style="background:@color;color:@textoColor">@sintesis.Tipo</span> @if (sintesis.EsFiltrada) { <span class="label label-info">Filtrada</span> }</td>
+                            <td style="vertical-align:middle">@sintesis.NotasIncluidas.Count</td>
+                            <td style="vertical-align:middle">@(sintesis.FechaInformada?.ToString("dd/MM/yyyy HH:mm") ?? "Sin fecha registrada")</td>
+                            <td style="white-space:nowrap">
+                                <a asp-action="Detalle" asp-route-id="@sintesis.Id" class="btn btn-default btn-sm"><i class="fa fa-eye"></i> Ver detalle</a>
+                                @if (!string.IsNullOrEmpty(sintesis.PDFPath))
+                                {
+                                    <a asp-action="DescargarPdf" asp-route-id="@sintesis.Id" class="btn btn-success btn-sm"><i class="fa fa-file-pdf-o"></i> PDF</a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+@section Scripts {
+    <script>
+        (() => {
+            const desde = document.getElementById('desde');
+            const hasta = document.getElementById('hasta');
+            function limitarPeriodo() {
+                if (!desde.value) { hasta.removeAttribute('min'); hasta.removeAttribute('max'); return; }
+                const limite = new Date(desde.value + 'T00:00:00Z');
+                limite.setUTCDate(limite.getUTCDate() + 14);
+                hasta.min = desde.value;
+                hasta.max = limite.toISOString().slice(0, 10);
+            }
+            desde.addEventListener('change', limitarPeriodo);
+            limitarPeriodo();
+        })();
+    </script>
+}

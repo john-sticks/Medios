@@ -17,6 +17,10 @@
     <div class="box-body">
         <p>Origen: <a href="/Sintesis/Detalle/@Model.Id">@Model.Tipo del @Model.Fecha.ToString("dd/MM/yyyy") · #@Model.Id</a>.</p>
         <p class="text-muted">Se conservarán las versiones informadas en el origen. La selección tendrá su propio PDF y envío.</p>
+        @if (Medios.Services.ArchivoPdfService.FechaCargaUtc(Model.PDFPath).HasValue)
+        {
+            <div class="callout callout-warning">El PDF de origen fue reemplazado manualmente. La filtrada se genera desde las notas guardadas en el sistema; no incorpora cambios hechos únicamente en ese PDF.</div>
+        }
         @if (notas.Count == 0)
         {
             <div class="callout callout-warning">Esta síntesis no tiene notas estructuradas para seleccionar.</div>

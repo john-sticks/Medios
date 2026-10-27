@@ -163,18 +163,20 @@ Verificar(!SintesisWorkflowPolicy.PuedeFinalizar(incompleta), "Una nota sin vers
 incompleta.Notas.Add(new NotaPrensa { VersionActual = new NotaVersion { EstadoRevision = "Aprobada" } });
 Verificar(!SintesisWorkflowPolicy.PuedeFinalizar(incompleta), "Aprobar una nota no habilita finalizar si otra sigue pendiente");
 
-
+comprobaciones += await MockLoginChecks.RunAsync();
 comprobaciones += await SintesisMediosChecks.RunAsync();
 comprobaciones += await RechazadasChecks.RunAsync();
 comprobaciones += await RecuperacionChecks.RunAsync();
 comprobaciones += await BorradorUnicidadChecks.RunAsync();
 comprobaciones += await CategoriaChecks.RunAsync();
+comprobaciones += await ArchivoPdfChecks.RunAsync();
+comprobaciones += await PublicadasChecks.RunAsync();
 comprobaciones += await InformarChecks.RunAsync();
 comprobaciones += await FiltradasChecks.RunAsync();
 comprobaciones += WordChecks.Run(args.Length >= 2 && args[0] == "--word-samples" ? args[1] : null);
 if (args.Length >= 2 && args[0] == "--pdf-sample")
     await SintesisMediosChecks.GenerarMuestraPdfAsync(args[1], args.Length > 2 ? args[2] : "Especial");
-Console.WriteLine($"OK: {comprobaciones} comprobaciones de notas, publicación, reversión, consolidación y modelo PDF.");
+Console.WriteLine($"OK: {comprobaciones} comprobaciones de login Mock, notas, publicación, reversión, consolidación y modelo PDF.");
 
 sealed class MemoriaFactory : IMediosDbContextFactory
 {

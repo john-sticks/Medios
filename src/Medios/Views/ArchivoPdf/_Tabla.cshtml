@@ -1,0 +1,41 @@
+@model List<Medios.Services.ArchivoPdf>
+<div class="table-responsive">
+    <table class="table table-bordered table-striped">
+        <thead><tr><th>Fecha de síntesis</th><th>Tipo</th><th>Estado</th><th>Origen del PDF</th><th>Generado / subido</th><th>Acciones</th></tr></thead>
+        <tbody>
+        @foreach (var documento in Model)
+        {
+            <tr>
+                <td>@documento.Fecha.ToString("dd/MM/yyyy")</td>
+                <td>@documento.Tipo</td>
+                <td>@documento.Estado</td>
+                <td><span class="label @(documento.FechaCargaUtc.HasValue ? "label-warning" : "label-success")">@documento.Origen</span></td>
+                <td>@(documento.FechaArchivo?.ToString("dd/MM/yyyy HH:mm:ss") ?? "Sin fecha registrada")</td>
+                <td>
+                    @if (documento.Disponible)
+                    {
+                        <a asp-action="Descargar" asp-route-id="@documento.Id" asp-route-sesion="@documento.EsSesion" class="btn btn-success btn-sm"><i class="fa fa-download"></i> PDF</a>
+                    }
+                    else
+                    {
+                        <span class="text-danger">Archivo no disponible</span>
+                    }
+                    @if (documento.Consolidado)
+                    {
+                        <form asp-action="Reemplazar" method="post" enctype="multipart/form-data" style="margin-top:8px"
+                              onsubmit="return confirm('¿Reemplazar el PDF de esta síntesis consolidada? Las próximas descargas y envíos usarán el archivo que subas.');">
+                            <input type="hidden" name="id" value="@documento.Id" />
+                            <input type="hidden" name="rutaEsperada" value="@documento.Ruta" />
+                            <input type="hidden" name="desde" value="@ViewBag.Desde" />
+                            <input type="hidden" name="hasta" value="@ViewBag.Hasta" />
+                            <label for="pdf-@documento.Id" class="sr-only">PDF modificado de @documento.Tipo del @documento.Fecha</label>
+                            <input id="pdf-@documento.Id" name="archivo" type="file" accept=".pdf,application/pdf" required />
+                            <button type="submit" class="btn btn-primary btn-sm" style="margin-top:5px"><i class="fa fa-upload"></i> Subir y reemplazar</button>
+                        </form>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

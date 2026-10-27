@@ -1,0 +1,111 @@
+@model List<Medios.Services.ArchivoPdf>
+@{
+    var delegaciones = Model.Where(d => !d.Consolidado).ToList();
+    var consolidados = Model.Where(d => d.Consolidado).ToList();
+    var tab = (string)ViewBag.Tab;
+    var opciones = (List<Medios.Services.DelegacionPdf>)ViewBag.Delegaciones;
+    var almacenamiento = (Medios.Services.AlmacenamientoPdf)ViewBag.Almacenamiento;
+}
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success">@TempData["Ok"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+<div class="box box-primary">
+    <div class="box-header with-border"><h3 class="box-title">Archivo de PDF de síntesis</h3></div>
+    <div class="box-body">
+        <div class="callout callout-info" id="almacenamiento-pdf">
+            <strong>Total de PDF en el servidor: @almacenamiento.Megabytes.ToString("N2") MB</strong>
+            <span> — @almacenamiento.Cantidad archivo(s), incluidos respaldos y archivos anteriores.</span><br />
+            @if (almacenamiento.DesdeUtc.HasValue && almacenamiento.HastaUtc.HasValue)
+            {
+                <span>Fecha de los archivos: desde @almacenamiento.DesdeUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm") hasta @almacenamiento.HastaUtc.Value.ToLocalTime().ToString("dd/MM/yyyy HH:mm").</span>
+            }
+            else
+            {
+                <span>No hay PDF almacenados.</span>
+            }
+            <small class="help-block">Total de la carpeta PDF, independiente de los filtros. Fechas de modificación de los archivos; MB = 1.000.000 bytes.</small>
+        </div>
+        <form method="get" class="form-inline">
+            <input type="hidden" name="tab" value="@tab" />
+            <div asp-validation-summary="All" class="text-danger"></div>
+            @if (tab == "delegaciones")
+            {
+                <div class="form-group">
+                    <label for="delegacionId">Delegación</label>
+                    <select id="delegacionId" name="delegacionId" class="form-control" required>
+                        <option value="">— Seleccioná una delegación —</option>
+                        @foreach (var opcion in opciones)
+                        {
+                            <option value="@opcion.Id" selected="@(opcion.Id == (int?)ViewBag.DelegacionId)">@opcion.Nombre</option>
+                        }
+                    </select>
+                </div>
+            }
+            else if (ViewBag.DelegacionId != null)
+            {
+                <input type="hidden" name="delegacionId" value="@ViewBag.DelegacionId" />
+            }
+            <div class="form-group"><label for="desde">Fecha de síntesis desde</label> <input id="desde" name="desde" type="date" value="@ViewBag.Desde" class="form-control" required /></div>
+            <div class="form-group"><label for="hasta">hasta</label> <input id="hasta" name="hasta" type="date" value="@ViewBag.Hasta" class="form-control" required /></div>
+            <button type="submit" class="btn btn-primary">Filtrar</button>
+            <a asp-action="Index" asp-route-tab="@tab" class="btn btn-default">Limpiar</a>
+        </form>
+        <p class="help-block">Período máximo: 15 días, contando ambas fechas. Se muestran los PDF vigentes; los respaldos no se incluyen en el listado.</p>
+    </div>
+</div>
+<div class="nav-tabs-custom">
+    <ul class="nav nav-tabs">
+        <li class="@(tab == "delegaciones" ? "active" : "")"><a asp-action="Index" asp-route-tab="delegaciones" asp-route-desde="@ViewBag.Desde" asp-route-hasta="@ViewBag.Hasta" asp-route-delegacionId="@ViewBag.DelegacionId">Delegaciones @if (tab == "delegaciones") { <span class="badge">@delegaciones.Count</span> }</a></li>
+        <li class="@(tab == "consolidados" ? "active" : "")"><a asp-action="Index" asp-route-tab="consolidados" asp-route-desde="@ViewBag.Desde" asp-route-hasta="@ViewBag.Hasta" asp-route-delegacionId="@ViewBag.DelegacionId">Consolidados @if (tab == "consolidados") { <span class="badge">@consolidados.Count</span> }</a></li>
+    </ul>
+    <div class="tab-content">
+        <div id="delegaciones" class="tab-pane @(tab == "delegaciones" ? "active" : "")">
+            @if (ViewBag.DelegacionId == null)
+            {
+                <p class="text-muted">Seleccioná una delegación y un período de hasta 15 días para consultar sus PDF.</p>
+            }
+            else if (delegaciones.Count == 0 && ViewData.ModelState.IsValid)
+            {
+                <p class="text-muted">No hay PDF de delegaciones para las fechas seleccionadas.</p>
+            }
+            @foreach (var grupo in delegaciones.GroupBy(d => new { d.DelegacionId, d.Delegacion }).OrderBy(g => g.Key.Delegacion))
+            {
+                <h4>@grupo.Key.Delegacion <span class="badge">@grupo.Count()</span></h4>
+                <partial name="_Tabla" model="grupo.ToList()" />
+            }
+        </div>
+        <div id="consolidados" class="tab-pane @(tab == "consolidados" ? "active" : "")">
+            <p>Podés reemplazar el PDF por una versión modificada localmente (hasta 20 MB). Se conserva el archivo anterior como respaldo. La carga no modifica las notas, el estado de la síntesis ni los correos ya enviados.</p>
+            @if (consolidados.Count == 0)
+            {
+                <p class="text-muted">No hay PDF consolidados para las fechas seleccionadas.</p>
+            }
+            else
+            {
+                <partial name="_Tabla" model="consolidados" />
+            }
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <script>
+        (() => {
+            const desde = document.getElementById('desde');
+            const hasta = document.getElementById('hasta');
+            function limitarPeriodo() {
+                if (!desde.value) { hasta.removeAttribute('min'); hasta.removeAttribute('max'); return; }
+                const limite = new Date(desde.value + 'T00:00:00Z');
+                limite.setUTCDate(limite.getUTCDate() + 14);
+                hasta.min = desde.value;
+                hasta.max = limite.toISOString().slice(0, 10);
+            }
+            desde.addEventListener('change', limitarPeriodo);
+            limitarPeriodo();
+        })();
+    </script>
+}

@@ -249,13 +249,24 @@ namespace Medios.Services
         // (Todos los Roles, Todas las delegaciones, o destino específico para la suya).
         // Cualquier otro rol (ANALISTA/SUPERVISOR/etc.) ve todas las informadas sin restricción
         // de canal: la restricción por delegación es exclusiva del rol DELEGACION.
-        public async Task<List<Sintesis>> GetPublicadasAsync(bool esDelegacion = false, int? delegacionId = null)
+        public const int MaxDiasPublicadas = 15;
+
+        public async Task<List<Sintesis>> GetPublicadasAsync(DateOnly desde, DateOnly hasta,
+            bool esDelegacion = false, int? delegacionId = null, string? tipo = null)
         {
+            if (hasta < desde || hasta.DayNumber - desde.DayNumber >= MaxDiasPublicadas)
+                throw new ArgumentException("Seleccioná un período de hasta 15 días, contando ambas fechas.");
             using var db = _factory.Create();
-            var query = db.Sintesis
+            var query = db.Sintesis.AsNoTracking()
                 .Include(s => s.NotasIncluidas)
-                .Where(s => s.DelegacionId == null && s.Estado == "Informada")
+                .Where(s => s.DelegacionId == null && s.Estado == "Informada"
+                    && s.Fecha >= desde && s.Fecha <= hasta)
                 .AsQueryable();
+
+            if (!string.IsNullOrEmpty(tipo))
+                query = tipo == "Especiales"
+                    ? query.Where(s => s.Tipo != "Matutina" && s.Tipo != "Vespertina")
+                    : query.Where(s => s.Tipo == tipo);
 
             if (esDelegacion)
                 query = query.Where(s => s.CanalTodosRoles

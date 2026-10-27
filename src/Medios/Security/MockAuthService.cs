@@ -16,12 +16,13 @@ namespace Medios.Security
                 { "usuarionuevo", ("1234", "MEDIOS") },
             };
 
-            if (mockUsers.TryGetValue(usuario.ToLower(), out var u) && u.password == password)
+            var usuarioNormalizado = usuario.Trim().ToLowerInvariant();
+            if (mockUsers.TryGetValue(usuarioNormalizado, out var u) && u.password == password)
             {
                 return Task.FromResult<LoginResponse?>(new LoginResponse
                 {
-                    Usuario = usuario,
-                    Token = $"mock-token-{usuario}"
+                    Usuario = usuarioNormalizado,
+                    Token = $"mock-token-{usuarioNormalizado}"
                 });
             }
 
@@ -31,7 +32,7 @@ namespace Medios.Security
         public Task<UserSession?> GetUserInfo(string token)
         {
             // (rol, nombre, apellido, legajo, dependencia)
-            var (rol, nombre, apellido, legajo, dependencia) = token switch
+            var (rol, nombre, apellido, legajo, dependencia) = token.ToLowerInvariant() switch
             {
                 "mock-token-gale"       => ("DESARROLLADOR", "Gale",   "Desarrollador","100000", "DESARROLLO"),
                 "mock-token-medios"     => ("MEDIOS",     "Medios",    "Division",     "200002", "DIVISIÓN MEDIOS"),

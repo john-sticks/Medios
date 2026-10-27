@@ -121,17 +121,20 @@
                         @if (informadas.Count > 0) { <span class="badge bg-teal">@informadas.Count</span> }
                     </button>
                 </h3>
-                <div class="box-tools pull-right">
-                    <a href="/Sintesis/Consolidar" class="btn btn-sm btn-success">
-                        <i class="fa fa-object-group"></i> Ir a Consolidar
-                    </a>
-                </div>
             </div>
 
             <div class="box-body">
 
                 <!-- ── Remitidas / Procesando / Finalizadas (SesionPrensa) ─────────── -->
                 <div id="secSesiones">
+                    @if (finalizadasCount > 0)
+                    {
+                        <div id="accionesFinalizadas" class="text-right" style="display:none;margin-bottom:12px;">
+                            <a href="/Sintesis/Consolidar" class="btn btn-sm btn-success">
+                                <i class="fa fa-object-group"></i> Ir a Consolidar
+                            </a>
+                        </div>
+                    }
                     <table class="table table-hover" style="margin-bottom:0;">
                         <thead>
                             <tr>
@@ -301,6 +304,7 @@ $(function () {
         $('#tabBorradores,#tabRemitidas,#tabProcesando,#tabFinalizadas,#tabConsolidadas,#tabInformadas')
             .removeClass('btn-primary btn-warning btn-info btn-success btn-danger').addClass('btn-default');
         $(t.tab).removeClass('btn-default').addClass(t.cls);
+        $('#accionesFinalizadas').toggle(key === 'finalizadas');
 
         $('#secConsolidadas, #secInformadas').hide();
         if (t.sesiones) {

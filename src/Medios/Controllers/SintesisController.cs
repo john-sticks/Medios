@@ -452,9 +452,26 @@ namespace Medios.Controllers
         // ── Síntesis Publicadas (módulo visible para todos los roles) ──
 
         [HasPermission("VER_SINTESIS")]
-        public async Task<IActionResult> Publicadas(string? tipo = null)
+        public async Task<IActionResult> Publicadas(string? tipo = null, DateOnly? desde = null, DateOnly? hasta = null, bool buscar = false)
         {
             ViewData["Title"] = "Síntesis Publicadas";
+            if (!buscar && desde == null && hasta == null && ModelState.IsValid)
+            {
+                hasta = DateOnly.FromDateTime(DateTime.Today);
+                desde = hasta.Value.AddDays(1 - SintesisService.MaxDiasPublicadas);
+            }
+            ViewBag.Desde = desde?.ToString("yyyy-MM-dd");
+            ViewBag.Hasta = hasta?.ToString("yyyy-MM-dd");
+            ViewBag.FiltroTipo = tipo;
+            ViewBag.BusquedaRealizada = buscar;
+            if (!buscar) return View(new List<Medios.Entities.Sintesis>());
+            if (!desde.HasValue || !hasta.HasValue)
+                ModelState.AddModelError("", "Ingresá las dos fechas del período de búsqueda.");
+            else if (hasta < desde || hasta.Value.DayNumber - desde.Value.DayNumber >= SintesisService.MaxDiasPublicadas)
+                ModelState.AddModelError("", "Seleccioná un período de hasta 15 días, contando ambas fechas.");
+            if (tipo is not null and not "" and not "Matutina" and not "Vespertina" and not "Especiales")
+                ModelState.AddModelError("", "Seleccioná un tipo de síntesis válido.");
+            if (!ModelState.IsValid) return View(new List<Medios.Entities.Sintesis>());
             var esDelegacion = EsDelegacion();
             int? delegacionIdFiltro = null;
             if (esDelegacion)
@@ -462,14 +479,7 @@ namespace Medios.Controllers
                 var deleg = await _sesionService.GetDelegacionEfectivaAsync(User);
                 delegacionIdFiltro = deleg?.Id;
             }
-            var publicadas = await _sintesisService.GetPublicadasAsync(esDelegacion, delegacionIdFiltro);
-            if (!string.IsNullOrEmpty(tipo))
-            {
-                publicadas = tipo == "Especiales"
-                    ? publicadas.Where(s => s.Tipo != "Matutina" && s.Tipo != "Vespertina").ToList()
-                    : publicadas.Where(s => s.Tipo == tipo).ToList();
-            }
-            ViewBag.FiltroTipo = tipo;
+            var publicadas = await _sintesisService.GetPublicadasAsync(desde!.Value, hasta!.Value, esDelegacion, delegacionIdFiltro, tipo);
             return View(publicadas);
         }
 
@@ -618,8 +628,9 @@ namespace Medios.Controllers
             if (EsDelegacion()) return Forbid();
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null) return NotFound();
-            if (EsDelegacion() && !await DelegacionPuedeVerAsync(sintesis)) return Forbid();
             if (string.IsNullOrEmpty(sintesis.PDFPath)) return NotFound();
+            if (ArchivoPdfService.FechaCargaUtc(sintesis.PDFPath).HasValue)
+                return Conflict("Este PDF fue modificado y subido manualmente. El Word del sistema no incluye esas modificaciones; descargá el PDF vigente.");
             var filePath = Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/'));
             if (!System.IO.File.Exists(filePath)) return NotFound();
 

@@ -109,6 +109,7 @@ namespace Medios
             builder.Services.AddScoped<SesionService>();
             builder.Services.AddScoped<NotaService>();
             builder.Services.AddScoped<SintesisService>();
+            builder.Services.AddScoped<ArchivoPdfService>();
             builder.Services.AddScoped<DelegacionService>();
             builder.Services.AddScoped<ConfiguracionService>();
             builder.Services.AddScoped<EmailService>();
