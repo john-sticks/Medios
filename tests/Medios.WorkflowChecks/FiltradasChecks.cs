@@ -111,6 +111,17 @@ static class FiltradasChecks
         Check((await service.GetByIdAsync(origenId))!.Estado == "Informada", "Revertir no afecta a la publicación de origen");
         using (var db = factory.Create())
             Check(db.Model.FindEntityType(typeof(Sintesis))!.FindNavigation(nameof(Sintesis.SintesisOrigen))!.ForeignKey.DeleteBehavior == DeleteBehavior.Restrict, "FK de origen impide borrado en cascada");
+        var raizRepo = new DirectoryInfo(AppContext.BaseDirectory);
+        while (raizRepo != null && !File.Exists(Path.Combine(raizRepo.FullName, "src", "Medios", "Medios.csproj"))) raizRepo = raizRepo.Parent;
+        Check(raizRepo != null, "Encontrar configuración real de permisos");
+        var menus = new Medios.Security.MenuXmlService(new Entorno { ContentRootPath = Path.Combine(raizRepo!.FullName, "src", "Medios") });
+        foreach (var rol in new[] { "MEDIOS", "DESARROLLADOR", "DELEGACION" })
+        {
+            var principal = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Role, rol) }, "test"));
+            var urls = menus.GetAllowedUrls(principal);
+            foreach (var ruta in new[] { "/sintesis/crearfiltrada", "/sintesis/eliminarfiltrada" })
+                Check(urls.Any(u => ruta.StartsWith(u)) == (rol != "DELEGACION"), "Ruta de filtradas autorizada solo para roles de gestión: " + rol + ruta);
+        }
         return count;
     }
 

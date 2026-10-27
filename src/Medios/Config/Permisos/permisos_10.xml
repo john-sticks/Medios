@@ -68,6 +68,8 @@
     <page href="~/sintesis/listado" />
     <page href="~/sintesis/consolidar" />
     <page href="~/sintesis/informar" />
+    <page href="~/sintesis/crearfiltrada" />
+    <page href="~/sintesis/eliminarfiltrada" />
     <page href="~/sintesis/revertirconsolidar" />
     <page href="~/sintesis/notasnacprov" />
     <page href="~/sintesis/detalle" />
