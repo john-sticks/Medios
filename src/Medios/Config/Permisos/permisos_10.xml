@@ -22,6 +22,7 @@
       <page title="Capturar" icon="fa fa-cloud-download" href="~/sincronizacion/capturar" />
     </group>
     <group title="Administración" icon="fa fa-cogs">
+      <page title="Monitor" icon="fa fa-hdd-o" href="~/monitor" />
       <group title="Estructura" icon="fa fa-sitemap">
         <page title="Delegaciones" icon="fa fa-building" href="~/delegacion/listado" />
         <page title="Carátulas y Modalidades" icon="fa fa-gavel" href="~/caratula/listado" />
@@ -37,6 +38,7 @@
     <page title="Portales" icon="fa fa-globe" href="~/portales/listado" />
   </navigation>
   <notnavigation>
+    <page href="~/monitor/index" />
     <page href="~/archivopdf/index" />
     <page href="~/archivopdf/descargar" />
     <page href="~/archivopdf/reemplazar" />
@@ -106,6 +108,7 @@
     <page href="~/sincronizacion/guardarsajson" />
   </notnavigation>
   <permissions>
+    <permission name="VER_MONITOR" />
     <permission name="VER_SESIONES" />
     <permission name="CREAR_SESION" />
     <permission name="REMITIR_SESION" />

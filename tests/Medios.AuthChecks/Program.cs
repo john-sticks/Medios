@@ -80,6 +80,31 @@ foreach (var caso in new[]
     Verificar((resultado != null) == caso.Item3, $"Validación del token HTTP {(int)caso.Item1}");
     Verificar(manejador.Solicitudes == 1, "Validar credenciales no consulta info-servicio");
 }
+var supervisor = new AutorizacionUsuario { Usuario = "usuario", Rol = "MEDIOS", Estado = "aprobada", Activo = true };
+Verificar(AutorizacionLocalPolicy.ResolverRol(supervisor, " supervisor ") == "DESARROLLADOR", "Supervisor de Cerberus equivale a desarrollador");
+Verificar(AutorizacionLocalPolicy.ResolverRol(supervisor, "ANALISTA") == "MEDIOS", "Otros perfiles conservan el rol local");
+Verificar(AutorizacionLocalPolicy.ResolverRol(supervisor, null) == "MEDIOS", "Perfil no disponible no interrumpe autorización vigente");
+var cookieSupervisor = Sesion("DESARROLLADOR");
+((ClaimsIdentity)cookieSupervisor.Identity!).AddClaims(new[] { new Claim("RolCerberus", "SUPERVISOR"), new Claim("RolLocalAlIngresar", "MEDIOS") });
+Verificar(AutorizacionLocalPolicy.SesionVigente(cookieSupervisor, supervisor), "Nueva cookie de supervisor es válida con autorización local");
+supervisor.Rol = "DELEGACION";
+Verificar(!AutorizacionLocalPolicy.SesionVigente(cookieSupervisor, supervisor), "Un cambio local revoca también al supervisor");
+supervisor.Rol = "MEDIOS";
+supervisor.Activo = false;
+Verificar(AutorizacionLocalPolicy.ResolverRol(supervisor, "SUPERVISOR") == null && !AutorizacionLocalPolicy.SesionVigente(cookieSupervisor, supervisor), "Supervisor desactivado no accede");
+supervisor.Activo = true;
+supervisor.Estado = "pendiente";
+Verificar(AutorizacionLocalPolicy.ResolverRol(supervisor, "SUPERVISOR") == null, "Supervisor necesita aprobación local");
+Verificar(AutorizacionLocalPolicy.ResolverRol(null, "SUPERVISOR") == null, "El perfil central solo no habilita acceso");
+foreach (var caso in new[] { (HttpStatusCode.OK, "{\"rol\":\"Supervisor\"}", "SUPERVISOR"), (HttpStatusCode.Forbidden, "{}", (string?)null), (HttpStatusCode.OK, "no-json", (string?)null) })
+{
+    using var manejador = new RespuestaPerfil(caso.Item1, caso.Item2);
+    using var cliente = new HttpClient(manejador);
+    var configPerfil = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Cerberus:BaseUrl"] = "http://cerberus.test", ["Cerberus:ServiceApiKey"] = "clave-de-prueba" }).Build();
+    var auth = new CerberusAuthService(cliente, configPerfil);
+    Verificar(await auth.ObtenerRolCerberusAsync("token-de-prueba") == caso.Item3, "Rol obtenido del servidor y fallo sin elevación");
+    Verificar(manejador.Solicitudes == 1, "Una consulta acotada del perfil");
+}
 Console.WriteLine($"OK: {comprobaciones} comprobaciones de autenticación y autorización local.");
 
 sealed class RespuestaToken(HttpStatusCode estado, string cuerpo) : HttpMessageHandler
@@ -89,6 +114,19 @@ sealed class RespuestaToken(HttpStatusCode estado, string cuerpo) : HttpMessageH
     {
         if (solicitud.Method != HttpMethod.Post || solicitud.RequestUri?.AbsolutePath != "/cerberus/api/v1/auth/token")
             throw new InvalidOperationException("Endpoint inesperado durante validación de credenciales");
+        Solicitudes++;
+        return Task.FromResult(new HttpResponseMessage(estado) { Content = new StringContent(cuerpo) });
+    }
+}
+
+sealed class RespuestaPerfil(HttpStatusCode estado, string cuerpo) : HttpMessageHandler
+{
+    public int Solicitudes { get; private set; }
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage solicitud, CancellationToken ct)
+    {
+        if (solicitud.Method != HttpMethod.Get || solicitud.RequestUri?.AbsolutePath != "/cerberus/api/v1/users/info-servicio"
+            || solicitud.Headers.Authorization?.Parameter != "token-de-prueba" || !solicitud.Headers.Contains("Service-Api-Key"))
+            throw new InvalidOperationException("Consulta de perfil inesperada");
         Solicitudes++;
         return Task.FromResult(new HttpResponseMessage(estado) { Content = new StringContent(cuerpo) });
     }

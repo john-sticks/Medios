@@ -1,0 +1,44 @@
+.space-monitor { --monitor-accent: #008d9e; --monitor-ink: #263b4a; }
+.space-monitor .monitor-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin: 8px 0 20px; }
+.space-monitor h2 { margin: 3px 0 9px; color: var(--monitor-ink); }
+.space-monitor .monitor-eyebrow { color: #4b6676; text-transform: uppercase; font-size: 12px; letter-spacing: .09em; margin-bottom: 0; }
+.space-monitor .monitor-stamp { text-align: right; padding-top: 5px; }
+.space-monitor .monitor-stamp span { display: block; color: #65717c; margin: 4px 0 9px; font-size: 12px; }
+.space-monitor .monitor-volume { padding: 14px 0 18px; border-bottom: 1px solid #edf0f2; }
+.space-monitor .monitor-volume:first-child { padding-top: 4px; }
+.space-monitor .monitor-volume-title { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 9px; }
+.space-monitor .monitor-volume-title strong { min-width: 92px; color: var(--monitor-ink); font-size: 17px; }
+.space-monitor .monitor-capacity { height: 13px; margin: 0 0 9px; border-radius: 2px; background: #edf1f4; }
+.space-monitor .monitor-volume-values { display: flex; flex-wrap: wrap; gap: 8px 24px; font-variant-numeric: tabular-nums; }
+.space-monitor .monitor-volume-values b { font-size: 17px; color: var(--monitor-ink); }
+.space-monitor .monitor-volume-values .text-muted { flex-basis: 100%; font-size: 13px; }
+.space-monitor .monitor-explanation { margin-top: 16px; }
+.space-monitor .monitor-thresholds { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; font-size: 13px; }
+.space-monitor .monitor-db-total { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; padding: 4px 0 14px; }
+.space-monitor .monitor-db-total strong { font-size: 30px; font-weight: 600; color: var(--monitor-ink); font-variant-numeric: tabular-nums; }
+.space-monitor .monitor-db-total span { color: #65717c; }
+.space-monitor .monitor-news, .space-monitor .monitor-rates, .space-monitor .monitor-estimates { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin-bottom: 18px; }
+.space-monitor .monitor-news { padding: 14px 0; border-top: 1px solid #e4eaee; border-bottom: 1px solid #e4eaee; }
+.space-monitor .monitor-news strong { font-size: 24px; color: var(--monitor-ink); }
+.space-monitor .monitor-news span, .space-monitor .monitor-rates span, .space-monitor .monitor-estimates span { display: block; color: #65717c; font-size: 13px; }
+.space-monitor .monitor-table-scroll { max-height: 360px; overflow: auto; }
+.space-monitor .monitor-table-scroll th { position: sticky; top: 0; background: #fff; }
+.space-monitor .monitor-table-focus td { background: #eaf6f8 !important; color: #215c69; }
+.space-monitor caption { font-size: 13px; }
+.space-monitor td, .space-monitor th { font-variant-numeric: tabular-nums; }
+.space-monitor .monitor-boundary { margin-top: 20px; padding: 14px; border-left: 3px solid var(--monitor-accent); background: #f3f8fa; }
+.space-monitor .monitor-scenario { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; margin: 18px 0; }
+.space-monitor .monitor-scenario .form-group { margin: 0; min-width: 180px; }
+.space-monitor .monitor-scenario .validation-summary-errors { flex-basis: 100%; }
+.space-monitor .monitor-estimates { background: #f3f8fa; padding: 18px; border-left: 3px solid var(--monitor-accent); }
+.space-monitor .monitor-estimates strong { display: block; font-size: 25px; margin-top: 5px; color: var(--monitor-ink); font-variant-numeric: tabular-nums; }
+.space-monitor .monitor-rates { grid-template-columns: repeat(4,minmax(0,1fr)); margin-top: 8px; }
+.space-monitor .monitor-rates strong { display: block; font-size: 18px; margin-top: 5px; color: var(--monitor-ink); }
+@media (max-width: 767px) {
+    .space-monitor .monitor-heading { flex-direction: column; gap: 4px; }
+    .space-monitor .monitor-stamp { text-align: left; }
+    .space-monitor .monitor-rates, .space-monitor .monitor-estimates { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .space-monitor .monitor-estimates div:last-child { grid-column: 1/-1; }
+    .space-monitor .monitor-scenario .form-group { flex: 1 1 180px; }
+    .space-monitor .monitor-news { gap: 10px; }
+}

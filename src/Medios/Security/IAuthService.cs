@@ -3,6 +3,7 @@ namespace Medios.Security
     public interface IAuthService
     {
         bool UsaAutorizacionLocal => false;
+        Task<string?> ObtenerRolCerberusAsync(string token) => Task.FromResult<string?>(null);
         Task<LoginResponse?> LoginAsync(string usuario, string password);
         Task<UserSession?> GetUserInfo(string token);
     }

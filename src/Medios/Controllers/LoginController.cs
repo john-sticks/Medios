@@ -34,8 +34,8 @@ namespace Medios.Controllers
         {
             return role?.ToUpper().Trim() switch
             {
-                "ADMINISTRADOR" or "DESARROLLADOR" => "DESARROLLADOR",
-                "SUPERVISOR" or "ANALISTA" or "MEDIOS" => "MEDIOS",
+                "ADMINISTRADOR" or "DESARROLLADOR" or "SUPERVISOR" => "DESARROLLADOR",
+                "ANALISTA" or "MEDIOS" => "MEDIOS",
                 "OPERADOR" or "CONSULTOR" or "ESTRATEGICO" or "DELEGACION" => "DELEGACION",
                 _ => "DELEGACION"
             };
@@ -99,6 +99,12 @@ namespace Medios.Controllers
             }
 
             var rolCerberus = user.Rol.ToUpper().Trim();
+            if (usaAutorizacionLocal)
+            {
+                rolCerberus = "";
+                if (AutorizacionLocalPolicy.PermiteAcceso(local))
+                    rolCerberus = await _auth.ObtenerRolCerberusAsync(loginResult.Token) ?? "";
+            }
             var rolAuth = NormalizeCerberusRole(rolCerberus);
             var rolesConAutorizacion = new[] { "MEDIOS", "DELEGACION" };
             var requiereAutorizacion = usaAutorizacionLocal || rolesConAutorizacion.Contains(rolAuth);
@@ -126,6 +132,8 @@ namespace Medios.Controllers
             var rolEfectivo = !string.IsNullOrWhiteSpace(aprobada?.Rol)
                 ? aprobada!.Rol!.ToUpper().Trim()
                 : rolAuth;
+            if (usaAutorizacionLocal && aprobada != null)
+                rolEfectivo = AutorizacionLocalPolicy.ResolverRol(aprobada, rolCerberus)!;
             var delegacionId = aprobada?.DelegacionId;
             var ambitoId = aprobada?.AmbitoId;
 
@@ -145,6 +153,7 @@ namespace Medios.Controllers
                 new Claim("Telefono", user.Telefono),
                 new Claim("Usuario", Usuario),
                 new Claim("RolCerberus", rolCerberus),
+                new Claim("RolLocalAlIngresar", aprobada?.Rol?.Trim() ?? ""),
                 // Identidad real: se preserva sin tocar a través de cualquier simulación MOCK
                 // (ver MockSwitchController), para poder restaurarla al salir y para trazabilidad.
                 new Claim("UsuarioReal", Usuario),

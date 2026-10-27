@@ -1,0 +1,166 @@
+@model Medios.Models.MonitorEspacioModel
+@using Medios.Models
+@using System.Globalization
+@{
+    var cultura = CultureInfo.GetCultureInfo("es-AR");
+    var lectura = Model.Resultado.Lectura;
+    var actual = lectura.Muestra;
+    var historial = Model.Resultado.Historial;
+    var dbDia = MonitorEspacioModel.CrecimientoDiario(historial, m => m.BaseDatos);
+    var pdfDia = MonitorEspacioModel.CrecimientoDiario(historial, m => m.Pdf);
+    var imagenDia = MonitorEspacioModel.CrecimientoDiario(historial, m => m.Imagenes);
+    var notasDia = MonitorEspacioModel.CrecimientoDiario(historial, m => m.Notas);
+    string Tam(long? b) => MonitorEspacioModel.Tamaño(b);
+    string Ritmo(double? b) => b.HasValue ? (b > 0 ? "+" : "") + Tam((long)b.Value) + " / día" : "Aún sin tendencia";
+    string Numero(long? n) => n?.ToString("N0", CultureInfo.GetCultureInfo("es-AR")) ?? "Sin datos";
+}
+<link rel="stylesheet" href="~/css/monitor.css" asp-append-version="true" />
+<div class="space-monitor">
+    <div class="monitor-heading">
+        <div>
+            <p class="monitor-eyebrow">Administración / Capacidad</p>
+            <p class="text-muted">Capacidad disponible, carga de noticias y evolución del almacenamiento.</p>
+        </div>
+        <div class="monitor-stamp">
+            <strong><i class="fa fa-clock-o" aria-hidden="true"></i> @MonitorEspacioModel.HoraLocal(actual.FechaUtc).ToString("dd/MM/yyyy HH:mm")</strong>
+            <span>Hora de Buenos Aires · medición cada 10 minutos</span>
+            <a asp-action="Index" asp-route-notasPorDia="@Model.NotasPorDia" asp-route-versionesPorNota="@Model.VersionesPorNota.ToString(CultureInfo.InvariantCulture)" class="btn btn-default btn-sm"><i class="fa fa-refresh" aria-hidden="true"></i> Actualizar vista</a>
+        </div>
+    </div>
+
+    @foreach (var aviso in lectura.Avisos)
+    {
+        <div class="alert alert-warning"><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> @aviso</div>
+    }
+
+    <section class="box box-primary" aria-labelledby="capacidad-title">
+        <div class="box-header with-border"><h3 class="box-title" id="capacidad-title">Capacidad de los volúmenes</h3></div>
+        <div class="box-body">
+            @if (actual.Discos.Count == 0)
+            {
+                <p class="text-muted">No hay lecturas de capacidad disponibles. Los tamaños de la DB y los archivos se muestran por separado.</p>
+            }
+            @foreach (var disco in actual.Discos)
+            {
+                var nivel = disco.Porcentaje >= 90 ? "danger" : disco.Porcentaje >= 80 ? "warning" : "success";
+                var proyeccion = MonitorEspacioModel.DiasHasta80(historial, disco);
+                var ancho = Math.Clamp(disco.Porcentaje, 0, 100).ToString("0.0", CultureInfo.InvariantCulture);
+                <div class="monitor-volume">
+                    <div class="monitor-volume-title">
+                        <strong>@disco.Ambito</strong>
+                        <span class="label label-@nivel">@disco.Estado</span>
+                        <span>@disco.Porcentaje.ToString("N1", cultura) % utilizado</span>
+                    </div>
+                    <div class="progress monitor-capacity" role="progressbar" aria-label="Ocupación del volumen de @disco.Ambito" aria-valuenow="@ancho" aria-valuemin="0" aria-valuemax="100">
+                        <div class="progress-bar progress-bar-@nivel" style="width:@(ancho)%"></div>
+                    </div>
+                    <div class="monitor-volume-values">
+                        <span><b>@Tam(disco.Disponible)</b> disponibles</span>
+                        <span>@Tam(disco.Usado) usados de @Tam(disco.Total)</span>
+                        <span class="text-muted">
+                            @if (proyeccion == 0) { <text>Ya alcanzó el umbral de advertencia del 80 %.</text> }
+                            else if (proyeccion.HasValue) { <text>Al 80 % en ≈ @Math.Ceiling(proyeccion.Value).ToString("N0", cultura) días, si continúa el ritmo observado.</text> }
+                            else { <text>Sin proyección: falta historial suficiente o no se observa crecimiento positivo.</text> }
+                        </span>
+                    </div>
+                </div>
+            }
+            <p class="help-block monitor-explanation">Los volúmenes pueden compartir el mismo disco: sus capacidades no se suman. La ocupación incluye otros archivos del volumen, no solo Keryx. Estos datos corresponden al almacenamiento visible desde la aplicación; no representan el espacio libre del servidor remoto de MySQL ni del NAS físico.</p>
+            <div class="monitor-thresholds"><span class="label label-success">Menos de 80 %</span> Con margen <span class="label label-warning">Desde 80 %</span> Advertencia <span class="label label-danger">Desde 90 %</span> Crítico <span class="text-muted">· Indicadores de pantalla; no se envían alertas externas.</span></div>
+        </div>
+    </section>
+
+    <div class="row">
+        <section class="col-md-7">
+            <div class="box box-primary">
+                <div class="box-header with-border"><h3 class="box-title">Base de datos y noticias</h3></div>
+                <div class="box-body">
+                    <div class="monitor-db-total"><strong>@Tam(actual.BaseDatos)</strong><span>Datos + índices estimados de la DB de Keryx</span></div>
+                    <div class="monitor-news">
+                        <div><strong>@Numero(actual.Notas)</strong><span>noticias registradas</span></div>
+                        <div><strong>@Numero(actual.Versiones)</strong><span>versiones conservadas</span></div>
+                        <div><strong>@(actual.Notas > 0 && actual.Versiones.HasValue ? ((double)actual.Versiones.Value / actual.Notas.Value).ToString("N2", cultura) : "—")</strong><span>versiones por noticia</span></div>
+                    </div>
+                    <div class="table-responsive monitor-table-scroll">
+                        <table class="table table-striped table-condensed">
+                            <caption>Tamaño estimado por tabla. Los cuerpos y sus versiones están en notas_prensa_versiones.</caption>
+                            <thead><tr><th>Tabla</th><th class="text-right">Datos</th><th class="text-right">Índices</th><th class="text-right">Total</th></tr></thead>
+                            <tbody>
+                            @foreach (var tabla in lectura.Tablas)
+                            {
+                                <tr class="@(tabla.Nombre == "notas_prensa_versiones" ? "monitor-table-focus" : "")">
+                                    <td>@tabla.Nombre</td><td class="text-right">@Tam(tabla.Datos)</td><td class="text-right">@Tam(tabla.Indices)</td><td class="text-right"><strong>@Tam(tabla.Total)</strong></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="help-block">MySQL informa tamaños estimados de tablas e índices. Este total no incluye sus registros binarios, archivos temporales ni respaldos de la DB, y no equivale a la capacidad total de su servidor.</p>
+                </div>
+            </div>
+        </section>
+        <section class="col-md-5">
+            <div class="box box-primary">
+                <div class="box-header with-border"><h3 class="box-title">Archivos de Keryx</h3></div>
+                <div class="box-body">
+                    <table class="table">
+                        <caption>Archivos físicos, independientes de los filtros de síntesis.</caption>
+                        <thead><tr><th>Contenido</th><th class="text-right">Cantidad</th><th class="text-right">Tamaño</th></tr></thead>
+                        <tbody>
+                            <tr><td>PDF de delegaciones y consolidados</td><td class="text-right">@Numero(lectura.Pdf?.Cantidad)</td><td class="text-right"><strong>@Tam(lectura.Pdf?.Bytes)</strong></td></tr>
+                            <tr><td>De ese total: carpeta de respaldos PDF</td><td class="text-right">—</td><td class="text-right">@Tam(lectura.Pdf?.Respaldos)</td></tr>
+                            <tr><td>Imágenes de noticias</td><td class="text-right">@Numero(lectura.Imagenes?.Cantidad)</td><td class="text-right"><strong>@Tam(lectura.Imagenes?.Bytes)</strong></td></tr>
+                        </tbody>
+                    </table>
+                    <p class="help-block">Los PDF incluyen archivos anteriores y documentos sin una referencia vigente en la DB. Los respaldos PDF ya están incluidos en el total; no se suman otra vez.</p>
+                    <div class="monitor-boundary"><i class="fa fa-info-circle" aria-hidden="true"></i> El monitor mide y conserva estadísticas. No elimina noticias, versiones, archivos ni respaldos.</div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <section class="box box-primary" aria-labelledby="carga-title">
+        <div class="box-header with-border"><h3 class="box-title" id="carga-title">Simular la carga de texto</h3></div>
+        <div class="box-body">
+            <p>Promedio de cuerpo + síntesis por versión: <strong>@(lectura.PromedioTextoVersion.HasValue ? Tam((long)lectura.PromedioTextoVersion.Value) : "Sin muestra disponible")</strong>, sobre las últimas @Numero(lectura.VersionesMuestreadas) versiones.</p>
+            <form method="get" asp-action="Index" class="monitor-scenario">
+                @Html.ValidationSummary(false, "", new { @class = "text-danger" })
+                <div class="form-group"><label for="notasPorDia">Noticias nuevas por día</label><input id="notasPorDia" name="notasPorDia" type="number" min="0" max="100000" value="@Model.NotasPorDia" class="form-control" required /></div>
+                <div class="form-group"><label for="versionesPorNota">Versiones por noticia</label><input id="versionesPorNota" name="versionesPorNota" type="number" min="1" max="100" step="0.01" value="@Model.VersionesPorNota.ToString(CultureInfo.InvariantCulture)" class="form-control" required /></div>
+                <button class="btn btn-primary" type="submit"><i class="fa fa-calculator" aria-hidden="true"></i> Calcular escenario</button>
+            </form>
+            <div class="monitor-estimates">
+                @foreach (var dias in new[] { 30, 90, 365 })
+                {
+                    <div><span>Texto adicional en @dias días</span><strong>@Tam(Model.TextoProyectado(dias))</strong></div>
+                }
+            </div>
+            <p class="help-block">Escenario orientativo: promedio de texto de la muestra × noticias diarias × versiones por noticia × días. No incluye índices, espacio reservado por MySQL, imágenes ni PDF. No modifica la carga real ni predice por sí solo cuándo se llenará un disco.</p>
+        </div>
+    </section>
+
+    <section class="box box-primary" aria-labelledby="historial-title">
+        <div class="box-header with-border"><h3 class="box-title" id="historial-title">Evolución observada</h3><span class="pull-right text-muted">@historial.Count / 60 días registrados</span></div>
+        <div class="box-body">
+            <div class="monitor-rates">
+                <div><span>Base de datos</span><strong>@Ritmo(dbDia)</strong></div>
+                <div><span>PDF</span><strong>@Ritmo(pdfDia)</strong></div>
+                <div><span>Imágenes</span><strong>@Ritmo(imagenDia)</strong></div>
+                <div><span>Noticias</span><strong>@(notasDia.HasValue ? notasDia.Value.ToString("+0.0;-0.0;0.0", cultura) + " / día" : "Aún sin tendencia")</strong></div>
+            </div>
+            <p class="help-block">Las tendencias usan hasta los últimos 30 días y requieren al menos 3 días de mediciones que abarquen 48 horas. Se conserva la última lectura de cada día UTC durante un máximo de 60 días, también después de reiniciar. Las caídas pueden reflejar eliminaciones o ajustes de tamaños estimados.</p>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <caption>Últimas 14 mediciones diarias. Horario de Buenos Aires.</caption>
+                    <thead><tr><th>Medición</th><th class="text-right">DB</th><th class="text-right">PDF</th><th class="text-right">Imágenes</th><th class="text-right">Noticias</th><th class="text-right">Versiones</th></tr></thead>
+                    <tbody>
+                    @foreach (var muestra in historial.OrderByDescending(m => m.FechaUtc).Take(14))
+                    {
+                        <tr><td>@MonitorEspacioModel.HoraLocal(muestra.FechaUtc).ToString("dd/MM/yyyy HH:mm")</td><td class="text-right">@Tam(muestra.BaseDatos)</td><td class="text-right">@Tam(muestra.Pdf)</td><td class="text-right">@Tam(muestra.Imagenes)</td><td class="text-right">@Numero(muestra.Notas)</td><td class="text-right">@Numero(muestra.Versiones)</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>

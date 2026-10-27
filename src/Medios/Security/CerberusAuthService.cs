@@ -40,23 +40,35 @@ namespace Medios.Security
             return new LoginResponse { Usuario = usuario, Token = result.access_token };
         }
 
-        public async Task<UserSession?> GetUserInfo(string token)
+        public async Task<string?> ObtenerRolCerberusAsync(string token)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get,
+            // El rol solo se confía a la respuesta del servidor Cerberus, nunca a datos del navegador.
+            // Una falla de este recurso no impide usar una autorización local ya vigente.
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            try { return (await ConsultarPerfilAsync(token, timeout.Token))?.rol?.Trim().ToUpperInvariant(); }
+            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException) { return null; }
+        }
+
+        private async Task<CerberusUserResponse?> ConsultarPerfilAsync(string token, CancellationToken ct)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get,
                 $"{_baseUrl}/cerberus/api/v1/users/info-servicio");
 
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             request.Headers.Add("Service-Api-Key", _apiKey);
             request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            var response = await _http.SendAsync(request);
-            var content = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
-                return null;
-
-            var data = JsonSerializer.Deserialize<CerberusUserResponse>(content,
+            using var response = await _http.SendAsync(request, ct);
+            var content = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return JsonSerializer.Deserialize<CerberusUserResponse>(content,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+
+        public async Task<UserSession?> GetUserInfo(string token)
+        {
+            var data = await ConsultarPerfilAsync(token, CancellationToken.None);
+            if (data == null) return null;
 
             return new UserSession
             {

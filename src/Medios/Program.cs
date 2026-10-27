@@ -110,6 +110,10 @@ namespace Medios
             builder.Services.AddScoped<NotaService>();
             builder.Services.AddScoped<SintesisService>();
             builder.Services.AddScoped<ArchivoPdfService>();
+            builder.Services.AddSingleton<MonitorEspacioCache>();
+            builder.Services.AddScoped<IMonitorEspacioProbe, MonitorEspacioProbe>();
+            builder.Services.AddScoped<MonitorEspacioService>();
+            builder.Services.AddHostedService<MonitorEspacioWorker>();
             builder.Services.AddScoped<DelegacionService>();
             builder.Services.AddScoped<ConfiguracionService>();
             builder.Services.AddScoped<EmailService>();

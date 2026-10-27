@@ -170,6 +170,7 @@ comprobaciones += await RecuperacionChecks.RunAsync();
 comprobaciones += await BorradorUnicidadChecks.RunAsync();
 comprobaciones += await CategoriaChecks.RunAsync();
 comprobaciones += await ArchivoPdfChecks.RunAsync();
+comprobaciones += await MonitorChecks.RunAsync();
 comprobaciones += await PublicadasChecks.RunAsync();
 comprobaciones += await InformarChecks.RunAsync();
 comprobaciones += await FiltradasChecks.RunAsync();

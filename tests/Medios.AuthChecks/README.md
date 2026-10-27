@@ -26,3 +26,11 @@ Los perfiles nuevos se identifican por su nombre de usuario; los demás datos
 se toman del registro local, sin consultar el perfil restringido de Cerberus.
 La validación de login, solicitudes, aprobación y revocación contra la base
 real debe completarse después del despliegue manual.
+
+
+La promoción del monitor añade Supervisor confirmado por Cerberus → DESARROLLADOR,
+siempre con aprobación y activación local. Las pruebas cubren la consulta de perfil con
+Bearer/clave de servicio, ausencia de privilegios ante 403 o JSON inválido, revocación
+por cambios locales y conservación de las cookies previas. LoginAsync continúa validando
+credenciales solo por el endpoint de token; el perfil se solicita separadamente para
+usuarios locales aprobados. MockLoginChecks también prueba la emisión de las nuevas cookies.

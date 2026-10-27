@@ -29,14 +29,14 @@ static class MockLoginChecks
             if (!value) throw new InvalidOperationException(name);
             checks++;
         }
-        async Task<(IActionResult Result, ClaimsPrincipal? Principal)> Login(string user, string password)
+        async Task<(IActionResult Result, ClaimsPrincipal? Principal)> Login(string user, string password, IAuthService? proveedor = null)
         {
             var authentication = new RecordingAuthentication();
             using var services = new ServiceCollection()
                 .AddSingleton<IAuthenticationService>(authentication).BuildServiceProvider();
             var context = new DefaultHttpContext { RequestServices = services };
             var accessor = new HttpContextAccessor { HttpContext = context };
-            var controller = new LoginController(new MockAuthService(), services,
+            var controller = new LoginController(proveedor ?? new MockAuthService(), services,
                 new AuditoriaService(factory, accessor), new AutorizacionService(factory))
             {
                 ControllerContext = new ControllerContext { HttpContext = context, RouteData = new Microsoft.AspNetCore.Routing.RouteData(), ActionDescriptor = new Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor() },
@@ -69,7 +69,36 @@ static class MockLoginChecks
             Check(await db.AutorizacionesUsuario.AnyAsync(a => a.Usuario == "usuarionuevo" && a.Estado == "pendiente"), "Mock: registrar solicitud en DB local");
         var invalid = await Login("medios", "incorrecta");
         Check(invalid.Result is ViewResult && invalid.Principal == null, "Mock: rechazar contraseña incorrecta");
+        using (var db = factory.Create())
+        {
+            db.AutorizacionesUsuario.Add(new AutorizacionUsuario { Usuario = "supervisor", Rol = "MEDIOS", Estado = "aprobada", Activo = true });
+            await db.SaveChangesAsync();
+        }
+        var proveedor = new SupervisorCerberus();
+        var supervisor = await Login("supervisor", "prueba", proveedor);
+        Check(supervisor.Principal?.IsInRole("DESARROLLADOR") == true && supervisor.Principal.IsInRole("MEDIOS"), "Cerberus: Supervisor aprobado recibe desarrollador y medios");
+        Check(supervisor.Principal?.HasClaim("RolCerberus", "SUPERVISOR") == true && supervisor.Principal.HasClaim("RolLocalAlIngresar", "MEDIOS"), "Cerberus: conserva perfil central y asignación local para revalidación");
+        using (var db = factory.Create())
+        {
+            var local = (await db.AutorizacionesUsuario.SingleAsync(a => a.Usuario == "supervisor"));
+            Check(AutorizacionLocalPolicy.SesionVigente(supervisor.Principal!, local), "Cerberus: cookie recién emitida sigue vigente");
+            local.Activo = false; await db.SaveChangesAsync();
+        }
+        var desactivado = await Login("supervisor", "prueba", proveedor);
+        Check(desactivado.Principal == null, "Cerberus: perfil central no evita desactivación local");
+        Check(proveedor.ConsultasPerfil == 1, "Cerberus: no consulta perfil ni concede permisos a usuarios desactivados");
+        var pendiente = await Login("nuevo-supervisor", "prueba", proveedor);
+        Check(pendiente.Principal == null && pendiente.Result is RedirectToActionResult { ActionName: "SolicitudRegistrada" }, "Cerberus: un nuevo Supervisor requiere aprobación local");
         return checks;
+    }
+
+    private sealed class SupervisorCerberus : IAuthService
+    {
+        public bool UsaAutorizacionLocal => true;
+        public int ConsultasPerfil { get; private set; }
+        public Task<LoginResponse?> LoginAsync(string usuario, string password) => Task.FromResult<LoginResponse?>(new LoginResponse { Usuario = usuario, Token = "token-de-prueba" });
+        public Task<string?> ObtenerRolCerberusAsync(string token) { ConsultasPerfil++; return Task.FromResult<string?>("SUPERVISOR"); }
+        public Task<UserSession?> GetUserInfo(string token) => throw new InvalidOperationException("La identidad local no depende de info-servicio");
     }
 
     private sealed class RecordingAuthentication : IAuthenticationService

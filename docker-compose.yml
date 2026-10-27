@@ -3,6 +3,7 @@ services:
     image: ${MEDIOS_IMAGE:-medios:latest}
     container_name: ${MEDIOS_CONTAINER_NAME:-medios}
     restart: always
+    stop_grace_period: 45s
 
     environment:
       ASPNETCORE_URLS: http://+:8009
