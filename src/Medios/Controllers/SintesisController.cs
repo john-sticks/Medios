@@ -140,14 +140,36 @@ namespace Medios.Controllers
 
         [HasPermission("CREAR_SINTESIS")]
         [HttpGet]
-        public async Task<IActionResult> Consolidar(string? fecha)
+        public async Task<IActionResult> Consolidar(string? fecha, List<int>? sesionIds = null, bool desdeBandeja = false)
         {
             if (!PuedeConsolidar()) return Forbid();
             ViewData["Title"] = "Consolidar Síntesis";
 
             // Fecha es un filtro OPCIONAL para acotar el listado (vacío = todas las finalizadas).
             DateOnly? fechaFiltro = DateOnly.TryParse(fecha, out var f) ? f : (DateOnly?)null;
-            var sesiones = await _sintesisService.GetSesionesFinalizadasParaConsolidarAsync(fechaFiltro);
+            var seleccionAplicada = desdeBandeja || sesionIds != null;
+            List<Medios.Entities.SesionPrensa> sesiones;
+            if (seleccionAplicada)
+            {
+                var ids = sesionIds?.Distinct().ToList() ?? new List<int>();
+                if (!ModelState.IsValid || ids.Count == 0 || ids.Any(id => id <= 0))
+                {
+                    TempData["Error"] = "Marcá al menos una síntesis finalizada para consolidar.";
+                    return Redirect("/Sesion/Bandeja#finalizadas");
+                }
+                sesiones = await _sintesisService.GetSesionesParaConsolidarByIdsAsync(ids);
+                if (sesiones.Count != ids.Count)
+                {
+                    TempData["Error"] = "La selección cambió: alguna síntesis ya no está finalizada o no está disponible. Revisá los checks antes de continuar.";
+                    return Redirect("/Sesion/Bandeja#finalizadas");
+                }
+                fechaFiltro = null; // La selección puede incluir distintas fechas y tipos.
+            }
+            else
+            {
+                sesiones = await _sintesisService.GetSesionesFinalizadasParaConsolidarAsync(fechaFiltro);
+            }
+            ViewBag.DesdeBandeja = seleccionAplicada;
 
             ViewBag.Fecha = fechaFiltro?.ToString("yyyy-MM-dd") ?? "";
             ViewBag.Destinos = new[] { "Matutina", "Vespertina", "Especial" };
@@ -189,13 +211,6 @@ namespace Medios.Controllers
             string? notaNacProvIdsJson = null, string? notaIdsJson = null, string? operador = null)
         {
             if (!PuedeConsolidar()) return Forbid();
-            var operadorConsolidada = string.IsNullOrWhiteSpace(operador) ? GetNombre() : operador.Trim();
-            if (operadorConsolidada.Length > 100)
-            {
-                TempData["Error"] = "El operador debe tener como máximo 100 caracteres.";
-                return RedirectToAction(nameof(Consolidar), new { fecha });
-            }
-
             if (!DateOnly.TryParse(fecha, out var fechaParsed))
                 fechaParsed = DateOnly.FromDateTime(DateTime.Today);
 
@@ -207,17 +222,37 @@ namespace Medios.Controllers
             catch
             {
                 TempData["Error"] = "Error al procesar las sesiones seleccionadas";
-                return RedirectToAction(nameof(Consolidar), new { fecha });
+                return Redirect("/Sesion/Bandeja#finalizadas");
             }
 
-            if (!sesionIds.Any())
+            sesionIds = sesionIds.Distinct().ToList();
+            if (!sesionIds.Any() || sesionIds.Any(id => id <= 0))
             {
-                TempData["Error"] = "Seleccioná al menos una síntesis de delegación";
-                return RedirectToAction(nameof(Consolidar), new { fecha });
+                TempData["Error"] = "Seleccioná al menos una síntesis finalizada válida";
+                return Redirect("/Sesion/Bandeja#finalizadas");
+            }
+
+            IActionResult VolverASeleccion()
+            {
+                var parametros = new List<KeyValuePair<string, string?>> { new("desdeBandeja", "true") };
+                parametros.AddRange(sesionIds.Select(id => new KeyValuePair<string, string?>("sesionIds", id.ToString(System.Globalization.CultureInfo.InvariantCulture))));
+                return Redirect("/Sintesis/Consolidar" + QueryString.Create(parametros));
+            }
+
+            var operadorConsolidada = string.IsNullOrWhiteSpace(operador) ? GetNombre() : operador.Trim();
+            if (operadorConsolidada.Length > 100)
+            {
+                TempData["Error"] = "El operador debe tener como máximo 100 caracteres.";
+                return VolverASeleccion();
             }
 
             // Cargar las sesiones seleccionadas (de cualquier fecha/tipo)
             var sesiones = await _sintesisService.GetSesionesParaConsolidarByIdsAsync(sesionIds);
+            if (sesiones.Count != sesionIds.Count)
+            {
+                TempData["Error"] = "La selección cambió: alguna síntesis ya no está finalizada. Volvé a seleccionarlas desde Finalizadas.";
+                return Redirect("/Sesion/Bandeja#finalizadas");
+            }
 
             // Notas de las sesiones elegidas que van a la consolidada (aprobadas/finalizadas/
             // agregadas). Se excluyen las descartadas (Descartada o "Sin Remitir" con motivo).
@@ -228,7 +263,7 @@ namespace Medios.Controllers
             if (!notaIds.Any())
             {
                 TempData["Error"] = "Las sesiones seleccionadas no tienen notas";
-                return RedirectToAction(nameof(Consolidar), new { fecha });
+                return VolverASeleccion();
             }
 
             // Versión a congelar = snapshot Finalizada (sino la actual)
@@ -250,7 +285,7 @@ namespace Medios.Controllers
             if (!notaIdsCombinados.Any())
             {
                 TempData["Error"] = "Seleccioná al menos una nota para la consolidada";
-                return RedirectToAction(nameof(Consolidar), new { fecha });
+                return VolverASeleccion();
             }
 
             // Deduplicar por linaje: una misma noticia (base + ampliación) = una sola entrada
@@ -275,7 +310,7 @@ namespace Medios.Controllers
             if (sintesisId == -2)
             {
                 TempData["Error"] = $"Ya existe una síntesis consolidada {destino} para esa fecha.";
-                return RedirectToAction(nameof(Consolidar), new { fecha });
+                return VolverASeleccion();
             }
 
             // Marcar las sesiones fuente como "Consolidada" (vinculadas a la síntesis, para revertir)

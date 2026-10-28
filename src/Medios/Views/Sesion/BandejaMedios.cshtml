@@ -129,15 +129,22 @@
                 <div id="secSesiones">
                     @if (finalizadasCount > 0)
                     {
-                        <div id="accionesFinalizadas" class="text-right" style="display:none;margin-bottom:12px;">
-                            <a href="/Sintesis/Consolidar" class="btn btn-sm btn-success">
-                                <i class="fa fa-object-group"></i> Ir a Consolidar
-                            </a>
-                        </div>
+                        <form id="formFinalizadas" method="get" asp-controller="Sintesis" asp-action="Consolidar">
+                            <input type="hidden" name="desdeBandeja" value="true" />
+                            <div id="accionesFinalizadas" class="text-right" style="display:none;margin-bottom:12px;">
+                                <span id="contadorFinalizadas" class="text-muted" role="status" aria-live="polite" style="margin-right:12px;">0 síntesis seleccionadas</span>
+                                <button type="submit" id="consolidarSeleccionadas" class="btn btn-sm btn-success" disabled>
+                                    <i class="fa fa-object-group"></i> Ir a Consolidar
+                                </button>
+                            </div>
+                        </form>
                     }
                     <table class="table table-hover" style="margin-bottom:0;">
                         <thead>
                             <tr>
+                                <th class="seleccion-finalizadas" style="display:none;width:38px;">
+                                    <input type="checkbox" id="seleccionarFinalizadas" aria-label="Seleccionar todas las síntesis finalizadas visibles" />
+                                </th>
                                 <th>Fecha</th><th>Turno</th><th>Delegación</th>
                                 <th>Notas</th><th>Estado</th><th>Remitida</th><th></th>
                             </tr>
@@ -155,6 +162,13 @@
                                 if (progreso == null) { continue; }
                                 var badgeEstado = s.Estado switch { "Remitida" => "bg-yellow", "Finalizada" => "bg-navy", "Borrador" => "bg-red", _ => "bg-gray" };
                                 <tr data-progreso="@progreso">
+                                    <td class="seleccion-finalizadas" style="display:none;">
+                                        @if (s.Estado == "Finalizada")
+                                        {
+                                            <input type="checkbox" class="finalizada-check" name="sesionIds" value="@s.Id" form="formFinalizadas"
+                                                   aria-label="Incluir @s.Turno del @s.Fecha.ToString("dd/MM/yyyy") de @(s.Delegacion?.Nombre ?? "División Medios")" />
+                                        }
+                                    </td>
                                     <td><strong>@s.Fecha.ToString("dd/MM/yyyy")</strong></td>
                                     <td>@s.Turno</td>
                                     <td>@(s.Delegacion?.Nombre ?? "División Medios")</td>
@@ -288,6 +302,7 @@
 </div>
 
 @section Scripts {
+<script src="~/js/finalizadas-seleccion.js" asp-append-version="true"></script>
 <script>
 $(function () {
     var TABS = {
@@ -315,6 +330,8 @@ $(function () {
             $('#secSesiones').hide();
             $(t.div).show();
         }
+        $('.seleccion-finalizadas').toggle(key === 'finalizadas');
+        document.dispatchEvent(new Event('finalizadas:visibilidad'));
         history.replaceState(null, '', key === 'remitidas' ? location.pathname : '#' + key);
     };
 

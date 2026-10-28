@@ -46,3 +46,5 @@ InformarChecks verifica reserva persistente Informando, concurrencia por Estado,
 RecuperacionChecks verifica recuperación sin duplicar notas, conservación del motivo anterior, historial de copias legadas y síntesis, y exclusión de alertas de Home/Borradores/Notas tras recuperar y remitir. Sin cambios de esquema ni fusión de registros existentes.
 
 FiltradasChecks verifica origen informado, selección válida, snapshots congelados, envío independiente y protección frente a cambios posteriores. Aplicar sql/28_sintesis_filtradas.sql antes del despliegue.
+
+ConsolidacionSeleccionChecks valida el traslado exclusivo de Finalizadas marcadas, rechazo de IDs inválidos o estados cambiados, y conservación del alcance tras errores de formulario.

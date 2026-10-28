@@ -6,6 +6,7 @@
     ViewData["Title"] = "Consolidar Síntesis";
     Layout = "~/Views/Shared/_Layout.cshtml";
     var porDelegacion = ViewBag.PorDelegacion as IEnumerable<IGrouping<string, SesionPrensa>>;
+    var desdeBandeja = ViewBag.DesdeBandeja is true;
     var fecha = (string)ViewBag.Fecha;
     var fechaHoy = (string)ViewBag.FechaHoy;
     var destinos = ViewBag.Destinos as string[] ?? new[] { "Matutina", "Vespertina", "Especial" };
@@ -16,6 +17,15 @@
     <div class="alert alert-danger alert-dismissible"><button type="button" class="close" data-dismiss="alert">&times;</button>@TempData["Error"]</div>
 }
 
+@if (desdeBandeja)
+{
+    <div class="alert alert-info">
+        <i class="fa fa-check-square-o"></i> Selección de Finalizadas: <strong>@Model.Count síntesis</strong>. Solo se incluyen las que marcaste.
+        Podés ajustar sus notas antes de confirmar. <a href="/Sesion/Bandeja#finalizadas">Volver a seleccionar síntesis</a>.
+    </div>
+}
+else
+{
 <!-- Filtros -->
 <div class="row">
     <div class="col-md-12">
@@ -43,6 +53,8 @@
         </div>
     </div>
 </div>
+
+}
 
 @if (!Model.Any())
 {
