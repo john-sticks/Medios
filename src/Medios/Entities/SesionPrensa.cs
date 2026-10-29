@@ -24,7 +24,7 @@ public class SesionPrensa
     [StringLength(30)]
     public string Turno { get; set; } = "Vespertina";
 
-    // Borrador | Remitida | Finalizada | Consolidada | Archivada
+    // Borrador | Remitida | Finalizada | Consolidada | Archivada | Retirada
     [ConcurrencyCheck]
     [StringLength(20)]
     public string Estado { get; set; } = "Borrador";

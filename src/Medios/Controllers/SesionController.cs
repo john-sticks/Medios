@@ -609,6 +609,18 @@ namespace Medios.Controllers
             return Redirect(ok ? "/Sesion/Bandeja#finalizadas" : "/Sesion/Bandeja#archivadas");
         }
 
+        [HasPermission("REVISAR_SESION")]
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> RetirarArchivada(int id)
+        {
+            if (!SesionService.PuedeAdministrarArchivo(GetRol())) return Forbid();
+            var ok = await _sesionService.RetirarArchivadaAsync(id, GetUsuario(), GetRol());
+            TempData[ok ? "Ok" : "Error"] = ok
+                ? "Síntesis retirada de la bandeja. Sus notas, versiones, PDF e historial se conservan."
+                : "La síntesis cambió o no está archivada. Actualizá la bandeja.";
+            return Redirect("/Sesion/Bandeja#archivadas");
+        }
+
         // ── ANALISTA: finalizar sesión ────────────────────────────────
 
         [HasPermission("REVISAR_SESION")]

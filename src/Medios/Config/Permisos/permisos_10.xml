@@ -52,6 +52,7 @@
     <page href="~/sesion/finalizarsesion" />
     <page href="~/sesion/archivar" />
     <page href="~/sesion/restaurararchivada" />
+    <page href="~/sesion/retirararchivada" />
     <page href="~/sesion/agregarnotaanalista" />
     <page href="~/sesion/eliminarnotaagregada" />
     <page href="~/sesion/descargarPdf" />

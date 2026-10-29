@@ -292,6 +292,13 @@
                                             <input type="hidden" name="id" value="@s.Id" />
                                             <button type="submit" class="btn btn-xs btn-default"><i class="fa fa-undo"></i> Restaurar</button>
                                         </form>
+                                        <form method="post" asp-controller="Sesion" asp-action="RetirarArchivada" style="display:inline;">
+                                            <input type="hidden" name="id" value="@s.Id" />
+                                            <button type="submit" class="btn btn-xs btn-danger" title="Retirar de la bandeja conservando notas e historial"
+                                                    onclick="return confirm('¿Eliminar esta síntesis de la bandeja? Sus notas, versiones, PDF e historial se conservarán. Esta acción no libera espacio.')">
+                                                <i class="fa fa-trash"></i> Eliminar
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                             }</tbody>

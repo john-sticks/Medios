@@ -74,9 +74,29 @@ static class ArchivoSesionesChecks
         using (var db=factory.Create())
             Check(creado>0 && (await db.SesionesPrensas.FindAsync(id))!.SintesisConsolidadaId==creado && (await db.SesionesPrensas.FindAsync(id))!.Estado=="Consolidada", "Consolidación válida también confirma su estado");
         Check(!await service.ArchivarAsync(id,"medios","MEDIOS","Ya consolidada"), "No archivar una sesión ya absorbida");
+        Check(!await service.RetirarArchivadaAsync(id,"medios","MEDIOS"), "No retirar directamente una consolidada");
+        Check(!await service.RetirarArchivadaAsync(vaciaId,"delegado","DELEGACION"), "Delegación no retira archivadas");
+        Check(await service.RetirarArchivadaAsync(vaciaId,"medios","MEDIOS"), "Retirar exclusivamente una archivada");
+        Check(!await service.RetirarArchivadaAsync(vaciaId,"medios","MEDIOS"), "Doble click en Eliminar no repite traza");
+        Check(!(await service.GetBandejaAnalistaAsync()).Any(s=>s.Id==vaciaId), "Retirada desaparece de las bandejas y el contador de archivadas");
+        using (var db=factory.Create())
+            Check((await db.SesionesPrensas.FindAsync(vaciaId))!.Estado=="Retirada" && await db.TrazaEventos.CountAsync(t=>t.SesionId==vaciaId && t.Evento=="SESION_RETIRADA")==1, "Conservar sesión y autor/fecha de retiro en la traza");
+        Check(await service.ArchivarAsync(vaciaId,"medios","MEDIOS","Otra") == false && await service.RestaurarArchivadaAsync(vaciaId,"medios","MEDIOS")==false, "Una retirada no se restaura con solicitudes antiguas");
+        Check(await service.RestaurarArchivadaAsync(id,"medios","MEDIOS")==false, "Estado consolidado permanece protegido");
+        // Segundo ciclo con la noticia original: simula una nueva finalizada y
+        // comprueba que retirar no toca la noticia ni las dos referencias de síntesis.
+        using (var db=factory.Create())
+        {
+            var s=(await db.SesionesPrensas.FindAsync(id))!;
+            s.Estado="Finalizada"; s.SintesisConsolidadaId=null; await db.SaveChangesAsync();
+        }
+        Check(await service.ArchivarAsync(id,"medios","MEDIOS","No se utilizará") && await service.RetirarArchivadaAsync(id,"gale","DESARROLLADOR"), "Archivar y retirar una sesión con notas aprobadas");
+        using (var db=factory.Create())
+            Check(await db.NotasPrensa.CountAsync()==1 && await db.NotasVersion.CountAsync()==1 && await db.SintesisNotas.CountAsync()==2 && (await db.NotasPrensa.FindAsync(notaId))!.SesionPrensaId==id, "Retiro conserva noticia, versión, snapshots y recorrido de sesión");
         var http=new DefaultHttpContext { User=new ClaimsPrincipal(new ClaimsIdentity(new[]{new Claim(ClaimTypes.Role,"DELEGACION")},"test")) };
         var controller=new SesionController(service,notas,sintesis,null!,null!,null!) { ControllerContext=new ControllerContext{HttpContext=http} };
         Check(await controller.Archivar(id) is ForbidResult && await controller.Archivar(id,"motivo") is ForbidResult && await controller.RestaurarArchivada(id) is ForbidResult, "Acceso directo a las tres acciones denegado a Delegación");
+        Check(await controller.RetirarArchivada(id) is ForbidResult, "Acceso directo a Eliminar también restringido");
         return count;
     }
 }
