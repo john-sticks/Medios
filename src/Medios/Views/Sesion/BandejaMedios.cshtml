@@ -153,6 +153,7 @@
                             @foreach (var s in Model.OrderByDescending(x => x.Fecha).ThenBy(x => x.Turno))
                             {
                                 var aprobadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Finalizada");
+                                var tieneAptas = SintesisWorkflowPolicy.TieneNotasConsolidables(s);
                                 var agregadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision == "Agregada");
                                 var revisadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Descartada" or "Finalizada");
                                 string? progreso = s.Estado == "Remitida" ? (revisadas > 0 ? "procesando" : "remitida")
@@ -166,6 +167,7 @@
                                         @if (s.Estado == "Finalizada")
                                         {
                                             <input type="checkbox" class="finalizada-check" name="sesionIds" value="@s.Id" form="formFinalizadas"
+                                                   disabled="@(!tieneAptas)" title="@(tieneAptas ? "Seleccionar para consolidar" : "No tiene notas aprobadas para consolidar")"
                                                    aria-label="Incluir @s.Turno del @s.Fecha.ToString("dd/MM/yyyy") de @(s.Delegacion?.Nombre ?? "División Medios")" />
                                         }
                                     </td>
@@ -174,6 +176,7 @@
                                     <td>@(s.Delegacion?.Nombre ?? "División Medios")</td>
                                     <td>
                                         <span class="badge bg-blue">@s.Notas.Count</span>
+                                        @if (s.Estado == "Finalizada" && !tieneAptas) { <span class="label label-warning">Sin notas aptas</span> }
                                         @if (aprobadas > 0) { <span class="badge bg-green">@aprobadas apro.</span> }
                                         @if (agregadas > 0) { <span class="badge bg-purple">@agregadas agr.</span> }
                                     </td>

@@ -412,7 +412,7 @@ namespace Medios.Services
 
             // Actualizar en-place sin crear nueva versión
             nota.VersionActual.EstadoRevision = "Descartada";
-            nota.VersionActual.MotivoDescarte = motivo;
+            nota.VersionActual.MotivoDescarte = string.IsNullOrWhiteSpace(motivo) ? "Sin motivo informado." : motivo.Trim();
             nota.VersionActual.OperadorRevision = operador;
             nota.VersionActual.TipoEvento = "Descarte";
             await db.SaveChangesAsync();
@@ -1074,14 +1074,16 @@ namespace Medios.Services
             db.NotasPrensa.Where(n =>
                 (n.Sesion != null ? n.Sesion.DelegacionId : n.DelegacionId) == delegacionId
                 && n.VersionActual != null && n.VersionActual.EstadoRevision == "Sin Remitir"
-                && (n.VersionActual.MotivoDescarte == null || n.VersionActual.MotivoDescarte == ""
+                && (((n.VersionActual.MotivoDescarte == null || n.VersionActual.MotivoDescarte == "")
+                        && n.VersionActual.TipoEvento != "Descarte")
                     || ((n.Sesion == null || n.Sesion.Estado != "Borrador")
                         && !db.NotasPrensa.Any(c => c.NotaOrigenId == n.Id
                             && (c.Sesion != null ? c.Sesion.DelegacionId : c.DelegacionId) == delegacionId))));
 
         private static IQueryable<NotaPrensa> NotasRechazadasQuery(MediosDbContext db, int delegacionId) =>
             NotasSinRemitirQuery(db, delegacionId)
-                .Where(n => n.VersionActual!.MotivoDescarte != null && n.VersionActual.MotivoDescarte != "");
+                .Where(n => (n.VersionActual!.MotivoDescarte != null && n.VersionActual.MotivoDescarte != "")
+                    || n.VersionActual!.TipoEvento == "Descarte");
 
         public async Task<List<NotaPrensa>> GetRechazadasAsync(int delegacionId)
         {

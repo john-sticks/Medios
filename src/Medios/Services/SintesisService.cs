@@ -301,6 +301,7 @@ namespace Medios.Services
                          && !(n.VersionActual.EstadoRevision == "Sin Remitir" && n.VersionActual.MotivoDescarte != null))
                 .ToListAsync();
 
+            notas = notas.Where(n => n.Sesion != null && SintesisWorkflowPolicy.PuedeConsolidarNota(n.Sesion, n)).ToList();
             if (!notas.Any()) return new();
 
             var notaIds = notas.Select(n => n.Id).ToList();

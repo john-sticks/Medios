@@ -730,7 +730,10 @@ namespace Medios.Services
                 .Where(v => idsDescartados.Contains(v.NotaId) && v.EsActual)
                 .ToListAsync();
             foreach (var v in versiones)
-                v.EstadoRevision = "Sin Remitir"; // MotivoDescarte se preserva
+            {
+                if (string.IsNullOrWhiteSpace(v.MotivoDescarte)) v.MotivoDescarte = "Sin motivo informado.";
+                v.EstadoRevision = "Sin Remitir";
+            }
 
             await db.SaveChangesAsync();
 

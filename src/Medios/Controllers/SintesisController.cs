@@ -254,6 +254,12 @@ namespace Medios.Controllers
                 return Redirect("/Sesion/Bandeja#finalizadas");
             }
 
+            if (sesiones.Any(s => !SintesisWorkflowPolicy.TieneNotasConsolidables(s)))
+            {
+                TempData["Error"] = "Alguna síntesis seleccionada no tiene notas aprobadas para consolidar. Las notas descartadas o pendientes se conservan en su historial.";
+                return VolverASeleccion();
+            }
+
             // Notas de las sesiones elegidas que van a la consolidada (aprobadas/finalizadas/
             // agregadas). Se excluyen las descartadas (Descartada o "Sin Remitir" con motivo).
             var notas = sesiones.SelectMany(s => s.Notas
@@ -262,7 +268,7 @@ namespace Medios.Controllers
             var notaIds = notas.Select(n => n.Id).ToList();
             if (!notaIds.Any())
             {
-                TempData["Error"] = "Las sesiones seleccionadas no tienen notas";
+                TempData["Error"] = "Las sesiones seleccionadas no tienen notas aprobadas para consolidar";
                 return VolverASeleccion();
             }
 

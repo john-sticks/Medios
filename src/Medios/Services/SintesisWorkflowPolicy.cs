@@ -8,6 +8,14 @@ public static class SintesisWorkflowPolicy
         sesion.Estado == "Remitida" && sesion.Notas.Count > 0
         && sesion.Notas.All(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Descartada" or "Agregada" or "Finalizada");
 
+    public static bool EsDescartada(NotaVersion? version) =>
+        version != null && (version.EstadoRevision == "Descartada"
+            || (version.EstadoRevision == "Sin Remitir"
+                && (!string.IsNullOrWhiteSpace(version.MotivoDescarte) || version.TipoEvento == "Descarte")));
+
+    public static bool TieneNotasConsolidables(SesionPrensa sesion) =>
+        sesion.Notas.Any(n => PuedeConsolidarNota(sesion, n));
+
     public static bool PuedeConsolidarNota(SesionPrensa sesion, NotaPrensa nota)
     {
         if (sesion.Estado != "Finalizada") return false;

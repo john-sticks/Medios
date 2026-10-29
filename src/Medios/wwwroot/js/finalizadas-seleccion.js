@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     var form = document.getElementById('formFinalizadas');
     if (!form) return;
-    var checks = Array.from(document.querySelectorAll('.finalizada-check'));
+    var checks = Array.from(document.querySelectorAll('.finalizada-check:not(:disabled)'));
     var todas = document.getElementById('seleccionarFinalizadas');
     var boton = document.getElementById('consolidarSeleccionadas');
     var contador = document.getElementById('contadorFinalizadas');

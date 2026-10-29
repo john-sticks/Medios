@@ -173,6 +173,7 @@ comprobaciones += await ArchivoPdfChecks.RunAsync();
 comprobaciones += await MonitorChecks.RunAsync();
 comprobaciones += await PublicadasChecks.RunAsync();
 comprobaciones += await ConsolidacionSeleccionChecks.RunAsync();
+comprobaciones += await ConsolidacionVaciasChecks.RunAsync();
 comprobaciones += await InformarChecks.RunAsync();
 comprobaciones += await FiltradasChecks.RunAsync();
 comprobaciones += WordChecks.Run(args.Length >= 2 && args[0] == "--word-samples" ? args[1] : null);
