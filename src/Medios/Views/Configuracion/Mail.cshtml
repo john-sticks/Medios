@@ -134,8 +134,11 @@
                         Guardá la configuración primero y luego enviá un correo de prueba para verificar.
                     </p>
                     <div class="form-group">
-                        <label>Correo de destino</label>
-                        <input type="email" name="destino" class="form-control" placeholder="prueba@dominio.gov.ar" required />
+                        <label for="destinosPrueba">Correos de destino</label>
+                        <input type="text" id="destinosPrueba" name="destino" class="form-control"
+                               placeholder="correo1@dominio.gov.ar; correo2@dominio.gov.ar"
+                               aria-describedby="ayudaDestinosPrueba" required />
+                        <small id="ayudaDestinosPrueba" class="text-muted">Separá las direcciones con punto y coma (;). Los destinatarios serán visibles en Para.</small>
                     </div>
                 </div>
                 <div class="box-footer">

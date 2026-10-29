@@ -116,24 +116,28 @@ public class ConfiguracionController : Controller
         return RedirectToAction(nameof(Mail));
     }
 
-    // Envía un correo de prueba a la dirección indicada
+    // Envía un correo de prueba a las direcciones indicadas.
     [HasPermission("ADMINISTRAR_CONFIGURACION")]
     [HttpPost]
     public async Task<IActionResult> MailPrueba(string? destino)
     {
-        if (string.IsNullOrWhiteSpace(destino) || !destino.Contains('@'))
+        var destinatarios = (destino ?? "")
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (destinatarios.Count == 0 || destinatarios.Any(d =>
+            !System.Net.Mail.MailAddress.TryCreate(d, out var direccion) || direccion.Address != d))
         {
-            TempData["Error"] = "Ingresá un correo de destino válido para la prueba.";
+            TempData["Error"] = "Ingresá correos válidos separados por punto y coma (;). No se envió la prueba.";
             return RedirectToAction(nameof(Mail));
         }
 
         var (ok, error) = await _email.EnviarAsync(
-            new[] { destino.Trim() },
+            destinatarios,
             "Correo de prueba — División Medios O.S.INT",
             "<p>Este es un correo de prueba del sistema <strong>División Medios O.S.INT</strong>.</p>" +
             "<p>Si lo recibiste, la configuración SMTP funciona correctamente.</p>");
 
-        if (ok) TempData["Ok"] = $"Correo de prueba enviado a {destino}.";
+        if (ok) TempData["Ok"] = $"Correo de prueba enviado a {string.Join("; ", destinatarios)}.";
         else    TempData["Error"] = error;
         return RedirectToAction(nameof(Mail));
     }
