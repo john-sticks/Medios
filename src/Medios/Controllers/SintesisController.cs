@@ -311,7 +311,7 @@ namespace Medios.Controllers
 
             var sintesisId = await _sintesisService.CrearAsync(
                 fechaParsed, destino, operadorConsolidada, finalNotaIds,
-                delegacionId: null, versionOverride: versionOverride, consolidada: true);
+                delegacionId: null, versionOverride: versionOverride, consolidada: true, sesionesFuente: sesionIds);
 
             if (sintesisId == -2)
             {
@@ -319,8 +319,11 @@ namespace Medios.Controllers
                 return VolverASeleccion();
             }
 
-            // Marcar las sesiones fuente como "Consolidada" (vinculadas a la síntesis, para revertir)
-            await _sesionService.MarcarConsolidadasAsync(sesionIds, sintesisId);
+            if (sintesisId == -3)
+            {
+                TempData["Error"] = "La selección cambió durante la operación: alguna síntesis fue archivada o consolidada. Volvé a seleccionarla desde Finalizadas.";
+                return Redirect("/Sesion/Bandeja#finalizadas");
+            }
 
             // Generar el PDF de la consolidada automáticamente (queda lista para informar)
             try { await _sintesisService.GenerarPdfAsync(sintesisId); } catch { }

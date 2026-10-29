@@ -1,0 +1,28 @@
+@using Medios.Services
+@model Medios.Entities.SesionPrensa
+@{
+    ViewData["Title"] = "Archivar síntesis";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var aptas = Model.Notas.Count(n => SintesisWorkflowPolicy.PuedeConsolidarNota(Model, n));
+}
+<div class="box box-warning">
+    <div class="box-header with-border"><h3 class="box-title"><i class="fa fa-archive"></i> Archivar síntesis</h3></div>
+    <div class="box-body">
+        <p><strong>@Model.Fecha.ToString("dd/MM/yyyy") · @Model.Turno · @Model.Delegacion?.Nombre</strong></p>
+        <div class="alert @(aptas > 0 ? "alert-warning" : "alert-info")">
+            @if (aptas > 0) { <strong>Esta síntesis contiene @aptas nota(s) aprobada(s) para consolidar.</strong> }
+            Se archivará sin consolidar y dejará de aparecer entre las Finalizadas pendientes.
+            Se conservarán sus notas, versiones, PDF e historial. Podés restaurarla desde Archivadas.
+        </div>
+        @if (TempData["Error"] != null) { <div class="alert alert-danger">@TempData["Error"]</div> }
+        <form method="post" asp-action="Archivar" asp-controller="Sesion">
+            <input type="hidden" name="id" value="@Model.Id" />
+            <div class="form-group">
+                <label for="motivoArchivo">Motivo del archivo</label>
+                <textarea id="motivoArchivo" name="motivo" class="form-control" rows="3" maxlength="500" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-warning"><i class="fa fa-archive"></i> Confirmar archivo</button>
+            <a href="/Sesion/Bandeja#finalizadas" class="btn btn-default">Cancelar</a>
+        </form>
+    </div>
+</div>

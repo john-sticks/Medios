@@ -8,7 +8,7 @@ using System.Security.Claims;
 
 namespace Medios.Services
 {
-    public class SesionService
+    public partial class SesionService
     {
         private readonly IMediosDbContextFactory _factory;
         private readonly IWebHostEnvironment _env;
@@ -54,7 +54,7 @@ namespace Medios.Services
                 // El ANALISTA revisa en "Remitida" (Procesando) y luego marca Finalizada; sigue
                 // viendo en "Finalizadas" las que finalizó aunque se hayan consolidado. Además ve
                 // sus PROPIOS borradores (los que él creó) — no los borradores de otras delegaciones.
-                .Where(s => s.Estado == "Remitida" || s.Estado == "Finalizada" || s.Estado == "Consolidada"
+                .Where(s => s.Estado == "Remitida" || s.Estado == "Finalizada" || s.Estado == "Consolidada" || s.Estado == "Archivada"
                          || (s.Estado == "Borrador" && s.UsuarioCarga == usuarioBorradores))
                 // Una modificación antigua pudo mover todas las notas a otro borrador.
                 // Esa sesión vacía no representa una remisión pendiente de revisión.

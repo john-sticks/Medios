@@ -540,7 +540,7 @@ namespace Medios.Controllers
             // MEDIOS: bandeja única (Remitidas → Procesando → Finalizadas → Consolidadas → Informadas).
             // Trae siempre las tres etapas de SesionPrensa (filtroEstado = null) y filtra por
             // pestaña client-side; Consolidadas/Informadas vienen aparte como entidades Sintesis.
-            if (User.IsInRole("MEDIOS"))
+            if (User.IsInRole("MEDIOS") || User.IsInRole("DESARROLLADOR"))
             {
                 ViewData["Title"] = "Bandeja de Síntesis";
                 DateOnly? desdeM = DateOnly.TryParse(fechaDesde, out var dm) ? dm : null;
@@ -563,6 +563,50 @@ namespace Medios.Controllers
 
             var sesiones = await _sesionService.GetBandejaAsync(estado, delegacionId, desde, hasta, turno);
             return View(sesiones);
+        }
+
+        [HasPermission("REVISAR_SESION")]
+        [HttpGet]
+        public async Task<IActionResult> Archivar(int id)
+        {
+            if (!SesionService.PuedeAdministrarArchivo(GetRol())) return Forbid();
+            var sesion = await _sesionService.GetByIdAsync(id);
+            if (sesion == null) return NotFound();
+            if (sesion.Estado != "Finalizada" || sesion.SintesisConsolidadaId != null)
+            {
+                TempData["Error"] = "Solo se pueden archivar síntesis finalizadas sin consolidar.";
+                return Redirect("/Sesion/Bandeja#finalizadas");
+            }
+            return View("Archivar", sesion);
+        }
+
+        [HasPermission("REVISAR_SESION")]
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> Archivar(int id, string? motivo)
+        {
+            if (!SesionService.PuedeAdministrarArchivo(GetRol())) return Forbid();
+            if (string.IsNullOrWhiteSpace(motivo) || motivo.Trim().Length > 500)
+            {
+                TempData["Error"] = "Ingresá un motivo de hasta 500 caracteres.";
+                return RedirectToAction(nameof(Archivar), new { id });
+            }
+            var ok = await _sesionService.ArchivarAsync(id, GetUsuario(), GetRol(), motivo);
+            TempData[ok ? "Ok" : "Error"] = ok
+                ? "Síntesis archivada. Sus notas e historial se conservan."
+                : "La síntesis cambió o ya no está disponible para archivar. Actualizá la bandeja.";
+            return Redirect(ok ? "/Sesion/Bandeja#archivadas" : "/Sesion/Bandeja#finalizadas");
+        }
+
+        [HasPermission("REVISAR_SESION")]
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> RestaurarArchivada(int id)
+        {
+            if (!SesionService.PuedeAdministrarArchivo(GetRol())) return Forbid();
+            var ok = await _sesionService.RestaurarArchivadaAsync(id, GetUsuario(), GetRol());
+            TempData[ok ? "Ok" : "Error"] = ok
+                ? "Síntesis restaurada a Finalizadas."
+                : "La síntesis cambió o no está archivada. Actualizá la bandeja.";
+            return Redirect(ok ? "/Sesion/Bandeja#finalizadas" : "/Sesion/Bandeja#archivadas");
         }
 
         // ── ANALISTA: finalizar sesión ────────────────────────────────

@@ -24,7 +24,8 @@ public class SesionPrensa
     [StringLength(30)]
     public string Turno { get; set; } = "Vespertina";
 
-    // Borrador | Remitida | Revisada
+    // Borrador | Remitida | Finalizada | Consolidada | Archivada
+    [ConcurrencyCheck]
     [StringLength(20)]
     public string Estado { get; set; } = "Borrador";
 
@@ -42,6 +43,15 @@ public class SesionPrensa
 
     [StringLength(100)]
     public string UsuarioCarga { get; set; } = "";
+
+    [Column(TypeName = "datetime")]
+    public DateTime? FechaArchivo { get; set; }
+
+    [StringLength(100)]
+    public string? UsuarioArchivo { get; set; }
+
+    [StringLength(500)]
+    public string? MotivoArchivo { get; set; }
 
     // Síntesis consolidada que absorbió esta sesión (para poder revertir la consolidación)
     public int? SintesisConsolidadaId { get; set; }

@@ -48,3 +48,5 @@ RecuperacionChecks verifica recuperación sin duplicar notas, conservación del 
 FiltradasChecks verifica origen informado, selección válida, snapshots congelados, envío independiente y protección frente a cambios posteriores. Aplicar sql/28_sintesis_filtradas.sql antes del despliegue.
 
 ConsolidacionSeleccionChecks valida el traslado exclusivo de Finalizadas marcadas, rechazo de IDs inválidos o estados cambiados, y conservación del alcance tras errores de formulario.
+
+ArchivoSesionesChecks valida archivo y restauración restringidos a MEDIOS/DESARROLLADOR, motivo obligatorio, conservación de noticias/versiones/snapshots y exclusión de pendientes. Aplicar sql/37_archivo_sesiones.sql antes del despliegue. Ver docs/archivo-sesiones.md.

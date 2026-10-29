@@ -8,6 +8,7 @@
     var consolidadas = ViewBag.SintesisConsolidadas as List<Sintesis> ?? new();
     var informadas   = ViewBag.SintesisInformadas   as List<Sintesis> ?? new();
     var delegaciones = ViewBag.Delegaciones as List<Delegacion> ?? new();
+    var archivadas = Model.Where(s => s.Estado == "Archivada").OrderByDescending(s => s.FechaArchivo).ToList();
     var divisionMediosId = ViewBag.DivisionMediosId as int?;
 
     // SesionPrensa y Sintesis son entidades distintas: Remitidas/Procesando/Finalizadas
@@ -112,6 +113,9 @@
                         <i class="fa fa-flag-checkered"></i> Finalizadas
                         @if (finalizadasCount > 0) { <span class="badge bg-navy">@finalizadasCount</span> }
                     </button>
+                    <button type="button" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabArchivadas" onclick="mostrarTab('archivadas')">
+                        <i class="fa fa-archive"></i> Archivadas <span class="badge bg-gray">@archivadas.Count</span>
+                    </button>
                     <button type="button" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabConsolidadas" onclick="mostrarTab('consolidadas')">
                         <i class="fa fa-object-group"></i> Consolidadas
                         @if (consolidadas.Count > 0) { <span class="badge" style="background:#605ca8;">@consolidadas.Count</span> }
@@ -184,6 +188,9 @@
                                     <td>@if (s.FechaRemision.HasValue) { <small>@s.FechaRemision.Value.ToString("dd/MM HH:mm")</small> }</td>
                                     <td class="text-right" style="white-space:nowrap;">
                                         <a href="/Sesion/Detalle/@s.Id" class="btn btn-xs btn-primary"><i class="fa fa-eye"></i> Ver</a>
+                                        @if (s.Estado == "Finalizada") {
+                                            <a href="/Sesion/Archivar/@s.Id" class="btn btn-xs btn-warning" title="Archivar sin eliminar notas"><i class="fa fa-archive"></i> Archivar</a>
+                                        }
                                         <a href="/Sesion/ExportarExcel/@s.Id" class="btn btn-xs btn-success" title="Excel"><i class="fa fa-file-excel-o"></i></a>
                                         @if (SintesisWorkflowPolicy.PuedeFinalizar(s))
                                         {
@@ -266,6 +273,29 @@
                     }
                 </div>
 
+                <div id="secArchivadas" style="display:none;">
+                    <p class="text-muted">Síntesis archivadas sin consolidar. Conservan sus notas e historial y se pueden restaurar a Finalizadas.</p>
+                    @if (!archivadas.Any()) { <p>No hay síntesis archivadas para estos filtros.</p> }
+                    else {
+                        <div class="table-responsive"><table class="table table-hover">
+                            <thead><tr><th>Fecha</th><th>Turno</th><th>Delegación</th><th>Notas</th><th>Archivada el</th><th>Usuario</th><th>Motivo</th><th></th></tr></thead>
+                            <tbody>@foreach (var s in archivadas) {
+                                <tr>
+                                    <td>@s.Fecha.ToString("dd/MM/yyyy")</td><td>@s.Turno</td><td>@s.Delegacion?.Nombre</td><td>@s.Notas.Count</td>
+                                    <td>@s.FechaArchivo?.ToString("dd/MM/yyyy HH:mm")</td><td>@s.UsuarioArchivo</td><td style="overflow-wrap:anywhere;">@s.MotivoArchivo</td>
+                                    <td style="white-space:nowrap;">
+                                        <a href="/Sesion/Detalle/@s.Id" class="btn btn-xs btn-primary"><i class="fa fa-eye"></i> Ver</a>
+                                        <form method="post" asp-controller="Sesion" asp-action="RestaurarArchivada" style="display:inline;">
+                                            <input type="hidden" name="id" value="@s.Id" />
+                                            <button type="submit" class="btn btn-xs btn-default"><i class="fa fa-undo"></i> Restaurar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            }</tbody>
+                        </table></div>
+                    }
+                </div>
+
                 <!-- ── Informadas (Sintesis) ───────────────────────────────────── -->
                 <div id="secInformadas" style="display:none;">
                     @if (!informadas.Any())
@@ -313,18 +343,19 @@ $(function () {
         remitidas:    { sel: 'tr[data-progreso="remitida"]',   tab: '#tabRemitidas',    cls: 'btn-warning', sesiones: true },
         procesando:   { sel: 'tr[data-progreso="procesando"]', tab: '#tabProcesando',   cls: 'btn-warning', sesiones: true },
         finalizadas:  { sel: 'tr[data-progreso="finalizada"]', tab: '#tabFinalizadas',  cls: 'btn-primary', sesiones: true },
+        archivadas: { tab: '#tabArchivadas', cls: 'btn-info', sesiones: false, div: '#secArchivadas' },
         consolidadas: { tab: '#tabConsolidadas', cls: 'btn-info',    sesiones: false, div: '#secConsolidadas' },
         informadas:   { tab: '#tabInformadas',   cls: 'btn-success', sesiones: false, div: '#secInformadas' }
     };
 
     window.mostrarTab = function (key) {
         var t = TABS[key] || TABS.remitidas;
-        $('#tabBorradores,#tabRemitidas,#tabProcesando,#tabFinalizadas,#tabConsolidadas,#tabInformadas')
+        $('#tabBorradores,#tabRemitidas,#tabProcesando,#tabFinalizadas,#tabConsolidadas,#tabInformadas,#tabArchivadas')
             .removeClass('btn-primary btn-warning btn-info btn-success btn-danger').addClass('btn-default');
         $(t.tab).removeClass('btn-default').addClass(t.cls);
         $('#accionesFinalizadas').toggle(key === 'finalizadas');
 
-        $('#secConsolidadas, #secInformadas').hide();
+        $('#secConsolidadas, #secInformadas, #secArchivadas').hide();
         if (t.sesiones) {
             $('#secSesiones').show();
             $('tr[data-progreso]').hide();
