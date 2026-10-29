@@ -9,7 +9,7 @@ un motivo de hasta 500 caracteres. No aprueba ni elimina notas. Mantiene PDF,
 versiones, referencias de síntesis, historial y rechazos pendientes de corrección.
 
 El estado Archivada queda fuera de Finalizadas, Home y la selección para consolidar.
-La pestaña Archivadas muestra la fecha de síntesis, tipo, delegación, notas, fecha
+Dentro de Finalizadas, el botón Ver archivadas despliega al final la lista con la fecha de síntesis, tipo, delegación, notas, fecha
 de archivo, cuenta de usuario y motivo; respeta los filtros de la bandeja.
 Restaurar devuelve a Finalizadas. El último motivo se conserva, y cada ciclo queda
 en traza_eventos con SESION_ARCHIVADA / SESION_RESTAURADA en la misma transacción.

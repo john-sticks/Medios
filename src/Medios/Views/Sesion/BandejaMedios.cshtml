@@ -113,9 +113,6 @@
                         <i class="fa fa-flag-checkered"></i> Finalizadas
                         @if (finalizadasCount > 0) { <span class="badge bg-navy">@finalizadasCount</span> }
                     </button>
-                    <button type="button" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabArchivadas" onclick="mostrarTab('archivadas')">
-                        <i class="fa fa-archive"></i> Archivadas <span class="badge bg-gray">@archivadas.Count</span>
-                    </button>
                     <button type="button" class="btn btn-sm btn-default" style="margin-left:4px;" id="tabConsolidadas" onclick="mostrarTab('consolidadas')">
                         <i class="fa fa-object-group"></i> Consolidadas
                         @if (consolidadas.Count > 0) { <span class="badge" style="background:#605ca8;">@consolidadas.Count</span> }
@@ -231,6 +228,11 @@
                             <i class="fa fa-info-circle"></i> No hay sesiones en borrador, remitidas, en proceso o finalizadas en este momento.
                         </p>
                     }
+                    <div id="accionesArchivo" style="display:none;margin-top:16px;padding-top:12px;border-top:1px solid #eee;">
+                        <button type="button" id="mostrarArchivadas" class="btn btn-default btn-sm" aria-controls="secArchivadas" aria-expanded="false">
+                            <i class="fa fa-archive"></i> <span class="texto-archivadas">Ver archivadas</span> <span class="badge bg-gray">@archivadas.Count</span>
+                        </button>
+                    </div>
                 </div>
 
                 <!-- ── Consolidadas (Sintesis) ─────────────────────────────────── -->
@@ -273,7 +275,8 @@
                     }
                 </div>
 
-                <div id="secArchivadas" style="display:none;">
+                <div id="secArchivadas" style="display:none;margin-top:16px;">
+                    <h4><i class="fa fa-archive"></i> Síntesis archivadas</h4>
                     <p class="text-muted">Síntesis archivadas sin consolidar. Conservan sus notas e historial y se pueden restaurar a Finalizadas.</p>
                     @if (!archivadas.Any()) { <p>No hay síntesis archivadas para estos filtros.</p> }
                     else {
@@ -343,14 +346,26 @@ $(function () {
         remitidas:    { sel: 'tr[data-progreso="remitida"]',   tab: '#tabRemitidas',    cls: 'btn-warning', sesiones: true },
         procesando:   { sel: 'tr[data-progreso="procesando"]', tab: '#tabProcesando',   cls: 'btn-warning', sesiones: true },
         finalizadas:  { sel: 'tr[data-progreso="finalizada"]', tab: '#tabFinalizadas',  cls: 'btn-primary', sesiones: true },
-        archivadas: { tab: '#tabArchivadas', cls: 'btn-info', sesiones: false, div: '#secArchivadas' },
         consolidadas: { tab: '#tabConsolidadas', cls: 'btn-info',    sesiones: false, div: '#secConsolidadas' },
         informadas:   { tab: '#tabInformadas',   cls: 'btn-success', sesiones: false, div: '#secInformadas' }
     };
 
+    var archivoAbierto = window.location.hash === '#archivadas';
+    function actualizarArchivo(esFinalizadas) {
+        $('#accionesArchivo').toggle(esFinalizadas);
+        $('#secArchivadas').toggle(esFinalizadas && archivoAbierto);
+        $('#mostrarArchivadas').attr('aria-expanded', esFinalizadas && archivoAbierto ? 'true' : 'false');
+        $('.texto-archivadas').text(archivoAbierto ? 'Ocultar archivadas' : 'Ver archivadas');
+    }
+    $('#mostrarArchivadas').on('click', function () {
+        archivoAbierto = !archivoAbierto;
+        actualizarArchivo(true);
+    });
+
     window.mostrarTab = function (key) {
+        if (key === 'archivadas') key = 'finalizadas'; // Enlaces de retorno existentes.
         var t = TABS[key] || TABS.remitidas;
-        $('#tabBorradores,#tabRemitidas,#tabProcesando,#tabFinalizadas,#tabConsolidadas,#tabInformadas,#tabArchivadas')
+        $('#tabBorradores,#tabRemitidas,#tabProcesando,#tabFinalizadas,#tabConsolidadas,#tabInformadas')
             .removeClass('btn-primary btn-warning btn-info btn-success btn-danger').addClass('btn-default');
         $(t.tab).removeClass('btn-default').addClass(t.cls);
         $('#accionesFinalizadas').toggle(key === 'finalizadas');
@@ -364,13 +379,14 @@ $(function () {
             $('#secSesiones').hide();
             $(t.div).show();
         }
+        actualizarArchivo(key === 'finalizadas');
         $('.seleccion-finalizadas').toggle(key === 'finalizadas');
         document.dispatchEvent(new Event('finalizadas:visibilidad'));
         history.replaceState(null, '', key === 'remitidas' ? location.pathname : '#' + key);
     };
 
     var hash = window.location.hash.replace('#', '');
-    mostrarTab(TABS[hash] ? hash : 'remitidas');
+    mostrarTab(hash === 'archivadas' ? 'finalizadas' : (TABS[hash] ? hash : 'remitidas'));
 });
 </script>
 }
