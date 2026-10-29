@@ -115,9 +115,9 @@ namespace Medios.Controllers
             if (EsDelegacion())
             {
                 var deleg = await _sesionService.GetDelegacionEfectivaAsync(User);
-                bool permitida = nota.Sesion != null
-                    ? nota.Sesion.DelegacionId == deleg?.Id
-                    : nota.DelegacionId == deleg?.Id;
+                bool permitida = deleg != null && (nota.Sesion != null
+                    ? nota.Sesion.DelegacionId == deleg.Id
+                    : nota.DelegacionId == deleg.Id);
                 if (!permitida) return Forbid();
             }
 
@@ -149,9 +149,9 @@ namespace Medios.Controllers
             if (EsDelegacion())
             {
                 var deleg = await _sesionService.GetDelegacionEfectivaAsync(User);
-                bool permitida = nota.Sesion != null
-                    ? nota.Sesion.DelegacionId == deleg?.Id
-                    : nota.DelegacionId == deleg?.Id;
+                bool permitida = deleg != null && (nota.Sesion != null
+                    ? nota.Sesion.DelegacionId == deleg.Id
+                    : nota.DelegacionId == deleg.Id);
                 if (!permitida) return Forbid();
             }
             else if (!User.IsInRole("MEDIOS")) return Forbid();

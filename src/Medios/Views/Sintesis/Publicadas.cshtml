@@ -78,7 +78,9 @@
                             <td style="vertical-align:middle">@sintesis.NotasIncluidas.Count</td>
                             <td style="vertical-align:middle">@(sintesis.FechaInformada?.ToString("dd/MM/yyyy HH:mm") ?? "Sin fecha registrada")</td>
                             <td style="white-space:nowrap">
-                                <a asp-action="Detalle" asp-route-id="@sintesis.Id" class="btn btn-default btn-sm"><i class="fa fa-eye"></i> Ver detalle</a>
+                                @if (!User.IsInRole("DELEGACION")) {
+                                    <a asp-action="Detalle" asp-route-id="@sintesis.Id" class="btn btn-default btn-sm"><i class="fa fa-eye"></i> Ver detalle</a>
+                                }
                                 @if (!string.IsNullOrEmpty(sintesis.PDFPath))
                                 {
                                     <a asp-action="DescargarPdf" asp-route-id="@sintesis.Id" class="btn btn-success btn-sm"><i class="fa fa-file-pdf-o"></i> PDF</a>

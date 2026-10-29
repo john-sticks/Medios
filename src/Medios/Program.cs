@@ -144,6 +144,7 @@ namespace Medios
             app.UseForwardedHeaders(forwardedHeadersOptions);
 
             app.UseHttpsRedirection();
+            app.UseMiddleware<PdfPrivadosMiddleware>();
             app.UseStaticFiles();
             app.UseRouting();
 

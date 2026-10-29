@@ -33,7 +33,7 @@ static class PublicadasChecks
         Check((await service.GetPublicadasAsync(fecha, fecha, tipo: "Especiales")).Count == 2, "Especiales incluye ampliaciones");
         Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 1)).Count == 3, "Respeta canales y destino de la delegación");
         Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 2)).Count == 2, "No filtra publicaciones de otro destino");
-        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, null)).Count == 1, "Sin delegación solo muestra Todos los Roles");
+        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, null)).Count == 0, "Sin delegación asignada no expone publicaciones");
         foreach (var inicio in new[] { fecha.AddDays(-15), fecha.AddDays(1) })
         {
             try { await service.GetPublicadasAsync(inicio, fecha); throw new InvalidOperationException("Aceptó período inválido"); }

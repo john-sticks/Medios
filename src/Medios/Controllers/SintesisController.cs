@@ -131,11 +131,8 @@ namespace Medios.Controllers
         // (CanalTodasDelegaciones o destino específico para su delegación).
         private async Task<bool> DelegacionPuedeVerAsync(Medios.Entities.Sintesis s)
         {
-            if (string.Equals(s.OperadorGenera, GetUsuario(), StringComparison.OrdinalIgnoreCase)) return true;
-            if (s.DelegacionId != null || s.Estado != "Informada") return false;
-            if (s.CanalTodosRoles || s.CanalTodasDelegaciones) return true;
             var deleg = await _sesionService.GetDelegacionEfectivaAsync(User);
-            return deleg != null && s.DelegacionesDestino.Any(d => d.DelegacionId == deleg.Id);
+            return SintesisAccesoPolicy.PuedeDescargar(s, deleg?.Id);
         }
 
         [HasPermission("CREAR_SINTESIS")]
@@ -536,6 +533,9 @@ namespace Medios.Controllers
             if (sintesis == null) return NotFound();
             if (EsDelegacion() && !await DelegacionPuedeVerAsync(sintesis)) return Forbid();
 
+            if (!SintesisAccesoPolicy.PuedeVerDetalle(sintesis, EsDelegacion())) return Forbid();
+            // Filtrar en servidor, para todos los roles, sin modificar el historial almacenado.
+            sintesis.NotasIncluidas = SintesisContenido.NotasVisibles(sintesis);
             ViewData["Title"] = $"Síntesis {sintesis.Tipo} — {sintesis.Fecha:dd/MM/yyyy}";
 
             if (_menuService.GetPermissions(User).Contains("CREAR_SESION"))
@@ -563,7 +563,7 @@ namespace Medios.Controllers
         {
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null) return NotFound();
-            if (EsDelegacion() && !string.Equals(sintesis.OperadorGenera, GetUsuario(), StringComparison.OrdinalIgnoreCase)) return Forbid();
+            if (EsDelegacion() && (sintesis.DelegacionId == null || !await DelegacionPuedeVerAsync(sintesis) || !string.Equals(sintesis.OperadorGenera, GetUsuario(), StringComparison.OrdinalIgnoreCase))) return Forbid();
             if (sintesis.Estado == "Remitida")
             {
                 TempData["Error"] = "No se puede regenerar el PDF de una síntesis ya remitida.";
@@ -594,7 +594,7 @@ namespace Medios.Controllers
         {
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null) return NotFound();
-            if (EsDelegacion() && !string.Equals(sintesis.OperadorGenera, GetUsuario(), StringComparison.OrdinalIgnoreCase)) return Forbid();
+            if (EsDelegacion() && (sintesis.DelegacionId == null || !await DelegacionPuedeVerAsync(sintesis) || !string.Equals(sintesis.OperadorGenera, GetUsuario(), StringComparison.OrdinalIgnoreCase))) return Forbid();
             if (sintesis.Estado != "Generada")
             {
                 TempData["Error"] = sintesis.Estado == "Remitida"
@@ -626,7 +626,7 @@ namespace Medios.Controllers
         {
             var sintesisCheck = await _sintesisService.GetByIdAsync(id);
             if (sintesisCheck == null) return NotFound();
-            if (EsDelegacion() && !string.Equals(sintesisCheck.OperadorGenera, GetUsuario(), StringComparison.OrdinalIgnoreCase)) return Forbid();
+            if (EsDelegacion() && (sintesisCheck.DelegacionId == null || !await DelegacionPuedeVerAsync(sintesisCheck) || !string.Equals(sintesisCheck.OperadorGenera, GetUsuario(), StringComparison.OrdinalIgnoreCase))) return Forbid();
 
             // La sesión nueva hereda la misma DelegacionId que ya tenía la síntesis (sea de una
             // Delegación, de MEDIOS ["División Medios"] o null en la consolidada real) — no hay

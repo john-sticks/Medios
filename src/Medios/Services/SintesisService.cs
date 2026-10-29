@@ -258,7 +258,8 @@ namespace Medios.Services
                 throw new ArgumentException("Seleccioná un período de hasta 15 días, contando ambas fechas.");
             using var db = _factory.Create();
             var query = db.Sintesis.AsNoTracking()
-                .Include(s => s.NotasIncluidas)
+                .Include(s => s.NotasIncluidas).ThenInclude(sn => sn.NotaVersion)
+                .Include(s => s.NotasIncluidas).ThenInclude(sn => sn.Nota).ThenInclude(n => n.VersionActual)
                 .Where(s => s.DelegacionId == null && s.Estado == "Informada"
                     && s.Fecha >= desde && s.Fecha <= hasta)
                 .AsQueryable();
@@ -269,14 +270,14 @@ namespace Medios.Services
                     : query.Where(s => s.Tipo == tipo);
 
             if (esDelegacion)
-                query = query.Where(s => s.CanalTodosRoles
-                    || (delegacionId != null && (s.CanalTodasDelegaciones
-                        || s.DelegacionesDestino.Any(d => d.DelegacionId == delegacionId.Value))));
+                query = query.Where(SintesisAccesoPolicy.ParaDelegacion(delegacionId));
 
-            return await query
+            var resultado = await query
                 .OrderByDescending(s => s.Fecha)
                 .ThenByDescending(s => s.FechaInformada)
                 .ToListAsync();
+            foreach (var sintesis in resultado) sintesis.NotasIncluidas = SintesisContenido.NotasVisibles(sintesis);
+            return resultado;
         }
 
         // ── Deduplicación Nacional/Provincial para Consolidar ─────────
@@ -616,10 +617,7 @@ namespace Medios.Services
         {
             var sintesis = await GetByIdAsync(sintesisId)
                 ?? throw new InvalidOperationException("Síntesis no encontrada");
-            var incluidas = sintesis.NotasIncluidas.OrderBy(sn => sn.Orden)
-                .Where(sn => sintesis.EsFiltrada || !(sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir"
-                              && !string.IsNullOrEmpty(sn.Nota?.VersionActual?.MotivoDescarte)))
-                .ToList();
+            var incluidas = SintesisContenido.NotasVisibles(sintesis);
             var versiones = incluidas.Where(sn => sn.NotaVersion != null)
                 .GroupBy(sn => sn.NotaPrensaId).ToDictionary(g => g.Key, g => g.First().NotaVersion);
             var lineas = await _notaService.GetLineasTiempoAsync(versiones);
@@ -631,12 +629,7 @@ namespace Medios.Services
             var sintesis = await GetByIdAsync(sintesisId);
             if (sintesis == null) throw new InvalidOperationException("Síntesis no encontrada");
 
-            // Usar versión snapshot, saltando notas rechazadas (Sin Remitir con MotivoDescarte)
-            var incluidas = sintesis.NotasIncluidas
-                .OrderBy(sn => sn.Orden)
-                .Where(sn => sintesis.EsFiltrada || !(sn.Nota?.VersionActual?.EstadoRevision == "Sin Remitir"
-                              && !string.IsNullOrEmpty(sn.Nota?.VersionActual?.MotivoDescarte)))
-                .ToList();
+            var incluidas = SintesisContenido.NotasVisibles(sintesis);
 
             // Geo sin duplicar: el nombre de Localidad (dato externo sincronizado) ya trae el
             // partido entre paréntesis para desambiguar localidades homónimas de otros partidos

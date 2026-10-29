@@ -237,6 +237,11 @@ namespace Medios.Controllers
         {
             var sesion = await _sesionService.GetByIdAsync(id);
             if (sesion == null) return NotFound();
+            if (User.IsInRole("DELEGACION"))
+            {
+                var deleg = await _sesionService.GetDelegacionEfectivaAsync(User);
+                if (deleg == null || sesion.DelegacionId != deleg.Id) return Forbid();
+            }
 
             // Solo puede ver sus propias sesiones
             var usuario = GetUsuario();
@@ -245,7 +250,7 @@ namespace Medios.Controllers
             // esta comparación en memoria tiene que ser consistente con eso.
             var esPropietario = string.Equals(sesion.UsuarioCarga, usuario, StringComparison.OrdinalIgnoreCase)
                              || string.Equals(sesion.UsuarioCarga, GetNombre(), StringComparison.OrdinalIgnoreCase);
-            var puedeVerTodas = User.IsInRole("MEDIOS");
+            var puedeVerTodas = User.IsInRole("MEDIOS") || User.IsInRole("DESARROLLADOR");
 
             if (!esPropietario && !puedeVerTodas) return Forbid();
 
@@ -470,7 +475,13 @@ namespace Medios.Controllers
         public async Task<IActionResult> DescargarPdf(int id)
         {
             var sesion = await _sesionService.GetByIdAsync(id);
-            if (sesion?.PDFPath == null) return NotFound();
+            if (sesion == null) return NotFound();
+            if (User.IsInRole("DELEGACION"))
+            {
+                var deleg = await _sesionService.GetDelegacionEfectivaAsync(User);
+                if (deleg == null || sesion.DelegacionId != deleg.Id) return Forbid();
+            }
+            if (sesion.PDFPath == null) return NotFound();
             var filePath = Path.Combine(_env.WebRootPath, sesion.PDFPath.TrimStart('/'));
             if (!System.IO.File.Exists(filePath)) return NotFound();
             var bytes = await System.IO.File.ReadAllBytesAsync(filePath);

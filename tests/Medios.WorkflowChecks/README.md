@@ -52,3 +52,5 @@ ConsolidacionSeleccionChecks valida el traslado exclusivo de Finalizadas marcada
 ArchivoSesionesChecks valida archivo y restauración restringidos a MEDIOS/DESARROLLADOR, motivo obligatorio, conservación de noticias/versiones/snapshots y exclusión de pendientes. Aplicar sql/37_archivo_sesiones.sql antes del despliegue. Ver docs/archivo-sesiones.md.
 
 EliminarArchivadasChecks valida borrado definitivo con advertencia y confirmación, versiones y publicación propia exclusiva, bloqueo de referencias externas y rechazo de confirmaciones obsoletas. Conserva auditoría y archivos físicos.
+
+AccesoPublicadasChecks cubre dos usuarios por delegación, destinos específicos/generales, acceso directo por ID, falta de delegación activa, bloqueo de detalle/Word, PDFs físicos y modelos sin notas rechazadas. Sin migración de esquema.
