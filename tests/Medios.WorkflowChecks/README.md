@@ -54,3 +54,5 @@ ArchivoSesionesChecks valida archivo y restauración restringidos a MEDIOS/DESAR
 EliminarArchivadasChecks valida borrado definitivo con advertencia y confirmación, versiones y publicación propia exclusiva, bloqueo de referencias externas y rechazo de confirmaciones obsoletas. Conserva auditoría y archivos físicos.
 
 AccesoPublicadasChecks cubre dos usuarios por delegación, destinos específicos/generales, acceso directo por ID, falta de delegación activa, bloqueo de detalle/Word, PDFs físicos y modelos sin notas rechazadas. Sin migración de esquema.
+
+ConsolidacionReintentosChecks: verifica la estrategia de reintentos, un contexto nuevo tras un fallo transitorio, el vínculo atómico con la sesión y el rechazo de una selección ya consolidada.

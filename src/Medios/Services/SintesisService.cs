@@ -524,91 +524,96 @@ namespace Medios.Services
             Dictionary<int, int>? versionOverride = null,
             bool consolidada = false, List<int>? sesionesFuente = null)
         {
-            using var db = _factory.Create();
-            // El cambio Finalizada -> Consolidada y su síntesis se confirman juntos.
-            // Estado es token de concurrencia: si alguien archiva entretanto, se revierte todo.
-            await using var transaction = sesionesFuente != null && db.Database.IsRelational()
-                ? await db.Database.BeginTransactionAsync() : null;
-            try
+            // MySQL exige reintentar la transacción completa; cada intento usa un contexto nuevo.
+            using var strategyDb = _factory.Create();
+            return await strategyDb.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
             {
-                List<SesionPrensa> fuentes = new();
-                if (sesionesFuente != null)
+                using var db = _factory.Create();
+                // El cambio Finalizada -> Consolidada y su síntesis se confirman juntos.
+                // Estado es token de concurrencia: si alguien archiva entretanto, se revierte todo.
+                await using var transaction = sesionesFuente != null && db.Database.IsRelational()
+                    ? await db.Database.BeginTransactionAsync() : null;
+                try
                 {
-                    var ids = sesionesFuente.Distinct().ToList();
-                    fuentes = await db.SesionesPrensas.Where(s => ids.Contains(s.Id)).ToListAsync();
-                    if (!consolidada || ids.Count == 0 || fuentes.Count != ids.Count
-                        || fuentes.Any(s => s.Estado != "Finalizada" || s.SintesisConsolidadaId != null)) return -3;
-                }
-
-                if (TiposUnicos.Contains(tipo) && delegacionId.HasValue)
-                {
-                    var existe = await db.Sintesis.AnyAsync(s =>
-                        s.Tipo == tipo &&
-                        s.Fecha == fecha &&
-                        s.DelegacionId == delegacionId &&
-                        s.Estado != "Borrador");
-                    if (existe) return -2;
-                }
-
-                // Guard anti-duplicado para síntesis consolidada (sin delegación).
-                // La "Especial" se exceptúa: se pueden crear tantas como sea necesario.
-                if (consolidada && !string.Equals(tipo, "Especial", StringComparison.OrdinalIgnoreCase))
-                {
-                    var existeCons = await db.Sintesis.AnyAsync(s =>
-                        s.SintesisOrigenId == null && s.Tipo == tipo &&
-                        s.Fecha == fecha &&
-                        s.DelegacionId == null &&
-                        s.Estado != "Borrador");
-                    if (existeCons) return -2;
-                }
-
-                var sintesis = new Sintesis
-                {
-                    Fecha = fecha,
-                    Tipo = tipo,
-                    Estado = "Borrador",
-                    FechaCreacion = DateTime.Now,
-                    OperadorGenera = operador,
-                    DelegacionId = delegacionId
-                };
-                db.Sintesis.Add(sintesis);
-                await db.SaveChangesAsync();
-
-                // Versión a congelar por nota: override (snapshot Finalizada) o VersionActualId
-                var versionMap = await db.NotasPrensa
-                    .Where(n => notaIds.Contains(n.Id))
-                    .Select(n => new { n.Id, n.VersionActualId })
-                    .ToDictionaryAsync(x => x.Id, x => x.VersionActualId ?? 0);
-
-                for (int i = 0; i < notaIds.Count; i++)
-                {
-                    int verId = versionOverride != null && versionOverride.TryGetValue(notaIds[i], out var ov) && ov > 0
-                        ? ov
-                        : (versionMap.TryGetValue(notaIds[i], out var vid) ? vid : 0);
-
-                    db.SintesisNotas.Add(new SintesisNota
+                    List<SesionPrensa> fuentes = new();
+                    if (sesionesFuente != null)
                     {
-                        SintesisId = sintesis.Id,
-                        NotaPrensaId = notaIds[i],
-                        NotaVersionId = verId,
-                        Orden = i
-                    });
+                        var ids = sesionesFuente.Distinct().ToList();
+                        fuentes = await db.SesionesPrensas.Where(s => ids.Contains(s.Id)).ToListAsync();
+                        if (!consolidada || ids.Count == 0 || fuentes.Count != ids.Count
+                            || fuentes.Any(s => s.Estado != "Finalizada" || s.SintesisConsolidadaId != null)) return -3;
+                    }
+
+                    if (TiposUnicos.Contains(tipo) && delegacionId.HasValue)
+                    {
+                        var existe = await db.Sintesis.AnyAsync(s =>
+                            s.Tipo == tipo &&
+                            s.Fecha == fecha &&
+                            s.DelegacionId == delegacionId &&
+                            s.Estado != "Borrador");
+                        if (existe) return -2;
+                    }
+
+                    // Guard anti-duplicado para síntesis consolidada (sin delegación).
+                    // La "Especial" se exceptúa: se pueden crear tantas como sea necesario.
+                    if (consolidada && !string.Equals(tipo, "Especial", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var existeCons = await db.Sintesis.AnyAsync(s =>
+                            s.SintesisOrigenId == null && s.Tipo == tipo &&
+                            s.Fecha == fecha &&
+                            s.DelegacionId == null &&
+                            s.Estado != "Borrador");
+                        if (existeCons) return -2;
+                    }
+
+                    var sintesis = new Sintesis
+                    {
+                        Fecha = fecha,
+                        Tipo = tipo,
+                        Estado = "Borrador",
+                        FechaCreacion = DateTime.Now,
+                        OperadorGenera = operador,
+                        DelegacionId = delegacionId
+                    };
+                    db.Sintesis.Add(sintesis);
+                    await db.SaveChangesAsync();
+
+                    // Versión a congelar por nota: override (snapshot Finalizada) o VersionActualId
+                    var versionMap = await db.NotasPrensa
+                        .Where(n => notaIds.Contains(n.Id))
+                        .Select(n => new { n.Id, n.VersionActualId })
+                        .ToDictionaryAsync(x => x.Id, x => x.VersionActualId ?? 0);
+
+                    for (int i = 0; i < notaIds.Count; i++)
+                    {
+                        int verId = versionOverride != null && versionOverride.TryGetValue(notaIds[i], out var ov) && ov > 0
+                            ? ov
+                            : (versionMap.TryGetValue(notaIds[i], out var vid) ? vid : 0);
+
+                        db.SintesisNotas.Add(new SintesisNota
+                        {
+                            SintesisId = sintesis.Id,
+                            NotaPrensaId = notaIds[i],
+                            NotaVersionId = verId,
+                            Orden = i
+                        });
+                    }
+                    await db.SaveChangesAsync();
+                    foreach (var fuente in fuentes)
+                    {
+                        fuente.Estado = "Consolidada";
+                        fuente.SintesisConsolidadaId = sintesis.Id;
+                    }
+                    if (fuentes.Count > 0) await db.SaveChangesAsync();
+                    if (transaction != null) await transaction.CommitAsync();
+                    return sintesis.Id;
                 }
-                await db.SaveChangesAsync();
-                foreach (var fuente in fuentes)
+                catch (DbUpdateConcurrencyException) when (sesionesFuente != null)
                 {
-                    fuente.Estado = "Consolidada";
-                    fuente.SintesisConsolidadaId = sintesis.Id;
+                    // Dispose revierte también las filas de síntesis creadas en esta operación.
+                    return -3;
                 }
-                if (fuentes.Count > 0) await db.SaveChangesAsync();
-                if (transaction != null) await transaction.CommitAsync();
-                return sintesis.Id;
-            }
-            catch (DbUpdateConcurrencyException) when (sesionesFuente != null)
-            {
-                // Dispose revierte también las filas de síntesis creadas en esta operación.
-                return -3;
-            }
+            });
         }
 
         // ── Generar PDF ───────────────────────────────────────────────
