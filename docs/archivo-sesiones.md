@@ -24,12 +24,13 @@ ArchivoSesionesChecks cubre recuperación, contenido, snapshots, permisos,
 contadores, motivos inválidos y solicitudes obsoletas. La concurrencia y las
 transacciones deben verificarse también con MySQL, no solo con InMemory.
 
-## Retirar archivadas de la bandeja
+## Eliminar archivadas y sus notas
 
-Eliminar es un retiro lógico: cambia Archivada a Retirada y conserva la sesión,
-sus notas, versiones, referencias a síntesis, archivos y metadatos de archivo.
-No ejecuta DELETE ni deja noticias sin sesión. El evento SESION_RETIRADA registra
-la cuenta, fecha y estado en la misma transacción. Solo MEDIOS/DESARROLLADOR,
-solo POST con antifalsificación y solo Archivadas sin vínculo de consolidación.
-Una petición repetida o enviada desde una pantalla obsoleta no altera otra etapa.
-No libera espacio y no se reutiliza el borrado de borradores.
+Eliminar abre una pantalla de advertencia y análisis de referencias. Tras marcar
+la confirmación explícita, se elimina la sesión archivada, sus notas y versiones,
+y solo sus publicaciones propias exclusivas. Se bloquea si hay referencias a
+otras síntesis, publicaciones informadas/filtradas, copias, relaciones externas o
+un historial compartido. El POST repite el análisis y exige el mismo alcance
+confirmado. La eliminación completa es transaccional y serializable en MySQL.
+Se conservan trazas, auditoría y archivos físicos como respaldo; no se ejecuta
+limpieza de archivos ni se alteran publicaciones ajenas.

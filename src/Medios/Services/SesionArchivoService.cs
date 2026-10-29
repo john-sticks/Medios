@@ -13,22 +13,6 @@ public partial class SesionService
     public Task<bool> RestaurarArchivadaAsync(int id, string usuario, string rol) =>
         CambiarArchivoAsync(id, usuario, rol, null, archivar: false);
 
-    public async Task<bool> RetirarArchivadaAsync(int id, string usuario, string rol)
-    {
-        if (!PuedeAdministrarArchivo(rol) || string.IsNullOrWhiteSpace(usuario) || usuario.Length > 100) return false;
-        using var db = _factory.Create();
-        var sesion = await db.SesionesPrensas.FindAsync(id);
-        if (sesion == null || sesion.Estado != "Archivada" || sesion.SintesisConsolidadaId != null) return false;
-        sesion.Estado = "Retirada";
-        db.TrazaEventos.Add(new TrazaEventoEntity
-        {
-            SesionId = id, Usuario = usuario, Rol = rol, Estado = "Retirada", Evento = "SESION_RETIRADA",
-            Detalle = "Retirada de la bandeja. Se conservan notas, versiones, PDF e historial."
-        });
-        try { await db.SaveChangesAsync(); return true; }
-        catch (DbUpdateConcurrencyException) { return false; }
-    }
-
     private async Task<bool> CambiarArchivoAsync(int id, string usuario, string rol, string? motivo, bool archivar)
     {
         motivo = motivo?.Trim();

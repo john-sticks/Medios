@@ -50,3 +50,5 @@ FiltradasChecks verifica origen informado, selección válida, snapshots congela
 ConsolidacionSeleccionChecks valida el traslado exclusivo de Finalizadas marcadas, rechazo de IDs inválidos o estados cambiados, y conservación del alcance tras errores de formulario.
 
 ArchivoSesionesChecks valida archivo y restauración restringidos a MEDIOS/DESARROLLADOR, motivo obligatorio, conservación de noticias/versiones/snapshots y exclusión de pendientes. Aplicar sql/37_archivo_sesiones.sql antes del despliegue. Ver docs/archivo-sesiones.md.
+
+EliminarArchivadasChecks valida borrado definitivo con advertencia y confirmación, versiones y publicación propia exclusiva, bloqueo de referencias externas y rechazo de confirmaciones obsoletas. Conserva auditoría y archivos físicos.

@@ -1,0 +1,27 @@
+@model Medios.Models.EliminarArchivadaModel
+@{
+    ViewData["Title"] = "Eliminar síntesis archivada";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+<div class="box box-danger">
+    <div class="box-header with-border"><h3 class="box-title"><i class="fa fa-exclamation-triangle"></i> Eliminar síntesis archivada</h3></div>
+    <div class="box-body">
+        <p><strong>@Model.Sesion.Fecha.ToString("dd/MM/yyyy") · @Model.Sesion.Turno · @Model.Sesion.Delegacion?.Nombre · #@Model.Sesion.Id</strong></p>
+        <div class="alert alert-danger">
+            <strong>Advertencia: se eliminarán definitivamente esta síntesis y las notas que contiene.</strong>
+            <p>El alcance incluye @Model.NotaIds.Count nota(s), @Model.VersionIds.Count versión(es) de su historial y @Model.SintesisIds.Count publicación(es) propias vinculadas.</p>
+            <p>Esta acción no se puede deshacer desde el sistema. Se conservan la auditoría y los archivos físicos como respaldo.</p>
+        </div>
+        @if (TempData["Error"] != null) { <div class="alert alert-warning">@TempData["Error"]</div> }
+        @foreach (var bloqueo in Model.Bloqueos) { <div class="alert alert-warning">@bloqueo No se permite eliminar.</div> }
+        @if (Model.PuedeEliminar) {
+            <form method="post" asp-controller="Sesion" asp-action="EliminarArchivada">
+                <input type="hidden" name="id" value="@Model.Sesion.Id" />
+                <input type="hidden" name="token" value="@Model.Token" />
+                <div class="checkbox"><label><input type="checkbox" name="confirmado" value="true" required /> Entiendo que se eliminarán la síntesis, sus notas y versiones.</label></div>
+                <button type="submit" class="btn btn-danger"><i class="fa fa-trash"></i> Eliminar síntesis y notas</button>
+                <a href="/Sesion/Bandeja#archivadas" class="btn btn-default">Cancelar</a>
+            </form>
+        } else { <a href="/Sesion/Bandeja#archivadas" class="btn btn-default">Volver</a> }
+    </div>
+</div>

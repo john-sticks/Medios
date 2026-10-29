@@ -610,15 +610,25 @@ namespace Medios.Controllers
         }
 
         [HasPermission("REVISAR_SESION")]
-        [HttpPost, ValidateAntiForgeryToken]
-        public async Task<IActionResult> RetirarArchivada(int id)
+        [HttpGet]
+        public async Task<IActionResult> EliminarArchivada(int id)
         {
             if (!SesionService.PuedeAdministrarArchivo(GetRol())) return Forbid();
-            var ok = await _sesionService.RetirarArchivadaAsync(id, GetUsuario(), GetRol());
+            var analisis = await _sesionService.AnalizarEliminacionArchivadaAsync(id);
+            if (analisis == null) return NotFound();
+            return View(analisis);
+        }
+
+        [HasPermission("REVISAR_SESION")]
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> EliminarArchivada(int id, string? token, bool confirmado)
+        {
+            if (!SesionService.PuedeAdministrarArchivo(GetRol())) return Forbid();
+            var ok = await _sesionService.EliminarArchivadaAsync(id, GetUsuario(), GetRol(), token, confirmado);
             TempData[ok ? "Ok" : "Error"] = ok
-                ? "Síntesis retirada de la bandeja. Sus notas, versiones, PDF e historial se conservan."
-                : "La síntesis cambió o no está archivada. Actualizá la bandeja.";
-            return Redirect("/Sesion/Bandeja#archivadas");
+                ? "Síntesis y notas eliminadas definitivamente. Se conservaron la auditoría y los archivos físicos de respaldo."
+                : "No se eliminó nada: faltó la confirmación o existen cambios o referencias a otros registros. Revisá nuevamente el detalle.";
+            return ok ? Redirect("/Sesion/Bandeja#archivadas") : RedirectToAction(nameof(EliminarArchivada), new { id });
         }
 
         // ── ANALISTA: finalizar sesión ────────────────────────────────
