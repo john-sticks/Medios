@@ -631,6 +631,33 @@ namespace Medios.Controllers
             return ok ? Redirect("/Sesion/Bandeja#archivadas") : RedirectToAction(nameof(EliminarArchivada), new { id });
         }
 
+        [HasPermission("REVISAR_SESION")]
+        [HttpGet]
+        public async Task<IActionResult> QuitarSinAptas(int id)
+        {
+            if (!SesionService.PuedeAdministrarArchivo(GetRol())) return Forbid();
+            var sesion = await _sesionService.GetByIdAsync(id);
+            if (sesion == null) return NotFound();
+            if (!SesionService.PuedeQuitarSinAptas(sesion))
+            {
+                TempData["Error"] = "Solo se puede quitar por esta opción una síntesis finalizada o archivada sin notas aprobadas ni pendientes de revisar.";
+                return Redirect("/Sesion/Bandeja#finalizadas");
+            }
+            return View(sesion);
+        }
+
+        [HasPermission("REVISAR_SESION")]
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> QuitarSinAptas(int id, bool confirmado)
+        {
+            if (!SesionService.PuedeAdministrarArchivo(GetRol())) return Forbid();
+            var ok = confirmado && await _sesionService.QuitarSinAptasAsync(id, GetUsuario(), GetRol());
+            TempData[ok ? "Ok" : "Error"] = ok
+                ? "Síntesis quitada de la bandeja. Las notas descartadas siguen disponibles para la delegación y conservan su recorrido."
+                : "No se quitó la síntesis: falta confirmar o cambió el estado de sus notas.";
+            return Redirect("/Sesion/Bandeja#finalizadas");
+        }
+
         // ── ANALISTA: finalizar sesión ────────────────────────────────
 
         [HasPermission("REVISAR_SESION")]

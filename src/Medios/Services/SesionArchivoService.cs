@@ -13,6 +13,31 @@ public partial class SesionService
     public Task<bool> RestaurarArchivadaAsync(int id, string usuario, string rol) =>
         CambiarArchivoAsync(id, usuario, rol, null, archivar: false);
 
+    public static bool PuedeQuitarSinAptas(SesionPrensa sesion) =>
+        sesion.Estado is "Finalizada" or "Archivada" && sesion.SintesisConsolidadaId == null
+        && sesion.Notas.All(n => SintesisWorkflowPolicy.EsDescartada(n.VersionActual));
+
+    public async Task<bool> QuitarSinAptasAsync(int id, string usuario, string rol)
+    {
+        if (!PuedeAdministrarArchivo(rol) || string.IsNullOrWhiteSpace(usuario) || usuario.Length > 100) return false;
+        using var db = _factory.Create();
+        var sesion = await db.SesionesPrensas.Include(s => s.Notas).ThenInclude(n => n.VersionActual)
+            .FirstOrDefaultAsync(s => s.Id == id);
+        if (sesion == null || !PuedeQuitarSinAptas(sesion)) return false;
+        sesion.Estado = "Eliminada";
+        sesion.FechaArchivo = DateTime.Now;
+        sesion.UsuarioArchivo = usuario;
+        sesion.MotivoArchivo = "Sin notas aprobadas. Se conservan las notas devueltas y su recorrido.";
+        db.TrazaEventos.Add(new TrazaEventoEntity { SesionId = id, Usuario = usuario, Rol = rol,
+            Estado = "Eliminada", Evento = "SESION_SIN_APTAS_ELIMINADA", Detalle = sesion.MotivoArchivo });
+        foreach (var nota in sesion.Notas)
+            db.TrazaEventos.Add(new TrazaEventoEntity { SesionId = id, NotaId = nota.Id,
+                Usuario = usuario, Rol = rol, Estado = nota.VersionActual?.EstadoRevision,
+                Evento = "SESION_SIN_APTAS_ELIMINADA", Detalle = "La síntesis de origen fue quitada sin notas aprobadas. La noticia permanece disponible para la delegación." });
+        try { await db.SaveChangesAsync(); return true; }
+        catch (DbUpdateConcurrencyException) { return false; }
+    }
+
     private async Task<bool> CambiarArchivoAsync(int id, string usuario, string rol, string? motivo, bool archivar)
     {
         motivo = motivo?.Trim();

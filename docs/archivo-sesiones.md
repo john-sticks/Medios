@@ -34,3 +34,13 @@ un historial compartido. El POST repite el análisis y exige el mismo alcance
 confirmado. La eliminación completa es transaccional y serializable en MySQL.
 Se conservan trazas, auditoría y archivos físicos como respaldo; no se ejecuta
 limpieza de archivos ni se alteran publicaciones ajenas.
+
+## Síntesis sin notas aprobadas
+
+Quitar sin notas aptas acepta Finalizadas/Archivadas con cero notas o solo notas
+rechazadas; nunca pendientes o aprobadas. Desaparece de la bandeja, pero se guarda
+una cabecera mínima con estado Eliminada (fecha/tipo/delegación) y un evento por
+noticia. No se borran notas ni versiones. La delegación puede recuperarlas en un
+nuevo borrador con el mismo ID e historial, o eliminarlas por su flujo habitual.
+Las pantallas antiguas de aprobación/descarte no pueden reabrir esa cabecera.
+El borrado definitivo de archivadas bloquea notas devueltas a la delegación.

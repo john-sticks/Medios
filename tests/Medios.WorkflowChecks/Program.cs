@@ -176,6 +176,7 @@ comprobaciones += await ConsolidacionSeleccionChecks.RunAsync();
 comprobaciones += await ConsolidacionVaciasChecks.RunAsync();
 comprobaciones += await ArchivoSesionesChecks.RunAsync();
 comprobaciones += await EliminarArchivadasChecks.RunAsync();
+comprobaciones += await CierreSinAptasChecks.RunAsync();
 comprobaciones += await InformarChecks.RunAsync();
 comprobaciones += await FiltradasChecks.RunAsync();
 comprobaciones += WordChecks.Run(args.Length >= 2 && args[0] == "--word-samples" ? args[1] : null);

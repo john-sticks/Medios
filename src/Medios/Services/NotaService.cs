@@ -292,10 +292,10 @@ namespace Medios.Services
         {
             using var db = _factory.Create();
             var nota = await db.NotasPrensa
-                .Include(n => n.VersionActual)
+                .Include(n => n.VersionActual).Include(n => n.Sesion)
                 .FirstOrDefaultAsync(n => n.Id == notaId);
 
-            if (nota?.VersionActual == null) return false;
+            if (nota?.VersionActual == null || nota.Sesion?.Estado == "Eliminada") return false;
 
             // Actualizar en-place sin crear nueva versión
             nota.VersionActual.EstadoRevision = "Aprobada";
@@ -320,10 +320,10 @@ namespace Medios.Services
         {
             using var db = _factory.Create();
             var nota = await db.NotasPrensa
-                .Include(n => n.VersionActual)
+                .Include(n => n.VersionActual).Include(n => n.Sesion)
                 .FirstOrDefaultAsync(n => n.Id == notaId);
 
-            if (nota?.VersionActual == null) return false;
+            if (nota?.VersionActual == null || nota.Sesion?.Estado == "Eliminada") return false;
 
             // Modificar crea una nueva versión que CONSERVA el estado de revisión anterior
             // (no retrocede el flujo). La aprobación es una acción aparte del operador.
@@ -396,10 +396,10 @@ namespace Medios.Services
         {
             using var db = _factory.Create();
             var nota = await db.NotasPrensa
-                .Include(n => n.VersionActual)
+                .Include(n => n.VersionActual).Include(n => n.Sesion)
                 .FirstOrDefaultAsync(n => n.Id == notaId);
 
-            if (nota?.VersionActual == null) return false;
+            if (nota?.VersionActual == null || nota.Sesion?.Estado == "Eliminada") return false;
 
             // Una nota descartada se desvincula de las síntesis en curso (no Informadas):
             // no debe pertenecer a ninguna síntesis, y así no hay conflicto si luego la

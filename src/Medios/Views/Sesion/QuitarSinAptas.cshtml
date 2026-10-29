@@ -1,0 +1,13 @@
+@model Medios.Entities.SesionPrensa
+@{ ViewData["Title"] = "Quitar síntesis sin notas aptas"; Layout = "~/Views/Shared/_Layout.cshtml"; }
+<div class="box box-warning"><div class="box-header with-border"><h3 class="box-title">Quitar síntesis sin notas aptas</h3></div>
+<div class="box-body">
+<p><strong>@Model.Fecha.ToString("dd/MM/yyyy") · @Model.Turno · @Model.Delegacion?.Nombre · #@Model.Id</strong></p>
+<div class="alert alert-warning">Se quitará esta síntesis de la bandeja porque no tiene notas aprobadas.
+Las @Model.Notas.Count nota(s) descartada(s) se conservarán: la delegación podrá corregirlas y remitirlas en un nuevo borrador, o eliminarlas.
+Se conservará la referencia a esta síntesis en el recorrido de cada noticia.</div>
+<form method="post" asp-controller="Sesion" asp-action="QuitarSinAptas">
+<input type="hidden" name="id" value="@Model.Id" />
+<div class="checkbox"><label><input type="checkbox" name="confirmado" value="true" required /> Confirmo quitar la síntesis conservando las notas descartadas.</label></div>
+<button type="submit" class="btn btn-warning">Quitar síntesis</button> <a href="/Sesion/Bandeja#finalizadas" class="btn btn-default">Cancelar</a>
+</form></div></div>

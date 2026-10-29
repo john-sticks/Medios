@@ -186,7 +186,11 @@
                                     <td class="text-right" style="white-space:nowrap;">
                                         <a href="/Sesion/Detalle/@s.Id" class="btn btn-xs btn-primary"><i class="fa fa-eye"></i> Ver</a>
                                         @if (s.Estado == "Finalizada") {
-                                            <a href="/Sesion/Archivar/@s.Id" class="btn btn-xs btn-warning" title="Archivar sin eliminar notas"><i class="fa fa-archive"></i> Archivar</a>
+                                            @if (SesionService.PuedeQuitarSinAptas(s)) {
+                                                <a href="/Sesion/QuitarSinAptas/@s.Id" class="btn btn-xs btn-danger">Quitar sin notas aptas</a>
+                                            } else {
+                                                <a href="/Sesion/Archivar/@s.Id" class="btn btn-xs btn-warning" title="Archivar sin eliminar notas"><i class="fa fa-archive"></i> Archivar</a>
+                                            }
                                         }
                                         <a href="/Sesion/ExportarExcel/@s.Id" class="btn btn-xs btn-success" title="Excel"><i class="fa fa-file-excel-o"></i></a>
                                         @if (SintesisWorkflowPolicy.PuedeFinalizar(s))
@@ -292,9 +296,11 @@
                                             <input type="hidden" name="id" value="@s.Id" />
                                             <button type="submit" class="btn btn-xs btn-default"><i class="fa fa-undo"></i> Restaurar</button>
                                         </form>
-                                        <a href="/Sesion/EliminarArchivada/@s.Id" class="btn btn-xs btn-danger" title="Revisar eliminación de síntesis y notas">
-                                            <i class="fa fa-trash"></i> Eliminar
-                                        </a>
+                                        @if (SesionService.PuedeQuitarSinAptas(s)) {
+                                            <a href="/Sesion/QuitarSinAptas/@s.Id" class="btn btn-xs btn-danger">Quitar sin notas aptas</a>
+                                        } else {
+                                            <a href="/Sesion/EliminarArchivada/@s.Id" class="btn btn-xs btn-danger" title="Revisar eliminación de síntesis y notas"><i class="fa fa-trash"></i> Eliminar</a>
+                                        }
                                     </td>
                                 </tr>
                             }</tbody>

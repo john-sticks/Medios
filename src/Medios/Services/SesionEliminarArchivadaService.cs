@@ -33,7 +33,12 @@ public partial class SesionService
                 && s.Estado is "Borrador" or "Generada" or "Remitida"
                 && s.NotasIncluidas.All(sn => notas.Contains(sn.NotaPrensaId) && versionIds.Contains(sn.NotaVersionId)))
             .Select(s => s.Id).Order().ToList();
+        var actuales = sesion.Notas.Select(n => n.VersionActualId).ToHashSet();
+        var devueltas = versiones.Any(v => actuales.Contains(v.Id) && v.EstadoRevision is "Descartada" or "Sin Remitir");
         var bloqueos = new List<string>();
+        if (versiones.Any(v => actuales.Contains(v.Id) && v.EstadoRevision is not ("Aprobada" or "Finalizada" or "Agregada" or "Descartada" or "Sin Remitir") && !(sesion.Delegacion?.Nombre == "División Medios" && v.EstadoRevision is "Borrador" or "Remitida")))
+            bloqueos.Add("Hay notas pendientes de revisar; no pueden eliminarse por este flujo.");
+        if (devueltas) bloqueos.Add("Hay notas devueltas a la delegación. Deben conservarse para su corrección o eliminación por la delegación. Si no hay notas aprobadas, usá Quitar síntesis sin notas aptas.");
         if (sesion.Estado != "Archivada" || sesion.SintesisConsolidadaId != null)
             bloqueos.Add("Solo se pueden eliminar síntesis archivadas sin consolidar.");
         if (referencias.Any(sn => !propias.Contains(sn.SintesisId)))
