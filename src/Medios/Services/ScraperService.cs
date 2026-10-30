@@ -37,7 +37,11 @@ public class ScraperService
             if (EsRedSocial(dominio))
                 return await ScrapearRedSocialAsync(url, dominio);
 
-            using var httpResp = await _http.GetAsync(url);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            // La Opinión rechaza el identificador Chrome genérico; acepta identificar al importador.
+            if (dominio == "laopinion.com.ar")
+                request.Headers.UserAgent.ParseAdd("Keryx/1.0");
+            using var httpResp = await _http.SendAsync(request);
             httpResp.EnsureSuccessStatusCode();
             var htmlBytes = await httpResp.Content.ReadAsByteArrayAsync();
             var html = DecodificarHtml(htmlBytes, httpResp.Content.Headers.ContentType?.CharSet);
