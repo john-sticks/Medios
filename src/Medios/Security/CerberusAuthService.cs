@@ -40,13 +40,21 @@ namespace Medios.Security
             return new LoginResponse { Usuario = usuario, Token = result.access_token };
         }
 
-        public async Task<string?> ObtenerRolCerberusAsync(string token)
+        public async Task<string?> ObtenerRolCerberusAsync(string token) =>
+            (await ObtenerPerfilAsync(token))?.Rol.Trim().ToUpperInvariant();
+
+        public async Task<UserSession?> ObtenerPerfilAsync(string token)
         {
-            // El rol solo se confía a la respuesta del servidor Cerberus, nunca a datos del navegador.
-            // Una falla de este recurso no impide usar una autorización local ya vigente.
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-            try { return (await ConsultarPerfilAsync(token, timeout.Token))?.rol?.Trim().ToUpperInvariant(); }
-            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException) { return null; }
+            try
+            {
+                var data = await ConsultarPerfilAsync(token, timeout.Token);
+                return data == null ? null : CrearSesion(data, token);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException)
+            {
+                return null;
+            }
         }
 
         private async Task<CerberusUserResponse?> ConsultarPerfilAsync(string token, CancellationToken ct)
@@ -70,7 +78,10 @@ namespace Medios.Security
             var data = await ConsultarPerfilAsync(token, CancellationToken.None);
             if (data == null) return null;
 
-            return new UserSession
+            return CrearSesion(data, token);
+        }
+
+        private static UserSession CrearSesion(CerberusUserResponse data, string token) => new()
             {
                 Nombre = data?.nombre ?? "",
                 Apellido = data?.apellido ?? "",
@@ -82,7 +93,6 @@ namespace Medios.Security
                 Legajo = data?.legajo ?? "",
                 Telefono = data?.telefono ?? ""
             };
-        }
     }
 
     public class CerberusUserResponse

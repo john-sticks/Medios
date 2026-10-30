@@ -73,23 +73,19 @@ namespace Medios.Controllers
             // Las cuentas Mock usan una identidad canónica también en autorizaciones y claims.
             if (_auth is MockAuthService) Usuario = loginResult.Usuario ?? Usuario.ToLowerInvariant();
 
-            // Cerberus valida credenciales; el acceso y el perfil operativo son locales.
-            // No consultar info-servicio, que requiere una asignación previa en Cerberus.
+            // El perfil central completa los datos personales; el acceso sigue requiriendo aprobación local.
             var usaAutorizacionLocal = _auth.UsaAutorizacionLocal;
-            var local = usaAutorizacionLocal
-                ? await _autorizacionService.GetUltimaAsync(Usuario)
-                : null;
+            var local = usaAutorizacionLocal ? await _autorizacionService.GetUltimaAsync(Usuario) : null;
+            var consultarPerfil = usaAutorizacionLocal
+                && (local == null || local.Estado == "pendiente" || AutorizacionLocalPolicy.PermiteAcceso(local));
+            var perfil = consultarPerfil ? await _auth.ObtenerPerfilAsync(loginResult.Token) : null;
+            if (perfil != null && local is { Estado: "aprobada" or "pendiente" })
+            {
+                await _autorizacionService.ActualizarPerfilAsync(local.Id, Usuario, perfil);
+                local = await _autorizacionService.GetUltimaAsync(Usuario);
+            }
             var user = usaAutorizacionLocal
-                ? new UserSession
-                {
-                    Nombre = string.IsNullOrWhiteSpace(local?.Nombre) ? Usuario : local.Nombre,
-                    Email = local?.Email ?? "",
-                    Dependencia = local?.Destino ?? "",
-                    Jerarquia = local?.Jerarquia ?? "",
-                    Legajo = local?.Legajo ?? "",
-                    Telefono = local?.Telefono ?? "",
-                    Token = loginResult.Token
-                }
+                ? PerfilUsuarioLocal.Combinar(Usuario, loginResult.Token, local, perfil)
                 : await _auth.GetUserInfo(loginResult.Token);
 
             if (user == null)
@@ -103,7 +99,7 @@ namespace Medios.Controllers
             {
                 rolCerberus = "";
                 if (AutorizacionLocalPolicy.PermiteAcceso(local))
-                    rolCerberus = await _auth.ObtenerRolCerberusAsync(loginResult.Token) ?? "";
+                    rolCerberus = perfil?.Rol.Trim().ToUpperInvariant() ?? "";
             }
             var rolAuth = NormalizeCerberusRole(rolCerberus);
             var rolesConAutorizacion = new[] { "MEDIOS", "DELEGACION" };

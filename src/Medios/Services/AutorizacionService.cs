@@ -33,6 +33,28 @@ namespace Medios.Services
                 .FirstOrDefaultAsync();
         }
 
+        public async Task ActualizarPerfilAsync(int id, string usuario, Medios.Security.UserSession perfil)
+        {
+            using var db = _factory.Create();
+            var actual = await db.AutorizacionesUsuario.FindAsync(id);
+            if (actual == null || !actual.Usuario.Equals(usuario, StringComparison.OrdinalIgnoreCase)) return;
+            static string? Dato(string? nuevo, string? previo, int maximo)
+            {
+                if (string.IsNullOrWhiteSpace(nuevo)) return previo;
+                var limpio = nuevo.Trim();
+                return limpio[..Math.Min(limpio.Length, maximo)];
+            }
+            if (!string.IsNullOrWhiteSpace(perfil.Nombre))
+                actual.Nombre = Dato($"{perfil.Nombre} {perfil.Apellido}".Trim(), actual.Nombre, 200)!;
+            actual.Email = Dato(perfil.Email, actual.Email, 200);
+            actual.Destino = Dato(perfil.Dependencia, actual.Destino, 300);
+            actual.Jerarquia = Dato(perfil.Jerarquia, actual.Jerarquia, 100);
+            actual.Legajo = Dato(perfil.Legajo, actual.Legajo, 50);
+            actual.Telefono = Dato(perfil.Telefono, actual.Telefono, 50);
+            // No actualizar rol, delegación, ámbito, código, fechas ni estado de aprobación.
+            await db.SaveChangesAsync();
+        }
+
         public async Task<AutorizacionUsuario?> GetPendiente(string usuario)
         {
             using var db = _factory.Create();

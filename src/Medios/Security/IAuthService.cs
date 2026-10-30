@@ -4,6 +4,7 @@ namespace Medios.Security
     {
         bool UsaAutorizacionLocal => false;
         Task<string?> ObtenerRolCerberusAsync(string token) => Task.FromResult<string?>(null);
+        Task<UserSession?> ObtenerPerfilAsync(string token) => Task.FromResult<UserSession?>(null);
         Task<LoginResponse?> LoginAsync(string usuario, string password);
         Task<UserSession?> GetUserInfo(string token);
     }

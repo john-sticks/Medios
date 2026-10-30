@@ -97,7 +97,11 @@ static class MockLoginChecks
         public bool UsaAutorizacionLocal => true;
         public int ConsultasPerfil { get; private set; }
         public Task<LoginResponse?> LoginAsync(string usuario, string password) => Task.FromResult<LoginResponse?>(new LoginResponse { Usuario = usuario, Token = "token-de-prueba" });
-        public Task<string?> ObtenerRolCerberusAsync(string token) { ConsultasPerfil++; return Task.FromResult<string?>("SUPERVISOR"); }
+        public Task<UserSession?> ObtenerPerfilAsync(string token)
+        {
+            ConsultasPerfil++;
+            return Task.FromResult<UserSession?>(new UserSession { Rol = "SUPERVISOR" });
+        }
         public Task<UserSession?> GetUserInfo(string token) => throw new InvalidOperationException("La identidad local no depende de info-servicio");
     }
 
