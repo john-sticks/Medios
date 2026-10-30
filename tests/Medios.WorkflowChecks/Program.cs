@@ -163,6 +163,7 @@ Verificar(!SintesisWorkflowPolicy.PuedeFinalizar(incompleta), "Una nota sin vers
 incompleta.Notas.Add(new NotaPrensa { VersionActual = new NotaVersion { EstadoRevision = "Aprobada" } });
 Verificar(!SintesisWorkflowPolicy.PuedeFinalizar(incompleta), "Aprobar una nota no habilita finalizar si otra sigue pendiente");
 
+comprobaciones += await IARutaAmbienteChecks.RunAsync();
 comprobaciones += await RespaldosChecks.RunAsync();
 comprobaciones += await ScrapingTitulosChecks.RunAsync();
 comprobaciones += await MockLoginChecks.RunAsync();

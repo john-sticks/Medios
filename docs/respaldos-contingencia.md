@@ -121,3 +121,11 @@ Procedimiento para el retorno:
 
 La conciliación/importador de tres vías sigue siendo un paso operativo supervisado. El módulo entrega la evidencia
 para realizarlo y evita presentar una restauración destructiva como sincronización.
+
+## IA local al probar una copia productiva
+
+TestBackup__OllamaBaseUrl puede fijar la ruta privada del NAS para Ollama.
+Solo tiene efecto con Deployment__Environment=Test. Se usa para generación de síntesis,
+clasificación y consulta de modelos, sin cambiar ia_ollama_url en ninguna base.
+Así las restauraciones conservan la configuración productiva, mientras test usa su red local.
+La opción se ignora en producción aunque quedara configurada accidentalmente.

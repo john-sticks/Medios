@@ -9,12 +9,14 @@ public class ConfiguracionController : Controller
     private readonly ConfiguracionService _config;
     private readonly AuditoriaService _auditoria;
     private readonly EmailService _email;
+    private readonly IConfiguration _ambiente;
 
-    public ConfiguracionController(ConfiguracionService config, AuditoriaService auditoria, EmailService email)
+    public ConfiguracionController(ConfiguracionService config, AuditoriaService auditoria, EmailService email, IConfiguration ambiente)
     {
         _config = config;
         _auditoria = auditoria;
         _email = email;
+        _ambiente = ambiente;
     }
 
     private string GetNombre() => User.Identity?.Name ?? "";
@@ -33,6 +35,7 @@ public class ConfiguracionController : Controller
         ViewBag.OrModelo          = cfg.GetValueOrDefault("ia_modelo") ?? "google/gemma-3-27b-it:free";
         ViewBag.OrApiKey          = cfg.GetValueOrDefault("ia_openrouter_apikey") ?? "";
         ViewBag.OllamaUrl         = cfg.GetValueOrDefault("ia_ollama_url") ?? "http://localhost:11434";
+        ViewBag.OllamaUrlLocalTest = IAService.UrlLocalDeTest(_ambiente);
         ViewBag.OllamaModelo      = cfg.GetValueOrDefault("ia_ollama_modelo") ?? "qwen2.5:7b-instruct";
         return View();
     }
@@ -60,7 +63,7 @@ public class ConfiguracionController : Controller
     [HttpGet]
     public async Task<IActionResult> OllamaModelos([FromQuery] string? url)
     {
-        var baseUrl = (url ?? "http://localhost:11434").TrimEnd('/');
+        var baseUrl = (IAService.UrlLocalDeTest(_ambiente) ?? url ?? "http://localhost:11434").TrimEnd('/');
         try
         {
             using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };

@@ -78,6 +78,11 @@
                 </div>
                 <div class="box-body">
                     <div class="form-group">
+                        @if(ViewBag.OllamaUrlLocalTest is string local)
+                        {
+                            <p class="text-info">En test se usa la conexión local del NAS: <code>@local</code>.
+                            La URL guardada se conserva, también al probar una copia productiva.</p>
+                        }
                         <label>URL de Ollama</label>
                         <input type="text" name="ollamaUrl" class="form-control" value="@ollamaUrl"
                                placeholder="http://10.10.10.41:11434" />

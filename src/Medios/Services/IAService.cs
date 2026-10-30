@@ -17,13 +17,24 @@ public class IAService
         _cfg = cfg;
     }
 
+    public static string? UrlLocalDeTest(IConfiguration config)
+    {
+        if (!string.Equals(config["Deployment:Environment"], "Test", StringComparison.OrdinalIgnoreCase))
+            return null;
+        var local = config["TestBackup:OllamaBaseUrl"]?.Trim();
+        if (string.IsNullOrWhiteSpace(local)) return null;
+        if (!Uri.TryCreate(local, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+            throw new InvalidOperationException("La ruta local de Ollama para test no es válida.");
+        return local.TrimEnd('/');
+    }
+
     private async Task<(string Endpoint, string? ApiKey, string Modelo)> ResolverProveedorAsync()
     {
         var proveedor = await _cfg.GetAsync("ia_proveedor") ?? "openrouter";
 
         if (proveedor == "ollama")
         {
-            var url = (await _cfg.GetAsync("ia_ollama_url") ?? "http://localhost:11434").TrimEnd('/');
+            var url = (UrlLocalDeTest(_config) ?? await _cfg.GetAsync("ia_ollama_url") ?? "http://localhost:11434").TrimEnd('/');
             var modelo = await _cfg.GetAsync("ia_ollama_modelo") ?? "qwen2.5:7b-instruct";
             return ($"{url}/v1/chat/completions", null, modelo);
         }
