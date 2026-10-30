@@ -28,10 +28,16 @@
       <page title="Autorizaciones" icon="fa fa-id-card" href="~/autorizacion/listado" />
       <page title="Prompt IA" icon="fa fa-magic" href="~/configuracion/promptia" />
       <page title="Configuración Mail" icon="fa fa-envelope" href="~/configuracion/mail" />
+      <page title="Grupos de correo" icon="fa fa-address-book" href="~/gruposcorreo" />
     </group>
     <page title="Portales" icon="fa fa-globe" href="~/portales/listado" />
   </navigation>
   <notnavigation>
+    <page href="~/gruposcorreo/index" />
+    <page href="~/gruposcorreo/nuevo" />
+    <page href="~/gruposcorreo/editar" />
+    <page href="~/gruposcorreo/guardar" />
+    <page href="~/gruposcorreo/eliminar" />
     <page href="~/archivopdf/index" />
     <page href="~/archivopdf/descargar" />
     <page href="~/archivopdf/reemplazar" />
@@ -63,8 +69,10 @@
     <page href="~/sesion/cambiarborrador" />
     <page href="~/sesion/generarpdf" />
     <page href="~/sesion/revertirfinalizada" />
+    <page href="~/sesion/reabrirrevision" />
     <page href="~/sesion/remitir" />
     <page href="~/sesion/exportarexcel" />
+    <page href="~/sesion/exportarword" />
     <page href="~/sesion/localidadesbypartido" />
     <page href="~/sesion/modalidadesbycaratula" />
     <page href="~/auditoria" />

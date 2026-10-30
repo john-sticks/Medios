@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using Microsoft.EntityFrameworkCore;
 using Medios.Entities;
 using Medios.Infrastructure.Data;
@@ -16,10 +17,10 @@ namespace Medios.Services
         private readonly NotaService _notaService;
 
         public SesionService(IMediosDbContextFactory factory, IWebHostEnvironment env,
-            SintesisService sintesisService, NotaService notaService)
+            SintesisService sintesisService, NotaService notaService, DatosTestEnvironment? rutas = null)
         {
             _factory = factory;
-            _env = env;
+            _env = rutas ?? env;
             _sintesisService = sintesisService;
             _notaService = notaService;
         }
@@ -621,6 +622,9 @@ namespace Medios.Services
                 .Include(sn => sn.NotaVersion).Include(sn => sn.Sintesis)
                 .Where(sn => notaIds.Contains(sn.NotaPrensaId) && sn.Sintesis.Estado != "Borrador")
                 .ToListAsync();
+            var reabiertas = await VersionesReabiertasAsync(db, notaIds);
+            snList = snList.Where(sn => !reabiertas.TryGetValue(sn.NotaPrensaId, out var minima)
+                || sn.NotaVersion.Version >= minima).ToList();
             var snapByNota = snList
                 .GroupBy(sn => sn.NotaPrensaId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(sn => sn.SintesisId).First().NotaVersion);

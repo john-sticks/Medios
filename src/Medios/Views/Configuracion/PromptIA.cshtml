@@ -5,7 +5,7 @@
     var proveedor    = (string)(ViewBag.Proveedor    ?? "openrouter");
     var orModelo     = (string)(ViewBag.OrModelo     ?? "google/gemma-3-27b-it:free");
     var orApiKey     = (string)(ViewBag.OrApiKey     ?? "");
-    var ollamaUrl    = (string)(ViewBag.OllamaUrl    ?? "http://localhost:11434");
+    var ollamaUrl    = (string)(ViewBag.OllamaUrl    ?? "http://10.10.10.41:11434");
     var ollamaModelo = (string)(ViewBag.OllamaModelo ?? "qwen2.5:7b-instruct");
 }
 
@@ -80,7 +80,7 @@
                     <div class="form-group">
                         <label>URL de Ollama</label>
                         <input type="text" name="ollamaUrl" class="form-control" value="@ollamaUrl"
-                               placeholder="http://localhost:11434" />
+                               placeholder="http://10.10.10.41:11434" />
                     </div>
                     <div class="form-group">
                         <label>Modelo</label>
@@ -150,7 +150,7 @@ function seleccionarProveedor(p) {
 }
 
 function cargarModelosOllama() {
-    var url = document.querySelector('[name="ollamaUrl"]').value || 'http://localhost:11434';
+    var url = document.querySelector('[name="ollamaUrl"]').value || 'http://10.10.10.41:11434';
     fetch('/Configuracion/OllamaModelos?url=' + encodeURIComponent(url))
         .then(r => r.json())
         .then(data => {

@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using Microsoft.EntityFrameworkCore;
 using MySqlConnector;
 using Medios.Entities;
@@ -12,22 +13,26 @@ namespace Medios.Infrastructure.Data
     public class MediosDbContextFactory : IMediosDbContextFactory
     {
         private readonly IConfiguration _configuration;
+        private readonly RespaldoStore? _store;
+        private readonly DatosTestContext? _datos;
         private readonly ILogger<MediosDbContextFactory> _logger;
 
-        public MediosDbContextFactory(IConfiguration configuration, ILogger<MediosDbContextFactory> logger)
+        public MediosDbContextFactory(IConfiguration configuration, ILogger<MediosDbContextFactory> logger, RespaldoStore? store = null, DatosTestContext? datos = null)
         {
             _configuration = configuration;
-            _logger = logger;
+            _logger = logger; _store = store; _datos = datos;
         }
 
-        public MediosDbContext Create()
+        public virtual MediosDbContext Create() => Crear(_store?.Habilitado == true && _datos?.Copia == true);
+        public virtual MediosDbContext CreateCopy() => _store?.Habilitado == true ? Crear(true) : throw new InvalidOperationException("Copia habilitada solo en test.");
+        private MediosDbContext Crear(bool copia)
         {
-            var connStr = _configuration.GetConnectionString("MySql")
+            var connStr = (copia ? _configuration["TestBackup:CloneConnectionString"] : _configuration.GetConnectionString("MySql"))
                 ?? throw new InvalidOperationException("Connection string 'MySql' no configurada.");
 
             var builder = new MySqlConnectionStringBuilder(connStr)
             {
-                Database = "medios",
+                Database = copia ? RespaldoStore.BaseCopia : "medios",
                 ConnectionTimeout = 10,
                 DefaultCommandTimeout = 30,
                 Pooling = true,

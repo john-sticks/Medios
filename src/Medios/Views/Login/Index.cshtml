@@ -1,3 +1,4 @@
+@inject Medios.Services.Respaldos.RespaldoStore RespaldosLogin
 @{
     Layout = null;
 }
@@ -68,6 +69,7 @@
 
             <button type="submit" class="btn-ingresar">Ingresar</button>
         </form>
+@if(RespaldosLogin.Habilitado && (await RespaldosLogin.LeerAsync()).ContingenciaActiva){<p style="text-align:center;margin:18px 0 0"><a href="/Login/Contingencia">Ingresar con credencial de contingencia</a></p>}
     </div>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>

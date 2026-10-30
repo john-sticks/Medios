@@ -1,0 +1,4 @@
+@inject Medios.Services.Respaldos.RespaldoStore BackupStore
+@if(BackupStore.Habilitado){
+<div class="nav-tabs-custom" style="margin-bottom:22px"><ul class="nav nav-tabs"><li class="@(Context.Request.Path.StartsWithSegments("/Monitor")?"active":"")"><a href="/Monitor"><i class="fa fa-hdd-o"></i> Capacidad</a></li><li class="@(Context.Request.Path.StartsWithSegments("/Respaldos") && Context.Request.Query["seccion"]!="contingencia"?"active":"")"><a href="/Respaldos"><i class="fa fa-database"></i> Respaldos y copia de prueba</a></li><li class="@(Context.Request.Query["seccion"]=="contingencia"?"active":"")"><a href="/Respaldos?seccion=contingencia"><i class="fa fa-life-ring"></i> Contingencia</a></li></ul></div>
+}

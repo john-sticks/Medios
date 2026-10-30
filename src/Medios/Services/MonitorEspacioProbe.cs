@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using System.Data.Common;
 using Medios.Infrastructure.Data;
 using Medios.Models;
@@ -11,7 +12,7 @@ public interface IMonitorEspacioProbe
 }
 
 public class MonitorEspacioProbe(IMediosDbContextFactory factory, IWebHostEnvironment env,
-    ILogger<MonitorEspacioProbe> logger) : IMonitorEspacioProbe
+    ILogger<MonitorEspacioProbe> logger, DatosTestEnvironment? rutas = null) : IMonitorEspacioProbe
 {
     public async Task<MonitorLectura> MedirAsync(CancellationToken ct)
     {
@@ -53,8 +54,8 @@ public class MonitorEspacioProbe(IMediosDbContextFactory factory, IWebHostEnviro
             avisos.Add("No se pudieron obtener todas las métricas de la base de datos. La aplicación continúa funcionando.");
         }
 
-        var pdfPath = Path.Combine(env.WebRootPath, "pdf");
-        var imagenesPath = Path.Combine(env.WebRootPath, "uploads", "notas");
+        var pdfPath = Path.Combine((rutas ?? env).WebRootPath, "pdf");
+        var imagenesPath = Path.Combine((rutas ?? env).WebRootPath, "uploads", "notas");
         var pdf = MedirCarpeta(pdfPath, true, ct);
         var imagenes = MedirCarpeta(imagenesPath, false, ct);
         if (!pdf.Completo || !imagenes.Completo)

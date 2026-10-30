@@ -4,6 +4,7 @@
 @{
     ViewData["Title"] = "Informar Síntesis Consolidada";
     Layout = "~/Views/Shared/_Layout.cshtml";
+    var gruposCorreo = ViewBag.GruposCorreo as List<GrupoCorreo> ?? new();
     var smtpOk = (bool)(ViewBag.SmtpConfigurado ?? false);
     var delegacionesMail = ViewBag.DelegacionesMail as List<Delegacion> ?? new List<Delegacion>();
     var delegaciones = ViewBag.Delegaciones as List<Delegacion> ?? new List<Delegacion>();
@@ -114,6 +115,30 @@
                                 }
                             </div>
 
+                            <div style="margin-top:16px; margin-bottom:16px;">
+                                <strong>Grupos de correo</strong>
+                                @if (gruposCorreo.Count == 0)
+                                {
+                                    <p class="text-muted">No hay grupos activos con contactos. Se administran en <a href="/GruposCorreo">Administración → Grupos de correo</a>.</p>
+                                }
+                                else
+                                {
+                                    <p class="text-muted" style="margin:4px 0;">Se incluirán todos los contactos de los grupos elegidos, sin repetir correos.</p>
+                                    <label style="font-weight:normal;"><input type="checkbox" id="chkTodosGrupos" @(smtpOk ? "" : "disabled") /> Seleccionar todos los grupos</label>
+                                    <div style="max-height:260px; overflow:auto; border:1px solid #eee; border-radius:4px; padding:6px 10px;">
+                                    @foreach (var grupo in gruposCorreo)
+                                    {
+                                        <div style="padding:6px 0;">
+                                            <label style="cursor:pointer;"><input type="checkbox" class="chkGrupoCorreo" name="grupoCorreoIds" value="@grupo.Id" @(smtpOk ? "" : "disabled") /> @grupo.Nombre <span class="badge">@grupo.Contactos.Count</span></label>
+                                            <details><summary class="text-muted" style="cursor:pointer;">Ver destinatarios</summary>
+                                                <ul>@foreach (var contacto in grupo.Contactos.OrderBy(c => c.Apellido).ThenBy(c => c.Nombre)) { <li>@contacto.Nombre @contacto.Apellido — @contacto.Email</li> }</ul>
+                                            </details>
+                                        </div>
+                                    }
+                                    </div>
+                                }
+                            </div>
+
                             <div style="margin-top:10px;">
                                 <strong style="font-size:13px;">Otros correos (a mano)</strong>
                                 <textarea name="mails" class="form-control" rows="2" @(smtpOk ? "" : "disabled")
@@ -144,6 +169,10 @@
             boton.disabled = true;
             boton.setAttribute('aria-busy', 'true');
             boton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Informando...';
+        });
+        document.getElementById('chkTodosGrupos')?.addEventListener('change', function () {
+            const seleccionar = this.checked;
+            document.querySelectorAll('.chkGrupoCorreo').forEach(c => { if (!c.disabled) c.checked = seleccionar; });
         });
         document.getElementById('chkTodasDeleg')?.addEventListener('change', function () {
             var chk = this.checked;

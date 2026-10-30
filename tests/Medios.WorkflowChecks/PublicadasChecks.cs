@@ -39,7 +39,7 @@ static class PublicadasChecks
             try { await service.GetPublicadasAsync(inicio, fecha); throw new InvalidOperationException("Aceptó período inválido"); }
             catch (ArgumentException) { Check(true, "Servicio rechaza período inválido"); }
         }
-        SintesisController Controller() => new(service, null!, null!, null!, null!, null!, null!, null!)
+        SintesisController Controller() => new(service, null!, null!, null!, null!, null!, null!, null!, new GruposCorreoService(factory))
             { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
         var controller = Controller();
         var inicial = (ViewResult)await controller.Publicadas();

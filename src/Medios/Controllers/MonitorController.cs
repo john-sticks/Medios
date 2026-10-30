@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using Medios.Models;
 using Medios.Security;
 using Medios.Services;
@@ -8,7 +9,7 @@ namespace Medios.Controllers;
 
 [Authorize(Roles = "DESARROLLADOR")]
 [HasPermission("VER_MONITOR")]
-public class MonitorController(MonitorEspacioService monitor) : Controller
+public class MonitorController(MonitorEspacioService monitor, ModoOperativoStore? modo = null) : Controller
 {
     [HttpGet]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
@@ -26,5 +27,12 @@ public class MonitorController(MonitorEspacioService monitor) : Controller
         {
             Resultado = await monitor.ObtenerAsync(ct), NotasPorDia = notasPorDia, VersionesPorNota = versionesPorNota
         });
+    }
+    [HttpPost,ValidateAntiForgeryToken]
+    public async Task<IActionResult> Modo(bool activar)
+    {
+        if(!User.IsInRole("DESARROLLADOR") || modo==null)return Forbid();
+        await modo.GuardarAsync(activar,User.FindFirst("UsuarioReal")?.Value??User.Identity?.Name??"");
+        return RedirectToAction(nameof(Index));
     }
 }

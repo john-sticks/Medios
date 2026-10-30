@@ -51,7 +51,7 @@ static class InformarChecks
         http.User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Role, "MEDIOS"), new Claim(ClaimTypes.Name, "QA") }, "test"));
         var accessor = new HttpContextAccessor { HttpContext = http };
         var audit = new AuditoriaService(factory, accessor);
-        var controller = new SintesisController(service, null!, audit, null!, null!, new TrazaService(factory, accessor), null!, null!)
+        var controller = new SintesisController(service, null!, audit, null!, null!, new TrazaService(factory, accessor), null!, null!, new GruposCorreoService(factory))
         {
             ControllerContext = new ControllerContext { HttpContext = http },
             TempData = new TempDataDictionary(http, new TempProvider())

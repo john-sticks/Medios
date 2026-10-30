@@ -34,6 +34,7 @@ namespace Medios.Controllers
         [HttpPost]
         public async Task<IActionResult> Cambiar(string rol, string destino, int? delegacionId)
         {
+            if (User.HasClaim(c => c.Type == "BackupEmergencyEpoch")) return Forbid();
             if (_config["Auth:Mode"] != "Mock") return Forbid();
             if (!User.HasClaim("EsSimulador", "true")) return Forbid();
 
@@ -133,6 +134,7 @@ namespace Medios.Controllers
         [HttpPost]
         public async Task<IActionResult> Salir()
         {
+            if (User.HasClaim(c => c.Type == "BackupEmergencyEpoch")) return Forbid();
             if (_config["Auth:Mode"] != "Mock") return Forbid();
             if (!User.HasClaim("EsSimulador", "true")) return Forbid();
 

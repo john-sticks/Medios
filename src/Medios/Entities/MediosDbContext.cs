@@ -12,6 +12,9 @@ public class MediosDbContext : DbContext
     public DbSet<AreaResponsabilidad> AreasResponsabilidad { get; set; }
     public DbSet<Partido> Partidos { get; set; }
 
+    public DbSet<GrupoCorreo> GruposCorreo { get; set; }
+    public DbSet<ContactoCorreo> ContactosCorreo { get; set; }
+
     // Configuración
     public DbSet<Configuracion> Configuraciones { get; set; }
 
@@ -43,6 +46,11 @@ public class MediosDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<GrupoCorreo>().HasIndex(g => g.Nombre).IsUnique();
+        modelBuilder.Entity<ContactoCorreo>().HasIndex(c => new { c.GrupoCorreoId, c.Email }).IsUnique();
+        modelBuilder.Entity<ContactoCorreo>().HasOne(c => c.Grupo).WithMany(g => g.Contactos)
+            .HasForeignKey(c => c.GrupoCorreoId).OnDelete(DeleteBehavior.Cascade);
+
         base.OnModelCreating(modelBuilder);
 
         // NotaPrensa.SesionPrensaId -> SesionPrensa (nullable: notas "libres" no tienen sesión)

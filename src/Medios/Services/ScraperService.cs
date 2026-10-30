@@ -58,6 +58,18 @@ public class ScraperService
             var direccion = ExtraerDireccion(doc);
             var fechaNoticia = ExtraerFechaPublicacion(doc);
 
+            // Extraer el título antes de quitar header: algunos portales alojan allí el h1.
+            // La regla específica puede apuntar a h2/h3/div según el portal.
+            string? titulo = null;
+            if (!string.IsNullOrWhiteSpace(regla?.XPathTitulo))
+                titulo = doc.DocumentNode.SelectSingleNode(regla!.XPathTitulo)?.InnerText.Trim();
+            if (string.IsNullOrWhiteSpace(titulo))
+                titulo = doc.DocumentNode.SelectSingleNode("//article//h1 | //main//h1 | //h1")?.InnerText.Trim();
+            if (string.IsNullOrWhiteSpace(titulo))
+                titulo = doc.DocumentNode.SelectSingleNode("//title")?.InnerText.Trim();
+
+            titulo = LimpiarTexto(titulo);
+
             // Eliminar scripts, estilos, nav, footer, aside y secciones de ruido
             var removeNodes = doc.DocumentNode.SelectNodes(
                 "//script|//style|//nav|//footer|//aside|//header|//form|//iframe|//noscript");
@@ -93,17 +105,6 @@ public class ScraperService
                         node.Remove();
                 }
             }
-
-            // Título: regla del portal, sino <h1> del artículo o <title>
-            string? titulo = null;
-            if (!string.IsNullOrWhiteSpace(regla?.XPathTitulo))
-                titulo = doc.DocumentNode.SelectSingleNode(regla!.XPathTitulo)?.InnerText.Trim();
-            if (string.IsNullOrWhiteSpace(titulo))
-                titulo = doc.DocumentNode.SelectSingleNode("//article//h1 | //main//h1 | //h1")?.InnerText.Trim();
-            if (string.IsNullOrWhiteSpace(titulo))
-                titulo = doc.DocumentNode.SelectSingleNode("//title")?.InnerText.Trim();
-
-            titulo = LimpiarTexto(titulo);
 
             // Cuerpo — estrategias en orden:
             //   1. JSON-LD articleBody (si la regla lo permite y existe) — fuente más limpia

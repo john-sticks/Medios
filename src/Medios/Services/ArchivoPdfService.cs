@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using System.Globalization;
 using System.Text;
 using Medios.Infrastructure.Data;
@@ -15,7 +16,7 @@ public record ArchivoPdf(int Id, bool EsSesion, int? DelegacionId, string Delega
     public DateTime? FechaArchivo => FechaCargaUtc?.ToLocalTime() ?? FechaGeneracion;
 }
 
-public class ArchivoPdfService(IMediosDbContextFactory factory, IWebHostEnvironment env)
+public class ArchivoPdfService(IMediosDbContextFactory factory, IWebHostEnvironment env, DatosTestEnvironment? rutas = null)
 {
     public const int MaxDias = 15;
     public const int MaxBytes = 20 * 1024 * 1024;
@@ -38,7 +39,7 @@ public class ArchivoPdfService(IMediosDbContextFactory factory, IWebHostEnvironm
         if (string.IsNullOrWhiteSpace(ruta) || !ruta.StartsWith("/pdf/", StringComparison.Ordinal)) return null;
         var nombre = ruta[5..];
         if (nombre.Contains('/') || nombre.Contains('\\') || !nombre.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) return null;
-        return Path.Combine(env.WebRootPath, "pdf", nombre);
+        return Path.Combine((rutas ?? env).WebRootPath, "pdf", nombre);
     }
 
     public async Task<List<ArchivoPdf>> ListarAsync(DateOnly desde, DateOnly hasta, int? delegacionId = null, bool consolidados = false)
@@ -78,7 +79,7 @@ public class ArchivoPdfService(IMediosDbContextFactory factory, IWebHostEnvironm
 
     public AlmacenamientoPdf ObtenerAlmacenamiento()
     {
-        var carpeta = Path.Combine(env.WebRootPath, "pdf");
+        var carpeta = Path.Combine((rutas ?? env).WebRootPath, "pdf");
         long bytes = 0;
         var cantidad = 0;
         DateTime? desde = null, hasta = null;
@@ -153,7 +154,7 @@ public class ArchivoPdfService(IMediosDbContextFactory factory, IWebHostEnvironm
         var anterior = RutaFisica(sintesis.PDFPath);
         if (File.Exists(anterior))
         {
-            var respaldos = Path.Combine(env.WebRootPath, "pdf", "respaldos");
+            var respaldos = Path.Combine((rutas ?? env).WebRootPath, "pdf", "respaldos");
             Directory.CreateDirectory(respaldos);
             File.Copy(anterior, Path.Combine(respaldos, $"sintesis_{id}_{Guid.NewGuid():N}.pdf"));
         }

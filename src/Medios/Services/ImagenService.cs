@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Jpeg;
@@ -13,10 +14,10 @@ namespace Medios.Services
         private const int MaxAncho = 900;          // px — se reduce manteniendo proporción
         private const int CalidadJpeg = 80;
 
-        public ImagenService(HttpClient http, IWebHostEnvironment env, ILogger<ImagenService> logger)
+        public ImagenService(HttpClient http, IWebHostEnvironment env, ILogger<ImagenService> logger, DatosTestEnvironment? rutas = null)
         {
             _http = http;
-            _env = env;
+            _env = rutas ?? env;
             _logger = logger;
             _http.DefaultRequestHeaders.Add("User-Agent",
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36");

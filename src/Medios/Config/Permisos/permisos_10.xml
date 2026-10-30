@@ -33,12 +33,20 @@
       <page title="Auditoría" icon="fa fa-history" href="~/auditoria" />
       <page title="Prompt IA" icon="fa fa-magic" href="~/configuracion/promptia" />
       <page title="Configuración Mail" icon="fa fa-envelope" href="~/configuracion/mail" />
+      <page title="Grupos de correo" icon="fa fa-address-book" href="~/gruposcorreo" />
       <page title="Scraping de Portales" icon="fa fa-magnet" href="~/scraping/listado" />
     </group>
     <page title="Portales" icon="fa fa-globe" href="~/portales/listado" />
   </navigation>
   <notnavigation>
+    <page href="~/respaldos" />
+    <page href="~/gruposcorreo/index" />
+    <page href="~/gruposcorreo/nuevo" />
+    <page href="~/gruposcorreo/editar" />
+    <page href="~/gruposcorreo/guardar" />
+    <page href="~/gruposcorreo/eliminar" />
     <page href="~/monitor/index" />
+    <page href="~/monitor/modo" />
     <page href="~/archivopdf/index" />
     <page href="~/archivopdf/descargar" />
     <page href="~/archivopdf/reemplazar" />
@@ -50,6 +58,7 @@
     <page href="~/sesion/bandeja" />
     <page href="~/sesion/detalle" />
     <page href="~/sesion/finalizarsesion" />
+    <page href="~/sesion/reabrirrevision" />
     <page href="~/sesion/archivar" />
     <page href="~/sesion/restaurararchivada" />
     <page href="~/sesion/eliminararchivada" />
@@ -62,6 +71,7 @@
     <page href="~/sesion/agregar-nota" />
     <page href="~/sesion/agregarnotaexistente" />
     <page href="~/sesion/exportarexcel" />
+    <page href="~/sesion/exportarword" />
     <page href="~/sesion/localidadesbypartido" />
     <page href="~/sesion/modalidadesbycaratula" />
     <page href="~/nota/editar" />
@@ -112,6 +122,7 @@
     <page href="~/sincronizacion/guardarsajson" />
   </notnavigation>
   <permissions>
+    <permission name="ADMINISTRAR_RESPALDOS_TEST" />
     <permission name="VER_MONITOR" />
     <permission name="VER_SESIONES" />
     <permission name="CREAR_SESION" />

@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using Microsoft.AspNetCore.Mvc;
 using Medios.Security;
 using Medios.Services;
@@ -450,6 +451,18 @@ namespace Medios.Controllers
             }
         }
 
+        [HasPermission("REVISAR_SESION")]
+        [HttpPost, ValidateAntiForgeryToken]
+        public async Task<IActionResult> ReabrirRevision(int id)
+        {
+            if (!SesionService.PuedeAdministrarArchivo(GetRol())) return Forbid();
+            var ok = await _sesionService.ReabrirRevisionAsync(id, GetUsuario(), GetRol());
+            TempData[ok ? "Ok" : "Error"] = ok
+                ? "Síntesis devuelta a Procesando. Se deben volver a aprobar las notas que estaban aprobadas. Las denegadas conservan su estado."
+                : "No se pudo reabrir: la síntesis cambió o ya forma parte de una consolidada/publicación. Actualizá la bandeja.";
+            return Redirect(ok ? "/Sesion/Bandeja#procesando" : "/Sesion/Bandeja#finalizadas");
+        }
+
         // ── MEDIOS: revertir una Finalizada propia a Borrador para editarla ──
 
         [HasPermission("CREAR_SESION")]
@@ -740,6 +753,24 @@ namespace Medios.Controllers
             return RedirectToAction(nameof(Detalle), new { id = sesionId });
         }
 
+        // Alternativa editable para preparar fuera del sistema una sesión finalizada.
+        [HttpGet]
+        [Microsoft.AspNetCore.Authorization.Authorize(Roles = "MEDIOS,DESARROLLADOR")]
+        [HasPermission("VER_SESIONES")]
+        public async Task<IActionResult> ExportarWord(int id)
+        {
+            if (User.IsInRole("DELEGACION") || !(User.IsInRole("MEDIOS") || User.IsInRole("DESARROLLADOR"))) return Forbid();
+            var sesion = await _sesionService.GetByIdAsync(id);
+            if (sesion == null) return NotFound();
+            try
+            {
+                var bytes = SesionWordDocument.Crear(sesion, _env.WebRootPath);
+                return File(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    $"sintesis_finalizada_{sesion.Turno}_{sesion.Fecha:yyyyMMdd}_{id}.docx");
+            }
+            catch (InvalidOperationException e) { return Conflict(e.Message); }
+        }
+
         // ── Export Excel de sesión ────────────────────────────────────
 
         [HasPermission("VER_SESIONES")]
@@ -819,6 +850,7 @@ namespace Medios.Controllers
         }
 
         private IWebHostEnvironment _env =>
-            HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
+            (IWebHostEnvironment?)HttpContext.RequestServices.GetService<DatosTestEnvironment>()
+            ?? HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
     }
 }

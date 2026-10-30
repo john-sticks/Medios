@@ -6,7 +6,8 @@ public static class SintesisWorkflowPolicy
 {
     public static bool PuedeFinalizar(SesionPrensa sesion) =>
         sesion.Estado == "Remitida" && sesion.Notas.Count > 0
-        && sesion.Notas.All(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Descartada" or "Agregada" or "Finalizada");
+        && sesion.Notas.All(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Agregada" or "Finalizada"
+            || EsDescartada(n.VersionActual));
 
     public static bool EsDescartada(NotaVersion? version) =>
         version != null && (version.EstadoRevision == "Descartada"

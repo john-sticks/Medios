@@ -34,4 +34,6 @@
     <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
   </ItemGroup>
 
+<ItemGroup><Content Include="../../sql/36_grupos_correo.sql" Link="BackupSchema/36_grupos_correo.sql" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
+<ItemGroup><Content Include="../../scripts/keryx-backup-agent.py" Link="BackupAgent/keryx-backup-agent.py" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /><Content Include="../../scripts/install-backup-agent.sh" Link="BackupAgent/install-backup-agent.sh" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" /></ItemGroup>
 </Project>

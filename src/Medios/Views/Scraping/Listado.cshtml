@@ -40,6 +40,7 @@
                         <thead>
                             <tr>
                                 <th>Dominio</th>
+                                <th>Título (XPath)</th>
                                 <th>Cuerpo (XPath)</th>
                                 <th>Clases excluidas</th>
                                 <th>Estado</th>
@@ -53,6 +54,7 @@
                                     <td><strong>@r.Dominio</strong>
                                         @if (!string.IsNullOrEmpty(r.Descripcion)) { <br /><small class="text-muted">@r.Descripcion</small> }
                                     </td>
+                                    <td><code style="font-size:11px;">@(string.IsNullOrEmpty(r.XPathTitulo) ? "—" : r.XPathTitulo)</code></td>
                                     <td><code style="font-size:11px;">@(string.IsNullOrEmpty(r.XPathCuerpo) ? "—" : r.XPathCuerpo)</code></td>
                                     <td><small>@(string.IsNullOrEmpty(r.ClasesExcluir) ? "—" : r.ClasesExcluir)</small></td>
                                     <td>

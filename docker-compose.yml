@@ -8,6 +8,8 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8009
       ASPNETCORE_ENVIRONMENT: Production
+      Deployment__Environment: Production
+      TestBackup__Enabled: "false"
       TZ: America/Argentina/Buenos_Aires
       Auth__Mode: Cerberus
       ConnectionStrings__MySql: ${MYSQL_CONNECTION_STRING}

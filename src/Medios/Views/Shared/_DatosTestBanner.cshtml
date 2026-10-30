@@ -1,0 +1,7 @@
+@inject Medios.Services.Respaldos.DatosTestContext DatosTest
+@if(DatosTest.Copia){<div class="alert @(DatosTest.Emergencia?"alert-danger":"alert-warning")" style="margin-bottom:15px"><strong>@(DatosTest.Emergencia?"CONTINGENCIA OPERATIVA":"PRUEBAS CON COPIA PRODUCTIVA")</strong> · Base: @DatosTest.Nombre @if(!DatosTest.Emergencia){<span>· Correos reales bloqueados · </span><a href="/Respaldos">Cambiar base</a>}else{<span>· Trabajando en el NAS. Los cambios no se replican automáticamente a producción.</span>}</div>}
+
+@inject Medios.Services.Respaldos.ModoOperativoStore OperativoBanner
+@if(User.IsInRole("DELEGACION") && (await OperativoBanner.LeerAsync()).Mantenimiento){<div class="alert alert-warning"><strong>Sistema en mantenimiento.</strong> Podés consultar información. Los cambios de delegaciones están bloqueados.</div><script src="/js/mantenimiento.js" asp-append-version="true"></script>}
+
+@if(DatosTest.RetornoSoloLectura){<div class="alert alert-warning"><strong>Retorno en preparación.</strong> La copia está en solo lectura para todos los roles.</div>}

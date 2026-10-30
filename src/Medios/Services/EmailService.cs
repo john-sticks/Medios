@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using System.Net;
 using System.Net.Mail;
 
@@ -9,14 +10,15 @@ namespace Medios.Services
     public class EmailService
     {
         private readonly IConfiguration _config;
+        private readonly DatosTestContext? _datos;
         private readonly ConfiguracionService _cfgDb;
         private readonly ILogger<EmailService> _logger;
 
-        public EmailService(IConfiguration config, ConfiguracionService cfgDb, ILogger<EmailService> logger)
+        public EmailService(IConfiguration config, ConfiguracionService cfgDb, ILogger<EmailService> logger, DatosTestContext? datos = null)
         {
             _config = config;
             _cfgDb = cfgDb;
-            _logger = logger;
+            _logger = logger; _datos = datos;
         }
 
         // Lee una clave: primero de la DB (smtp_*), si está vacía cae a appsettings Smtp:*
@@ -38,6 +40,7 @@ namespace Medios.Services
             IEnumerable<string> destinatarios, string asunto, string cuerpoHtml,
             string? adjuntoPath = null, string? adjuntoNombre = null)
         {
+            if (_datos is { Copia: true, Emergencia: false }) return (false, "Los correos reales están bloqueados al probar la copia productiva.");
             var host = await LeerAsync("smtp_host", "Smtp:Host");
             if (string.IsNullOrWhiteSpace(host))
                 return (false, "El servidor de correo (SMTP) no está configurado.");

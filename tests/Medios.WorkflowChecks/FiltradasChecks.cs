@@ -97,7 +97,7 @@ static class FiltradasChecks
         Check(await service.EliminarConsolidadaAsync(otra) && (await service.GetByIdAsync(origenId))!.NotasIncluidas.Count == 3, "Eliminar una filtrada pendiente conserva el origen");
 
         var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Role,"DELEGACION") }, "test")) };
-        var controller = new SintesisController(service, null!, null!, null!, null!, null!, null!, notas)
+        var controller = new SintesisController(service, null!, null!, null!, null!, null!, null!, notas, new GruposCorreoService(factory))
         {
             ControllerContext = new ControllerContext { HttpContext = http }, TempData = new TempDataDictionary(http, new TempProvider())
         };

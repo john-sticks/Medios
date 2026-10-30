@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using Microsoft.EntityFrameworkCore;
 using Medios.Entities;
 using Medios.Infrastructure.Data;
@@ -14,10 +15,10 @@ namespace Medios.Services
         private readonly IWebHostEnvironment _env;
         private readonly NotaService _notaService;
 
-        public SintesisService(IMediosDbContextFactory factory, IWebHostEnvironment env, NotaService notaService)
+        public SintesisService(IMediosDbContextFactory factory, IWebHostEnvironment env, NotaService notaService, DatosTestEnvironment? rutas = null)
         {
             _factory = factory;
-            _env = env;
+            _env = rutas ?? env;
             _notaService = notaService;
         }
 
@@ -493,7 +494,7 @@ namespace Medios.Services
         public async Task<Dictionary<int, NotaVersion>> GetSnapshotVersionesPorNotaAsync(List<int> notaIds)
         {
             using var db = _factory.Create();
-            return await db.SintesisNotas
+            var snapshots = await db.SintesisNotas
                 .Include(sn => sn.Sintesis)
                 .Include(sn => sn.NotaVersion)
                     .ThenInclude(v => v.Categoria)
@@ -503,11 +504,12 @@ namespace Medios.Services
                     .ThenInclude(v => v.Localidad)
                 .Where(sn => notaIds.Contains(sn.NotaPrensaId)
                           && sn.Sintesis.Estado != "Borrador")
-                // Si hay varias síntesis publicadas para la misma nota, usar la más reciente
+                .ToListAsync();
+            var reabiertas = await SesionService.VersionesReabiertasAsync(db, notaIds);
+            return snapshots.Where(sn => !reabiertas.TryGetValue(sn.NotaPrensaId, out var minima)
+                    || sn.NotaVersion.Version >= minima)
                 .GroupBy(sn => sn.NotaPrensaId)
-                .ToDictionaryAsync(
-                    g => g.Key,
-                    g => g.OrderByDescending(sn => sn.SintesisId).First().NotaVersion);
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(sn => sn.SintesisId).First().NotaVersion);
         }
 
         // ── Crear / armar síntesis ────────────────────────────────────

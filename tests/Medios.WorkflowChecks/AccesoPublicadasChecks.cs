@@ -38,7 +38,7 @@ static class AccesoPublicadasChecks
             return new DefaultHttpContext{User=new ClaimsPrincipal(new ClaimsIdentity(claims,"test")),RequestServices=services};
         }
         SintesisController Controller(string usuario="usuario-a",string rol="DELEGACION",int? delegacion=1)=>
-            new(sintesis,sesiones,null!,menu,null!,null!,null!,notas)
+            new(sintesis,sesiones,null!,menu,null!,null!,null!,notas,new GruposCorreoService(factory))
             {ControllerContext=new ControllerContext{HttpContext=Http(usuario,rol,delegacion)},TempData=new TempDataDictionary(new DefaultHttpContext(),new MemoryTempData())};
         int publicaId,privadaId,propiaId,ajenaId,sesionAjenaId,notaAjenaId;
         try

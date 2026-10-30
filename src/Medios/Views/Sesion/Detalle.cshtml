@@ -413,8 +413,7 @@
                 }
                 @if (puedeRevisar && esRemitida)
                 {
-                    var todasAtendidas = Model.Notas.Any() &&
-                        !Model.Notas.Any(n => n.VersionActual?.EstadoRevision is "Borrador" or "Remitida" or "Pendiente");
+                    var todasAtendidas = Medios.Services.SintesisWorkflowPolicy.PuedeFinalizar(Model);
                     <div class="box-tools" style="margin-right:4px;">
                         @if (todasAtendidas)
                         {

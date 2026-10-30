@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using Medios.Entities;
@@ -28,11 +29,11 @@ namespace Medios.Services
         };
 
         public SincronizacionService(SintesisService sintesis, ConfiguracionService config,
-            IWebHostEnvironment env, ILogger<SincronizacionService> logger)
+            IWebHostEnvironment env, ILogger<SincronizacionService> logger, DatosTestEnvironment? rutas = null)
         {
             _sintesis = sintesis;
             _config = config;
-            _env = env;
+            _env = rutas ?? env;
             _logger = logger;
         }
 

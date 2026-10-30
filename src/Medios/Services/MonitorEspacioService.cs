@@ -13,7 +13,7 @@ public sealed class MonitorEspacioCache
 }
 
 public class MonitorEspacioService(IMediosDbContextFactory factory, IMonitorEspacioProbe probe,
-    MonitorEspacioCache cache, ILogger<MonitorEspacioService> logger)
+    MonitorEspacioCache cache, ILogger<MonitorEspacioService> logger, Medios.Services.Respaldos.DatosTestContext? datos = null)
 {
     public const string ClaveHistorial = "monitor_espacio_historial_v1";
     public static readonly TimeSpan Intervalo = TimeSpan.FromMinutes(10);
@@ -52,8 +52,11 @@ public class MonitorEspacioService(IMediosDbContextFactory factory, IMonitorEspa
                 if (System.Text.Encoding.UTF8.GetByteCount(json) > 60_000) throw new InvalidOperationException("Historial demasiado grande");
                 if (fila == null) db.Configuraciones.Add(new Configuracion { Clave = ClaveHistorial, Valor = json });
                 else fila.Valor = json;
-                await db.SaveChangesAsync(ct);
-                guardado = true;
+                if (datos?.RetornoSoloLectura != true)
+                {
+                    await db.SaveChangesAsync(ct);
+                    guardado = true;
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

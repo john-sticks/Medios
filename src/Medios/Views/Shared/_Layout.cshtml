@@ -1,3 +1,5 @@
+@inject Medios.Services.Respaldos.DatosTestContext DatosSeleccionados
+@inject Medios.Services.Respaldos.RespaldoStore RespaldosTest
 @using System.Security.Claims
 @{
     var rolActualLayout = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
@@ -12,6 +14,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Keryx</title>
+    @if(RespaldosTest.Habilitado){<meta name="keryx-dataset" content="@DatosSeleccionados.Marca"><script src="/js/dataset-guard.js" asp-append-version="true"></script>}
     <link rel="icon" type="image/svg+xml" href="/img/logo.svg" />
     <link rel="apple-touch-icon" href="/img/logo.svg" />
     <link rel="stylesheet" href="/adminlte/bower_components/bootstrap/dist/css/bootstrap.css">
@@ -91,6 +94,7 @@
                 <h1>@ViewData["Title"]</h1>
             </section>
             <section class="content">
+                @await Html.PartialAsync("_DatosTestBanner")
                 @RenderBody()
             </section>
         </div>

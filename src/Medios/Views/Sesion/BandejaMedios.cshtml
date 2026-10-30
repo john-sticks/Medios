@@ -24,8 +24,8 @@
     {
         if (s.Estado == "Remitida")
         {
-            var revisadas = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Descartada" or "Finalizada");
-            if (revisadas > 0) procesandoCount++; else remitidasCount++;
+            var revisadas = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Finalizada" or "Agregada" || SintesisWorkflowPolicy.EsDescartada(n.VersionActual));
+            if (revisadas > 0 || s.Notas.Any(n => n.VersionActual?.EstadoRevision == "Pendiente")) procesandoCount++; else remitidasCount++;
         }
         else if (s.Estado == "Finalizada")
         {
@@ -156,8 +156,8 @@
                                 var aprobadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Finalizada");
                                 var tieneAptas = SintesisWorkflowPolicy.TieneNotasConsolidables(s);
                                 var agregadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision == "Agregada");
-                                var revisadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Descartada" or "Finalizada");
-                                string? progreso = s.Estado == "Remitida" ? (revisadas > 0 ? "procesando" : "remitida")
+                                var revisadas  = s.Notas.Count(n => n.VersionActual?.EstadoRevision is "Aprobada" or "Finalizada" or "Agregada" || SintesisWorkflowPolicy.EsDescartada(n.VersionActual));
+                                string? progreso = s.Estado == "Remitida" ? (revisadas > 0 || s.Notas.Any(n => n.VersionActual?.EstadoRevision == "Pendiente") ? "procesando" : "remitida")
                                     : s.Estado == "Finalizada" ? "finalizada"
                                     : s.Estado == "Borrador" ? "borrador"
                                     : null; // Consolidada: ya está representada por su Sintesis en "Consolidadas"
@@ -186,13 +186,29 @@
                                     <td class="text-right" style="white-space:nowrap;">
                                         <a href="/Sesion/Detalle/@s.Id" class="btn btn-xs btn-primary"><i class="fa fa-eye"></i> Ver</a>
                                         @if (s.Estado == "Finalizada") {
+                                            <form method="post" asp-controller="Sesion" asp-action="ReabrirRevision" style="display:inline"
+                                                  onsubmit="return confirm('¿Volver a Procesando? Se deben volver a aprobar las notas que estaban aprobadas. Las denegadas conservan su estado.');">
+                                                <input type="hidden" name="id" value="@s.Id" />
+                                                <button type="submit" class="btn btn-xs btn-warning" title="Reabrir para corregir y volver a aprobar las notas"><i class="fa fa-undo"></i> Volver a Procesando</button>
+                                            </form>
                                             @if (SesionService.PuedeQuitarSinAptas(s)) {
                                                 <a href="/Sesion/QuitarSinAptas/@s.Id" class="btn btn-xs btn-danger">Quitar sin notas aptas</a>
                                             } else {
                                                 <a href="/Sesion/Archivar/@s.Id" class="btn btn-xs btn-warning" title="Archivar sin eliminar notas"><i class="fa fa-archive"></i> Archivar</a>
                                             }
                                         }
-                                        <a href="/Sesion/ExportarExcel/@s.Id" class="btn btn-xs btn-success" title="Excel"><i class="fa fa-file-excel-o"></i></a>
+                                        @if (s.Estado == "Finalizada")
+                                        {
+                                            @if (tieneAptas) {
+                                                <a href="/Sesion/ExportarWord/@s.Id" class="btn btn-xs btn-primary" title="Descargar Word editable" aria-label="Descargar Word editable"><i class="fa fa-file-word-o"></i></a>
+                                            } else {
+                                                <button type="button" class="btn btn-xs btn-default" disabled title="Sin notas aptas para exportar"><i class="fa fa-file-word-o"></i></button>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <a href="/Sesion/ExportarExcel/@s.Id" class="btn btn-xs btn-success" title="Excel"><i class="fa fa-file-excel-o"></i></a>
+                                        }
                                         @if (SintesisWorkflowPolicy.PuedeFinalizar(s))
                                         {
                                             <form method="post" asp-controller="Sesion" asp-action="FinalizarSesion" style="display:inline;margin-left:2px;">

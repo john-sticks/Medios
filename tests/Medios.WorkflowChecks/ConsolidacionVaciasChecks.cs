@@ -48,7 +48,7 @@ static class ConsolidacionVaciasChecks
         Check((await notas.GetRechazadasAsync(vacia.DelegacionId!.Value)).Any(n => n.Id == legadoId), "Mostrar rechazo legado en Denegadas");
         Check((await sintesis.GetNotasNacProvParaConsolidarAsync(new() { legadoSesionId })).Count == 0, "No ofrecer rechazo Nacional sin motivo en el paso 2");
         var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Role, "MEDIOS") }, "test")) };
-        var controller = new SintesisController(sintesis, null!, null!, null!, null!, null!, null!, notas)
+        var controller = new SintesisController(sintesis, null!, null!, null!, null!, null!, null!, notas, new GruposCorreoService(factory))
         {
             ControllerContext = new ControllerContext { HttpContext = http },
             TempData = new TempDataDictionary(http, new Provider())

@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using Microsoft.AspNetCore.Mvc;
 using Medios.Security;
 using Medios.Services;
@@ -15,10 +16,11 @@ namespace Medios.Controllers
         private readonly TrazaService _traza;
         private readonly DelegacionService _delegService;
         private readonly NotaService _notaService;
+        private readonly GruposCorreoService _gruposCorreo;
 
         public SintesisController(SintesisService sintesisService, SesionService sesionService,
             AuditoriaService auditoria, MenuXmlService menuService, EmailService email, TrazaService traza,
-            DelegacionService delegService, NotaService notaService)
+            DelegacionService delegService, NotaService notaService, GruposCorreoService gruposCorreo)
         {
             _sintesisService = sintesisService;
             _sesionService = sesionService;
@@ -28,6 +30,7 @@ namespace Medios.Controllers
             _traza = traza;
             _delegService = delegService;
             _notaService = notaService;
+            _gruposCorreo = gruposCorreo;
         }
 
         private string GetRol() => User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
@@ -353,6 +356,7 @@ namespace Medios.Controllers
                 return RedirectToAction(nameof(Detalle), new { id });
             ViewData["Title"] = "Informar Síntesis Consolidada";
             ViewBag.SmtpConfigurado = await _email.EstaConfiguradoAsync();
+            ViewBag.GruposCorreo = await _gruposCorreo.ListarAsync(disponibles: true);
             var delegacionesActivas = await _delegService.GetTodasAsync(soloActivas: true);
             // Delegaciones con correo configurado (campo Email del ABM de Delegaciones)
             ViewBag.DelegacionesMail = delegacionesActivas
@@ -372,7 +376,7 @@ namespace Medios.Controllers
         [ActionName("Informar"), ValidateAntiForgeryToken]
         public async Task<IActionResult> InformarPost(int id, bool todosRoles = true,
             List<string>? delegacionMails = null, string? mails = null,
-            bool todasDelegaciones = false, List<int>? delegacionIds = null)
+            bool todasDelegaciones = false, List<int>? delegacionIds = null, List<int>? grupoCorreoIds = null)
         {
             if (!PuedeConsolidar()) return Forbid();
             todosRoles = true;
@@ -386,6 +390,17 @@ namespace Medios.Controllers
                     foreach (var unico in EmailService.ParseMails(m))
                         if (!listaMails.Any(x => string.Equals(x, unico, StringComparison.OrdinalIgnoreCase)))
                             listaMails.Add(unico);
+
+            try
+            {
+                var correosGrupos = await _gruposCorreo.ResolverDestinatariosAsync(grupoCorreoIds ?? new());
+                listaMails = GruposCorreoService.CombinarDestinatarios(listaMails, correosGrupos);
+            }
+            catch (System.ComponentModel.DataAnnotations.ValidationException ex)
+            {
+                TempData["Error"] = ex.Message;
+                return RedirectToAction(nameof(Informar), new { id });
+            }
 
             if (sintesis.EsFiltrada && (string.IsNullOrEmpty(sintesis.PDFPath)
                 || !System.IO.File.Exists(Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/')))))
@@ -684,6 +699,7 @@ namespace Medios.Controllers
         }
 
         private IWebHostEnvironment _env =>
-            HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
+            (IWebHostEnvironment?)HttpContext.RequestServices.GetService<DatosTestEnvironment>()
+            ?? HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
     }
 }

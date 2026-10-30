@@ -1,0 +1,45 @@
+@model GrupoCorreoModel
+@{ ViewData["Title"] = Model.Id == 0 ? "Nuevo grupo de correo" : "Editar grupo de correo"; }
+<div class="box box-primary">
+    <div class="box-header with-border"><h3 class="box-title"><i class="fa fa-address-book"></i> @ViewData["Title"]</h3></div>
+    <form asp-action="Guardar" method="post" id="formGrupo">
+        <div class="box-body">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <input asp-for="Id" type="hidden" />
+            <div class="row">
+                <div class="col-sm-8 form-group"><label asp-for="Nombre">Nombre del grupo</label><input asp-for="Nombre" class="form-control" maxlength="120" required /></div>
+                <div class="col-sm-4 form-group" style="padding-top:26px;"><label><input asp-for="Activo" /> Grupo activo</label></div>
+            </div>
+            <p class="text-muted">Los grupos activos con contactos estarán disponibles al informar una síntesis. Cada correo se envía una sola vez, aunque aparezca en más de un grupo.</p>
+            <h4>Contactos <span id="cantidadContactos" class="label label-default">@Model.Contactos.Count</span></h4>
+            <div class="table-responsive"><table class="table">
+                <thead><tr><th><label>Nombre</label></th><th><label>Apellido</label></th><th><label>Correo electrónico</label></th><th></th></tr></thead>
+                <tbody id="contactosGrupo" data-proximo="@Model.Contactos.Count">
+                @for (var i = 0; i < Model.Contactos.Count; i++)
+                {
+                    <tr>
+                        <td><input type="hidden" name="Contactos.Index" value="@i" /><input name="Contactos[@i].Nombre" aria-label="Nombre del contacto" value="@Model.Contactos[i].Nombre" class="form-control" maxlength="100" required /></td>
+                        <td><input name="Contactos[@i].Apellido" aria-label="Apellido del contacto" value="@Model.Contactos[i].Apellido" class="form-control" maxlength="100" required /></td>
+                        <td><input type="email" name="Contactos[@i].Email" aria-label="Correo del contacto" value="@Model.Contactos[i].Email" class="form-control" maxlength="254" required /></td>
+                        <td><button type="button" class="btn btn-default quitar-contacto" aria-label="Quitar contacto"><i class="fa fa-times"></i> Quitar</button></td>
+                    </tr>
+                }
+                </tbody>
+            </table></div>
+            <button type="button" class="btn btn-default" id="agregarContacto"><i class="fa fa-user-plus"></i> Agregar contacto</button>
+        </div>
+        <div class="box-footer">
+            <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Guardar grupo</button>
+            <a asp-action="Index" class="btn btn-default">Cancelar</a>
+        </div>
+    </form>
+</div>
+<template id="plantillaContacto">
+    <tr>
+        <td><input type="hidden" name="Contactos.Index" /><input data-campo="Nombre" aria-label="Nombre del contacto" class="form-control" maxlength="100" required /></td>
+        <td><input data-campo="Apellido" aria-label="Apellido del contacto" class="form-control" maxlength="100" required /></td>
+        <td><input data-campo="Email" aria-label="Correo del contacto" type="email" class="form-control" maxlength="254" required /></td>
+        <td><button type="button" class="btn btn-default quitar-contacto" aria-label="Quitar contacto"><i class="fa fa-times"></i> Quitar</button></td>
+    </tr>
+</template>
+@section Scripts { <script src="~/js/grupos-correo.js" asp-append-version="true"></script> }

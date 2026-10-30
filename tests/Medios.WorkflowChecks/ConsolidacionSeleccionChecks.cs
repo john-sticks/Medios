@@ -30,7 +30,7 @@ static class ConsolidacionSeleccionChecks
         {
             var http = new DefaultHttpContext();
             http.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Role, rol), new Claim(ClaimTypes.Name, "Operador")], "test"));
-            return new(service, null!, null!, null!, null!, null!, null!, null!)
+            return new(service, null!, null!, null!, null!, null!, null!, null!, new GruposCorreoService(factory))
             {
                 ControllerContext = new ControllerContext { HttpContext = http },
                 TempData = new TempDataDictionary(http, new MemoriaTempData())

@@ -1,3 +1,4 @@
+using Medios.Services.Respaldos;
 using Medios.Infrastructure.Data;
 using Medios.Infrastructure.Middleware;
 using Medios.Security;
@@ -100,7 +101,18 @@ namespace Medios
             });
 
             // DB
-            builder.Services.AddScoped<IMediosDbContextFactory, MediosDbContextFactory>();
+            builder.Services.AddDataProtection();
+            builder.Services.AddSingleton<RespaldoStore>();
+            builder.Services.AddSingleton<ModoOperativoStore>();
+            builder.Services.AddSingleton<CopiaUso>();
+            builder.Services.AddScoped<DatosTestContext>();
+            var originalEnvironment = builder.Environment;
+            builder.Services.AddScoped<DatosTestEnvironment>(sp => new DatosTestEnvironment(originalEnvironment, sp.GetRequiredService<RespaldoStore>(), sp.GetRequiredService<DatosTestContext>()));
+            builder.Services.AddScoped<MediosDbContextFactory>();
+            builder.Services.AddScoped<IMediosDbContextFactory>(sp => sp.GetRequiredService<MediosDbContextFactory>());
+            builder.Services.AddScoped<AccesoEmergenciaService>();
+            builder.Services.AddScoped<RetornoProduccionService>();
+            builder.Services.AddHostedService<RestauracionWorker>();
 
             // Services
             builder.Services.AddScoped<MenuXmlService>();
@@ -110,13 +122,15 @@ namespace Medios
             builder.Services.AddScoped<NotaService>();
             builder.Services.AddScoped<SintesisService>();
             builder.Services.AddScoped<ArchivoPdfService>();
-            builder.Services.AddSingleton<MonitorEspacioCache>();
+            builder.Services.AddSingleton<MonitorPorBaseCache>();
+            builder.Services.AddScoped<MonitorEspacioCache>(sp=>sp.GetRequiredService<MonitorPorBaseCache>().Obtener(sp.GetRequiredService<DatosTestContext>()));
             builder.Services.AddScoped<IMonitorEspacioProbe, MonitorEspacioProbe>();
             builder.Services.AddScoped<MonitorEspacioService>();
             builder.Services.AddHostedService<MonitorEspacioWorker>();
             builder.Services.AddScoped<DelegacionService>();
             builder.Services.AddScoped<ConfiguracionService>();
             builder.Services.AddScoped<EmailService>();
+            builder.Services.AddScoped<GruposCorreoService>();
             builder.Services.AddScoped<TrazaService>();
             builder.Services.AddScoped<ScrapingReglaService>();
             builder.Services.AddScoped<SincronizacionService>();
@@ -146,13 +160,15 @@ namespace Medios
             app.UseForwardedHeaders(forwardedHeadersOptions);
 
             app.UseHttpsRedirection();
+            app.UseAuthentication();
+            app.UseMiddleware<ModoOperativoMiddleware>();
+            app.UseMiddleware<RespaldoContextMiddleware>();
             app.UseMiddleware<PdfPrivadosMiddleware>();
             app.UseStaticFiles();
             app.UseRouting();
 
             app.UseMiddleware<ErrorMiddleware>();
             app.UseSession();
-            app.UseAuthentication();
             app.UseAuthorization();
             app.UseMiddleware<MenuAuthorizationMiddleware>();
             app.UseMiddleware<AutorizacionMiddleware>();
