@@ -7,6 +7,7 @@ test -s "$config"
 command -v mysqldump >/dev/null
 command -v openssl >/dev/null
 command -v python3 >/dev/null
+command -v curl >/dev/null
 source_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 install -d -m 700 /etc/keryx-backup /opt/medios/backups/agente
 install -m 600 "$config" /etc/keryx-backup/agent.json

@@ -63,7 +63,8 @@ sudo bash "$trabajo/agente/install-backup-agent.sh" \
 ```
 
 El instalador no detiene Keryx ni escribe en MySQL. Instala un servicio y un timer del sistema.
-Requiere python3, openssl, mysqldump y docker. La cuenta root debe poder ejecutar mysqldump local,
+Requiere python3, curl, openssl, mysqldump y docker. El transporte usa curl con
+TLS validado, sin redirecciones, proxy ni credenciales en los argumentos del proceso. La cuenta root debe poder ejecutar mysqldump local,
 como en los respaldos manuales existentes. Los volúmenes PDF/uploads deben estar bajo `/opt/medios`.
 El código temporal se consume al descargar; generar otro si el despliegue/descarga falla.
 La configuración permanente queda en `/etc/keryx-backup/agent.json` con permisos 600.

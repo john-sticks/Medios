@@ -1,16 +1,41 @@
 #!/usr/bin/env python3
 """Agente Keryx: genera un respaldo local y lo envía cifrado al NAS por HTTPS."""
-import argparse,contextlib,datetime,gzip,hashlib,hmac,json,os,pathlib,shutil,ssl,subprocess,sys,tarfile,tempfile,urllib.request,urllib.error,fcntl
+import argparse,contextlib,datetime,gzip,hashlib,hmac,json,os,pathlib,shutil,subprocess,sys,tarfile,tempfile,fcntl
 
-class SinRedireccion(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self,*args,**kwargs):raise RuntimeError('El receptor intentó redirigir la conexión')
+class ErrorReceptor(RuntimeError):
+    """Diagnóstico seguro: nunca contiene tokens ni respuestas del servidor."""
+
 
 def enviar(config,path,data=None,content_type='application/json',headers=None):
     endpoint=config['receiver'].rstrip('/')+'/api/testbackup/'+path
-    if not endpoint.startswith('https://'):raise RuntimeError('El receptor debe usar HTTPS')
-    req=urllib.request.Request(endpoint,data=data,headers={'Authorization':'Bearer '+config['token'],'Content-Type':content_type,**(headers or {})})
-    opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),SinRedireccion(),urllib.request.HTTPSHandler(context=ssl.create_default_context()))
-    with opener.open(req,timeout=120) as response:return json.loads(response.read() or b'{}')
+    if not endpoint.startswith('https://'):raise ErrorReceptor('El receptor debe usar HTTPS')
+    cabeceras={'Authorization':'Bearer '+config['token'],'Content-Type':content_type,**(headers or {})}
+    if any('\r' in str(v) or '\n' in str(v) for pair in cabeceras.items() for v in pair):
+        raise ErrorReceptor('Cabecera de solicitud inválida')
+    # El token va por stdin, nunca por argumentos del proceso o registros.
+    entrada=''.join('header = '+json.dumps(k+': '+str(v))+'\n' for k,v in cabeceras.items())
+    with tempfile.TemporaryDirectory(prefix='keryx-http-') as directory:
+        os.chmod(directory,0o700)
+        respuesta=pathlib.Path(directory)/'respuesta'
+        comando=['curl','--disable','--config','-','--proto','=https','--noproxy','*',
+                 '--silent','--show-error','--connect-timeout','15','--max-time','120',
+                 '--output',str(respuesta),'--write-out','%{http_code}','--url',endpoint]
+        if data is not None:
+            cuerpo=pathlib.Path(directory)/'cuerpo'
+            cuerpo.write_bytes(data);os.chmod(cuerpo,0o600)
+            comando+=['--request','POST','--data-binary','@'+str(cuerpo)]
+        try:
+            result=subprocess.run(comando,input=entrada,text=True,capture_output=True,timeout=135)
+        except (OSError,subprocess.TimeoutExpired):
+            raise ErrorReceptor('No se pudo ejecutar curl o se agotó el tiempo de conexión') from None
+        if result.returncode:
+            raise ErrorReceptor('Transporte HTTPS fallido: curl '+str(result.returncode))
+        status=result.stdout.strip()
+        if not status.isdigit() or not 200<=int(status)<300:
+            code=status if status.isdigit() else 'desconocido'
+            raise ErrorReceptor('Receptor HTTPS: HTTP '+code+' en '+path.split('/')[0])
+        return json.loads(respuesta.read_text(encoding='utf-8') or '{}')
+
 
 def empaquetar(config,work):
     source=pathlib.Path(config.get('source','/opt/medios')).resolve()
@@ -81,5 +106,7 @@ def main():
             raise
 if __name__=='__main__':
     try:main()
+    except ErrorReceptor as error:
+        print("Agente Keryx: "+str(error),file=sys.stderr);sys.exit(1)
     except Exception as error:
         print('Agente Keryx: operación fallida ('+type(error).__name__+'). Revisar conectividad, mysqldump y configuración privada.',file=sys.stderr);sys.exit(1)

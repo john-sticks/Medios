@@ -21,6 +21,9 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
+      - name: Check backup agent HTTPS transport
+        run: python3 -m unittest discover -s tests -p test_backup_agent.py -v
+
       - name: Restore
         run: dotnet restore Medios.sln
 
