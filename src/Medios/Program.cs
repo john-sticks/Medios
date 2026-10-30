@@ -127,6 +127,8 @@ namespace Medios
 
             // QuestPDF community license (proyectos internos sin fines de lucro)
             QuestPDF.Settings.License = LicenseType.Community;
+            SintesisFuentes.Registrar(builder.Environment.ContentRootPath);
+            Console.WriteLine($"Fuente PDF Bookman: {SintesisFuentes.Bookman}");
 
             var app = builder.Build();
 

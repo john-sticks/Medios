@@ -11,3 +11,7 @@
 *.suo
 *.log
 publish_output/
+
+# Fuentes licenciadas instaladas por el operador
+/fonts/
+/src/Medios/fonts/

@@ -91,7 +91,20 @@ public static class SintesisPdfModel
         return cuerpo.TrimEnd() + (fuente.Length > 0 ? $" ({fuente})" : "");
     }
 
-    public static string? LinkVisible(NotaVersion nota) => string.IsNullOrWhiteSpace(nota.VideoUrl) ? nota.Link : null;
+    public static int LongitudPartidoEnTitulo(NotaVersion nota)
+    {
+        var titulo = nota.Titulo.Trim().TrimEnd('.');
+        var dosPuntos = titulo.IndexOf(':');
+        var partido = nota.Partido?.Nombre.Trim();
+        if (dosPuntos <= 0 || string.IsNullOrEmpty(partido)) return 0;
+        var prefijo = titulo[..dosPuntos].TrimEnd();
+        var comparacion = System.Globalization.CultureInfo.GetCultureInfo("es-AR").CompareInfo;
+        return comparacion.Compare(prefijo, partido,
+            System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) == 0
+            ? prefijo.Length : 0;
+    }
+
+    public static string? LinkVisible(NotaVersion nota) => string.IsNullOrWhiteSpace(nota.Link) ? null : nota.Link.Trim();
 }
 
 public sealed record AmbitoPdf(string SectionId, string Titulo, List<CategoriaPdf> Categorias, bool SoloLocalidad = false);

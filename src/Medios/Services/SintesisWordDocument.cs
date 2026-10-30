@@ -17,7 +17,7 @@ public static class SintesisWordDocument
     private const int AnchoContenido = 9808; // A4 menos márgenes de 2,5 y 1,2 cm.
 
     public static byte[] Crear(Sintesis sintesis, IReadOnlyList<SintesisNota> incluidas,
-        IReadOnlyDictionary<int, NotaLineaTiempo> lineas, string webRoot)
+        string webRoot)
     {
         using var stream = new MemoryStream();
         using (var doc = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true))
@@ -55,47 +55,77 @@ public static class SintesisWordDocument
             body.Append(Parrafo("CONTENIDO", 16, true, Marron, "Arial", antes: 720, despues: 400));
 
             var grupos = SintesisPdfModel.Agrupar(incluidas);
-            for (var i = 0; i < grupos.Count; i++)
+            void AgregarIndice(string titulo, string marcador)
             {
-                var indice = Parrafo(grupos[i].Titulo, 10, fuente: "Arial", antes: 40);
+                var indice = Parrafo(titulo, 10, fuente: "Arial", antes: 40);
                 indice.ParagraphProperties!.InsertBefore(new W.Tabs(new W.TabStop
                     { Val = W.TabStopValues.Right, Leader = W.TabStopLeaderCharValues.Dot, Position = AnchoContenido }), indice.ParagraphProperties.GetFirstChild<W.SpacingBetweenLines>());
                 indice.Append(new W.Run(new W.TabChar()));
-                indice.Append(new W.SimpleField(new W.Run(new W.RunProperties(new W.FontSize { Val = "20" }), new W.Text("2")))
-                    { Instruction = $" PAGEREF categoria_{i} \\h ", Dirty = true });
+                indice.Append(new W.SimpleField(new W.Run(new W.RunProperties(
+                    new W.RunFonts { Ascii = Bookman, HighAnsi = Bookman }, new W.FontSize { Val = "28" }), new W.Text("2")))
+                    { Instruction = $" PAGEREF {marcador} \\h ", Dirty = true });
                 body.Append(indice);
+            }
+            for (var i = 0; i < grupos.Count; i++)
+            {
+                AgregarIndice(grupos[i].Titulo, $"ambito_{i}");
+                for (var j = 0; j < grupos[i].Categorias.Count; j++)
+                    if (grupos[i].Categorias[j].Titulo is { } titulo)
+                        AgregarIndice(titulo, $"categoria_{i}_{j}");
             }
             body.Append(new W.Paragraph(new W.Run(new W.Break { Type = W.BreakValues.Page })));
 
+            var bookmarkId = 0;
             for (var i = 0; i < grupos.Count; i++)
             {
                 var grupo = grupos[i];
                 var encabezado = Parrafo(grupo.Titulo, 14, true, Marron, antes: 200, despues: 200, seguir: true);
-                encabezado.InsertAfter(new W.BookmarkStart { Id = i.ToString(), Name = $"categoria_{i}" }, encabezado.ParagraphProperties);
-                encabezado.Append(new W.BookmarkEnd { Id = i.ToString() });
+                encabezado.InsertAfter(new W.BookmarkStart { Id = bookmarkId.ToString(), Name = $"ambito_{i}" }, encabezado.ParagraphProperties);
+                encabezado.Append(new W.BookmarkEnd { Id = (bookmarkId++).ToString() });
                 body.Append(encabezado);
-                foreach (var categoria in grupo.Categorias)
+                for (var j = 0; j < grupo.Categorias.Count; j++)
                 {
+                    var categoria = grupo.Categorias[j];
                     if (categoria.Titulo != null)
-                        body.Append(Parrafo(categoria.Titulo, 12, true, Marron, antes: 120, seguir: true));
-                    foreach (var snapshot in categoria.Notas)
                     {
-                        lineas.TryGetValue(snapshot.NotaId, out var linea);
-                        var tieneHistorial = linea?.Actualizaciones.Count > 0;
-                        var nota = (tieneHistorial ? linea!.Ancla : null) ?? snapshot;
+                        var subtitulo = Parrafo(categoria.Titulo, 14, true, Marron, antes: 120, seguir: true);
+                        subtitulo.InsertAfter(new W.BookmarkStart { Id = bookmarkId.ToString(), Name = $"categoria_{i}_{j}" }, subtitulo.ParagraphProperties);
+                        subtitulo.Append(new W.BookmarkEnd { Id = (bookmarkId++).ToString() });
+                        body.Append(subtitulo);
+                    }
+                    foreach (var nota in categoria.Notas)
+                    {
                         var geo = grupo.SoloLocalidad ? SintesisPdfModel.LocalidadDentroPartido(nota) : Geografia(nota);
-                        if (geo.Length > 0) body.Append(Parrafo(geo, 14, true, antes: 80, seguir: true));
-                        body.Append(Parrafo(nota.Titulo.TrimEnd().TrimEnd('.').ToUpperInvariant(), 14, true, seguir: true));
+                        if (geo.Length > 0 && SintesisPdfModel.LongitudPartidoEnTitulo(nota) == 0) body.Append(Parrafo(geo, 14, true, antes: 80, seguir: true));
+                        var titulo = Parrafo(nota.Titulo.Trim().TrimEnd('.').ToUpperInvariant(), 14, true, seguir: true, justificar: true);
+                        var prefijoPartido = SintesisPdfModel.LongitudPartidoEnTitulo(nota);
+                        if (prefijoPartido > 0)
+                        {
+                            var run = titulo.Elements<W.Run>().Single();
+                            var texto = run.InnerText;
+                            var prefijo = (W.Run)run.CloneNode(true);
+                            prefijo.GetFirstChild<W.Text>()!.Text = texto[..prefijoPartido];
+                            prefijo.RunProperties!.Append(new W.Underline { Val = W.UnderlineValues.Single });
+                            run.GetFirstChild<W.Text>()!.Text = texto[prefijoPartido..];
+                            titulo.InsertBefore(prefijo, run);
+                        }
+                        body.Append(titulo);
                         body.Append(Parrafo(SintesisPdfModel.CuerpoConFuente(nota), 14, justificar: true));
                         var link = SintesisPdfModel.LinkVisible(nota);
-                        if (!string.IsNullOrWhiteSpace(link)) body.Append(Parrafo(link, 12, color: "2196F3", despues: 200));
-                        if (tieneHistorial)
-                            foreach (var act in linea!.Actualizaciones)
+                        if (!string.IsNullOrWhiteSpace(link))
+                        {
+                            var parrafoLink = Parrafo(link, 12, color: "0F9ED5", despues: 200);
+                            if (Uri.TryCreate(link, UriKind.Absolute, out var destino))
                             {
-                                var etiqueta = $"ACTUALIZACIÓN · {act.Fecha:dd/MM/yyyy}" + (string.IsNullOrEmpty(act.Turno) ? "" : $" · {act.Turno}");
-                                body.Append(Parrafo(etiqueta, 8, true, Marron, "Arial", antes: 60, seguir: true));
-                                body.Append(Parrafo(act.ResumenCambio ?? "", 9, fuente: "Arial"));
+                                var run = parrafoLink.Elements<W.Run>().Single();
+                                run.Remove();
+                                var relacion = main.AddHyperlinkRelationship(destino, true);
+                                parrafoLink.Append(new W.Hyperlink(run) { Id = relacion.Id, History = true });
                             }
+                            body.Append(parrafoLink);
+                        }
+                        body.Elements<W.Paragraph>().Last().ParagraphProperties!
+                            .GetFirstChild<W.SpacingBetweenLines>()!.After = "240";
                     }
                     // El borde pertenece al último párrafo: un párrafo vacío adicional
                     // puede saltar solo a una página nueva al alcanzar el margen inferior.
@@ -110,19 +140,20 @@ public static class SintesisWordDocument
             if (string.Equals(sintesis.Tipo, "Vespertina", StringComparison.OrdinalIgnoreCase))
                 body.Append(Parrafo("Nota: La información suministrada por las agencias de noticias son anticipos que refieren " +
                     "a posibles temas a tratar en el día de mañana, en los medios periodísticos nacionales o locales.",
-                    8, color: "616161", fuente: "Arial", antes: 160, cursiva: true));
+                    8, color: "606060", fuente: "Arial", antes: 160, cursiva: true));
 
             var footer = main.AddNewPart<FooterPart>();
-            var pie = Parrafo("División Medios O.S.INT — ", 8, color: "757575", fuente: "Arial", centrado: true);
-            pie.Append(new W.SimpleField(new W.Run(new W.RunProperties(new W.RunFonts { Ascii = "Arial", HighAnsi = "Arial" }, new W.FontSize { Val = "16" }), new W.Text("1"))) { Instruction = " PAGE " });
-            pie.Append(new W.Run(new W.RunProperties(new W.RunFonts { Ascii = "Arial", HighAnsi = "Arial" }, new W.FontSize { Val = "16" }),
+            var pie = Parrafo("División Medios O.S.INT — ", 8, color: "757575", fuente: "Arial");
+            pie.ParagraphProperties!.GetFirstChild<W.Justification>()!.Val = W.JustificationValues.Center;
+            pie.Append(new W.SimpleField(new W.Run(new W.RunProperties(new W.RunFonts { Ascii = Bookman, HighAnsi = Bookman }, new W.FontSize { Val = "28" }), new W.Text("1"))) { Instruction = " PAGE " });
+            pie.Append(new W.Run(new W.RunProperties(new W.RunFonts { Ascii = Bookman, HighAnsi = Bookman }, new W.FontSize { Val = "28" }),
                 new W.Text(" / ") { Space = SpaceProcessingModeValues.Preserve }));
-            pie.Append(new W.SimpleField(new W.Run(new W.RunProperties(new W.RunFonts { Ascii = "Arial", HighAnsi = "Arial" }, new W.FontSize { Val = "16" }), new W.Text("1"))) { Instruction = " NUMPAGES " });
+            pie.Append(new W.SimpleField(new W.Run(new W.RunProperties(new W.RunFonts { Ascii = Bookman, HighAnsi = Bookman }, new W.FontSize { Val = "28" }), new W.Text("1"))) { Instruction = " NUMPAGES " });
             footer.Footer = new W.Footer(pie);
             body.Append(new W.SectionProperties(
                 new W.FooterReference { Type = W.HeaderFooterValues.Default, Id = main.GetIdOfPart(footer) },
                 new W.PageSize { Width = 11906, Height = 16838 },
-                new W.PageMargin { Top = 737, Right = 680, Bottom = 680, Left = 1418, Header = 0, Footer = 200, Gutter = 0 }));
+                new W.PageMargin { Top = 737, Right = 680, Bottom = 680, Left = 1418, Header = 0, Footer = 100, Gutter = 0 }));
             main.Document.Save();
         }
         return stream.ToArray();
@@ -134,8 +165,9 @@ public static class SintesisWordDocument
     {
         var props = new W.ParagraphProperties();
         if (seguir) props.Append(new W.KeepNext());
+        if (justificar) props.Append(new W.KeepLines { Val = false });
         props.Append(new W.WidowControl());
-        props.Append(new W.SpacingBetweenLines { Before = antes.ToString(), After = despues.ToString(), Line = "240", LineRule = W.LineSpacingRuleValues.Auto });
+        props.Append(new W.SpacingBetweenLines { Before = antes.ToString(), After = despues.ToString(), Line = "240", LineRule = justificar ? W.LineSpacingRuleValues.AtLeast : W.LineSpacingRuleValues.Auto });
         var alineacion = W.JustificationValues.Left;
         if (centrado) alineacion = W.JustificationValues.Center;
         else if (justificar) alineacion = W.JustificationValues.Both;

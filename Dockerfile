@@ -20,6 +20,9 @@ RUN mkdir -p /app/publish/Config/Permisos && \
 # Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 
+RUN apt-get update && apt-get install -y --no-install-recommends fontconfig fonts-urw-base35 \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV TZ=America/Argentina/Buenos_Aires
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 

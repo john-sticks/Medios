@@ -17,6 +17,8 @@ services:
       OpenRouter__ApiKey: ${OPENROUTER_API_KEY:-}
 
     volumes:
+      # Fuentes licenciadas privadas, fuera de la imagen y de wwwroot
+      - ../fonts:/app/fonts:ro
       # Persistir claves Data Protection entre reinicios (evita invalidar cookies/tokens)
       - ./dataprotection:/root/.aspnet/DataProtection-Keys
       # Persistir los PDFs de síntesis generados en runtime

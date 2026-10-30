@@ -76,8 +76,14 @@ static class SintesisMediosChecks
         Check(grupos.Single(g => g.Titulo == "INSTITUCIONALES").Categorias.Single().Notas.Count == 2, "Orden del modelo prima sobre orden configurado de categorías");
         Check(!grupos.Any(g => g.Titulo == "DENUNCIAS"), "No agregar categorías vacías");
         var conVideo = modelo.First(sn => sn.NotaVersion.VideoUrl != null).NotaVersion;
-        Check(SintesisPdfModel.LinkVisible(conVideo) == null, "Ocultar enlaces cuando existe video");
+        Check(SintesisPdfModel.LinkVisible(conVideo) == conVideo.Link, "Conservar enlace a la noticia aunque incluya video");
         Check(SintesisPdfModel.CuerpoConFuente(conVideo) == "Resumen de prueba. (DIARIO, OTRO MEDIO)", "Fuente inmediatamente después del texto, sin salto de línea ni marca IA");
+        var prefijo = new NotaVersion { Titulo = "San Nicolás: noticia", Partido = new Partido { Nombre = "SAN NICOLAS" } };
+        Check(SintesisPdfModel.LongitudPartidoEnTitulo(prefijo) == 11, "Detectar partido inicial sin depender de mayúsculas ni tildes");
+        prefijo.Titulo = "Un hecho en San Nicolás: noticia";
+        Check(SintesisPdfModel.LongitudPartidoEnTitulo(prefijo) == 0, "No ocultar geografía por coincidencia parcial");
+        prefijo.Titulo = "Otra localidad: noticia";
+        Check(SintesisPdfModel.LongitudPartidoEnTitulo(prefijo) == 0, "No confundir localidad con partido");
         return checks;
     }
 
@@ -104,10 +110,10 @@ static class SintesisMediosChecks
                 AmbitoNota = dato.Item1, Partido = dato.Item3,
                 Localidad = dato.Item3.Nombre == "La Plata" ? new Localidad { Nombre = "TOLOSA (LA PLATA)" } : new Localidad { Nombre = "BATAN" },
                 Categoria = dato.Item2.Length > 0 ? new CategoriaNoticia { Nombre = dato.Item2, Orden = index } : null,
-                Titulo = "Nota de prueba " + index,
+                Titulo = index == 5 ? "La Plata: nota de prueba 5" : "Nota de prueba " + index,
                 Texto = "Texto original de prueba.", Sintesis = "Resumen de prueba.\n",
                 Fuente = "Diario", OtrosMedios = "Otro medio",
-                Link = "https://ejemplo.invalid/noticia", VideoUrl = "https://ejemplo.invalid/video",
+                Link = index == 5 ? "https://ejemplo.invalid/noticias/la-plata-un-titulo-extenso-para-comprobar-el-salto-del-hipervinculo-en-varias-lineas-sin-perder-su-destino-original/" : "https://ejemplo.invalid/noticia", VideoUrl = "https://ejemplo.invalid/video",
                 EstadoRevision = "Finalizada", EsActual = true
             }
         }).ToList();
@@ -117,6 +123,7 @@ static class SintesisMediosChecks
     {
         QuestPDF.Settings.License = LicenseType.Community;
         Directory.CreateDirectory(directorio);
+        SintesisFuentes.Registrar(Path.GetFullPath("src/Medios"));
         var env = new PdfEnvironment { WebRootPath = Path.GetFullPath(directorio) };
         // Registrar fuentes Bookman del NAS cuando se suministran junto al directorio de muestra.
         foreach (var fuente in Directory.GetFiles(directorio, "*.otf"))
@@ -132,7 +139,7 @@ static class SintesisMediosChecks
             foreach (var incluida in DatosModelo())
             {
                 if (incluida.NotaVersion.AmbitoNota == "Nacional")
-                    incluida.NotaVersion.Sintesis = string.Join(" ", Enumerable.Repeat("Esta es una noticia ficticia utilizada para verificar el interlineado y el espaciado del documento. La información describe una actividad de prueba en la que participan distintas instituciones y permite comprobar la lectura de un párrafo extenso.", 3));
+                    incluida.NotaVersion.Sintesis = string.Join(" ", Enumerable.Repeat("Esta es una noticia ficticia utilizada para verificar el interlineado y el espaciado del documento. La información describe una actividad de prueba en la que participan distintas instituciones y permite comprobar la lectura de un párrafo extenso.", 12));
                 var nota = new NotaPrensa();
                 incluida.NotaVersion.Nota = nota;
                 nota.VersionActual = incluida.NotaVersion;

@@ -45,3 +45,7 @@ logs/
 .DS_Store
 Thumbs.db
 deploy.tar.gz
+
+# Fuentes licenciadas instaladas por el operador
+/fonts/
+/src/Medios/fonts/

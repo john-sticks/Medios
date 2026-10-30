@@ -623,10 +623,7 @@ namespace Medios.Services
             var sintesis = await GetByIdAsync(sintesisId)
                 ?? throw new InvalidOperationException("Síntesis no encontrada");
             var incluidas = SintesisContenido.NotasVisibles(sintesis);
-            var versiones = incluidas.Where(sn => sn.NotaVersion != null)
-                .GroupBy(sn => sn.NotaPrensaId).ToDictionary(g => g.Key, g => g.First().NotaVersion);
-            var lineas = await _notaService.GetLineasTiempoAsync(versiones);
-            return SintesisWordDocument.Crear(sintesis, incluidas, lineas, _env.WebRootPath);
+            return SintesisWordDocument.Crear(sintesis, incluidas, _env.WebRootPath);
         }
 
         public async Task<string> GenerarPdfAsync(int sintesisId)
@@ -657,13 +654,6 @@ namespace Medios.Services
             // El índice y el cuerpo comparten exactamente la misma jerarquía y orden.
             var porAmbito = SintesisPdfModel.Agrupar(incluidas);
 
-            // Línea de tiempo: cuerpo anclado en v1 + actualizaciones (ResumenCambio)
-            var versionPorNota = incluidas
-                .Where(sn => sn.NotaVersion != null)
-                .GroupBy(sn => sn.NotaPrensaId)
-                .ToDictionary(g => g.Key, g => g.First().NotaVersion);
-            var lineas = await _notaService.GetLineasTiempoAsync(versionPorNota);
-
             var nombreArchivo = $"sintesis_{sintesis.Tipo.ToLower()}_{sintesis.Fecha:yyyyMMdd}_{sintesisId}.pdf";
             var pdfDir = Path.Combine(_env.WebRootPath, "pdf");
             Directory.CreateDirectory(pdfDir);
@@ -693,7 +683,7 @@ namespace Medios.Services
                     page.MarginTop(1.3f, Unit.Centimetre);
                     page.MarginLeft(2.5f, Unit.Centimetre);
                     page.MarginRight(1.2f, Unit.Centimetre);
-                    page.MarginBottom(1.2f, Unit.Centimetre);
+                    page.MarginBottom(0.35f, Unit.Centimetre);
                     page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Arial"));
 
                     // ── HEADER ── (solo en la primera página, junto con el índice — ShowOnce
@@ -735,13 +725,13 @@ namespace Medios.Services
                             col.Item().ShowOnce().PaddingTop(5).AlignCenter()
                                 .Text($"SÍNTESIS FILTRADA · Origen #{sintesis.SintesisOrigenId}").FontSize(10).Bold();
                         col.Item().ShowOnce().PaddingTop(10).AlignCenter().Text(fechaLarga)
-                            .FontSize(20).Bold().FontFamily("URW Bookman");
+                            .FontSize(20).Bold().FontFamily(SintesisFuentes.Bookman);
                     });
 
                     // ── BODY ──
-                    page.Content().PaddingTop(36).Column(col =>
+                    page.Content().PaddingBottom(24).Column(col =>
                     {
-                        col.Item().PaddingBottom(20).Text("CONTENIDO").FontSize(16).Bold()
+                        col.Item().PaddingTop(36).PaddingBottom(20).Text("CONTENIDO").FontSize(16).Bold()
                             .FontColor(Color.FromHex("#8B4513"));
 
                         // Fila de índice con leader de puntos (imitando el punteado de Word) del
@@ -752,12 +742,12 @@ namespace Medios.Services
                             col.Item().PaddingTop(2).Row(row =>
                             {
                                 row.AutoItem().AlignMiddle().Text(texto).FontSize(10);
-                                row.RelativeItem().AlignMiddle().PaddingHorizontal(4)
+                                row.RelativeItem().AlignMiddle().PaddingLeft(3).PaddingRight(2)
                                     .Text(new string('.', 300))
-                                    .FontSize(10).FontColor(Colors.Grey.Medium)
-                                    .ClampLines(1, "");
-                                row.ConstantItem(20).AlignMiddle().AlignRight()
-                                    .Text(t => t.BeginPageNumberOfSection(sectionId).FontSize(10));
+                                    .FontSize(14).FontFamily(SintesisFuentes.Bookman).FontColor(Colors.Black)
+                                    .ClampLines(1, "").AlignRight();
+                                row.AutoItem().AlignMiddle().AlignRight()
+                                    .Text(t => t.BeginPageNumberOfSection(sectionId).FontSize(14).FontFamily(SintesisFuentes.Bookman));
                             });
                         }
 
@@ -773,66 +763,53 @@ namespace Medios.Services
 
                         foreach (var amb in porAmbito)
                         {
-                          col.Item().EnsureSpace(110).Column(ambCol =>
+                          col.Item().EnsureSpace(95).Column(ambCol =>
                           {
                             // ── Encabezado de ÁMBITO (un solo titular) ── (marcado como Section
                             // para que el índice pueda referenciar la página donde arranca)
                             ambCol.Item().Section(amb.SectionId).ShowEntire().PaddingTop(10).PaddingBottom(10).Text(amb.Titulo)
-                                .FontSize(14).Bold().FontFamily("URW Bookman").FontColor(Color.FromHex("#8B4513"));
+                                .FontSize(14).Bold().FontFamily(SintesisFuentes.Bookman).FontColor(Color.FromHex("#8B4513"));
 
                           foreach (var grupo in amb.Categorias)
                           {
-                            ambCol.Item().EnsureSpace(85).Column(catCol =>
+                            ambCol.Item().EnsureSpace(80).Column(catCol =>
                             {
                             // ── Subsección por CATEGORÍA ── (marcada como Section para el índice)
                             if (grupo.Titulo != null)
                             {
                                 catCol.Item().Section(grupo.SectionId).PaddingTop(6).Text(grupo.Titulo)
-                                    .FontSize(12).Bold().FontColor(Color.FromHex("#8B4513"));
+                                    .FontSize(14).Bold().FontFamily(SintesisFuentes.Bookman).FontColor(Color.FromHex("#8B4513"));
                             }
 
-                            foreach (var snap in grupo.Notas)
+                            foreach (var nota in grupo.Notas)
                             {
-                                // Cuerpo anclado en la versión original (v1) si la noticia evolucionó
-                                lineas.TryGetValue(snap.NotaId, out var linea);
-                                var tieneHist = linea != null && linea.Actualizaciones.Any();
-                                var nota = (tieneHist ? linea!.Ancla : null) ?? snap;
 
-                                catCol.Item().EnsureSpace(65).PaddingTop(4).Column(notaCol =>
+                                catCol.Item().EnsureSpace(50).PaddingTop(4).PaddingBottom(12).Column(notaCol =>
                                 {
                                     var geo = amb.SoloLocalidad ? SintesisPdfModel.LocalidadDentroPartido(nota) : FormatGeo(nota.Partido, nota.Localidad);
-                                    if (geo.Length > 0)
-                                        notaCol.Item().Text(geo).FontSize(SintesisPdfModel.TamanoTitulo).Bold().FontFamily("URW Bookman");
+                                    if (geo.Length > 0 && SintesisPdfModel.LongitudPartidoEnTitulo(nota) == 0)
+                                        notaCol.Item().Text(geo).FontSize(SintesisPdfModel.TamanoTitulo).Bold().FontFamily(SintesisFuentes.Bookman);
 
-                                    notaCol.Item().ShowEntire().Text(SinPuntoFinal(nota.Titulo.ToUpper()))
-                                        .Bold().FontSize(SintesisPdfModel.TamanoTitulo).FontFamily("URW Bookman").LineHeight(1.0f);
+                                    var titulo = SinPuntoFinal(nota.Titulo.Trim().ToUpper());
+                                    var prefijoPartido = SintesisPdfModel.LongitudPartidoEnTitulo(nota);
+                                    notaCol.Item().ShowEntire().Text(t =>
+                                    {
+                                        t.DefaultTextStyle(x => x.Bold().FontSize(SintesisPdfModel.TamanoTitulo).FontFamily(SintesisFuentes.Bookman));
+                                        t.Justify();
+                                        if (prefijoPartido > 0)
+                                            t.Span(titulo[..prefijoPartido]).Underline();
+                                        t.Span(titulo[prefijoPartido..]);
+                                    });
 
-                                    notaCol.Item().Text(SintesisPdfModel.CuerpoConFuente(nota)).FontSize(14).FontFamily("URW Bookman")
-                                        .LineHeight(1.0f).Justify();
+                                    notaCol.Item().Text(SintesisPdfModel.CuerpoConFuente(nota)).FontSize(14).FontFamily(SintesisFuentes.Bookman)
+                                        .Justify();
 
                                     var linkVisible = SintesisPdfModel.LinkVisible(nota);
                                     if (!string.IsNullOrWhiteSpace(linkVisible))
-                                        notaCol.Item().PaddingBottom(10).Text(linkVisible)
-                                            .FontSize(12).FontFamily("URW Bookman").FontColor(Colors.Blue.Medium);
+                                        notaCol.Item().Text(t =>
+                                            t.Hyperlink(linkVisible, linkVisible).FontSize(12)
+                                                .FontFamily(SintesisFuentes.Bookman).FontColor("#0F9ED5"));
 
-                                    // Actualizaciones posteriores (ampliaciones) como anotaciones
-                                    if (tieneHist)
-                                    {
-                                        foreach (var act in linea!.Actualizaciones)
-                                        {
-                                            var etiqueta = $"ACTUALIZACIÓN · {act.Fecha:dd/MM/yyyy}"
-                                                + (string.IsNullOrEmpty(act.Turno) ? "" : $" · {act.Turno}");
-                                            notaCol.Item().PaddingTop(3).PaddingLeft(8)
-                                                .BorderLeft(2).BorderColor(Color.FromHex("#8B4513"))
-                                                .PaddingLeft(6).Column(actCol =>
-                                                {
-                                                    actCol.Item().Text(etiqueta).FontSize(8).Bold()
-                                                        .FontColor(Color.FromHex("#8B4513"));
-                                                    actCol.Item().Text(act.ResumenCambio ?? "")
-                                                        .FontSize(9).LineHeight(1.2f);
-                                                });
-                                        }
-                                    }
                                 });
                             }
 
@@ -847,7 +824,7 @@ namespace Medios.Services
                             col.Item().PaddingTop(8).Text(
                                 "Nota: La información suministrada por las agencias de noticias son anticipos que refieren " +
                                 "a posibles temas a tratar en el día de mañana, en los medios periodísticos nacionales o locales.")
-                                .FontSize(8).Italic().FontColor(Colors.Grey.Darken2);
+                                .FontSize(8).FontFamily("Arial").Italic().FontColor("#606060");
                         }
                     });
 
@@ -855,9 +832,9 @@ namespace Medios.Services
                     page.Footer().AlignCenter().Text(txt =>
                     {
                         txt.Span("División Medios O.S.INT — ").FontSize(8).FontColor(Colors.Grey.Darken1);
-                        txt.CurrentPageNumber().FontSize(8);
+                        txt.CurrentPageNumber().FontSize(14).FontFamily(SintesisFuentes.Bookman);
                         txt.Span(" / ").FontSize(8);
-                        txt.TotalPages().FontSize(8);
+                        txt.TotalPages().FontSize(14).FontFamily(SintesisFuentes.Bookman);
                     });
                 });
             }).GeneratePdf(pdfPath);
