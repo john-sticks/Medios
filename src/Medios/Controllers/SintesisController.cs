@@ -493,6 +493,11 @@ namespace Medios.Controllers
                 TempData["Error"] = "Usá Eliminar filtrada; la síntesis de origen y sus sesiones no se revierten.";
                 return RedirectToAction(nameof(Detalle), new { id });
             }
+            if (await _sintesisService.TieneFiltradasAsync(id))
+            {
+                TempData["Error"] = "No se puede revertir una consolidada con síntesis filtradas vinculadas. Eliminá primero las filtradas pendientes; las informadas conservan su origen.";
+                return RedirectToAction(nameof(Detalle), new { id });
+            }
             // Devolver las sesiones a Finalizada y eliminar la síntesis consolidada
             await _sesionService.RevertirConsolidacionAsync(id);
             await _sintesisService.EliminarConsolidadaAsync(id);

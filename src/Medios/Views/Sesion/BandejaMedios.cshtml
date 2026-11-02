@@ -283,6 +283,10 @@
                                         <td><small>@sc.FechaCreacion.ToString("dd/MM HH:mm")</small></td>
                                         <td class="text-right" style="white-space:nowrap;">
                                             <a href="/Sintesis/Detalle/@sc.Id" class="btn btn-xs btn-primary"><i class="fa fa-eye"></i> Ver</a>
+                                            @if (SintesisService.PuedeCrearFiltrada(sc)) {
+                                            <a href="/Sintesis/CrearFiltrada/@sc.Id" class="btn btn-xs btn-info" style="margin-left:4px;" title="Crear otra síntesis con las notas elegidas">
+                                                <i class="fa fa-filter"></i> Crear filtrada
+                                            </a> }
                                             @if (sc.Estado != "Informando") {
                                             <a href="/Sintesis/Informar/@sc.Id" class="btn btn-xs btn-info" style="margin-left:4px;">
                                                 <i class="fa fa-send"></i> Informar
@@ -346,9 +350,6 @@
                                         <td><small>@si.FechaGeneracion?.ToString("dd/MM/yyyy HH:mm")</small></td>
                                         <td class="text-right" style="white-space:nowrap;">
                                             <a href="/Sintesis/Detalle/@si.Id" class="btn btn-xs btn-default"><i class="fa fa-eye"></i> Ver</a>
-                                            <a href="/Sintesis/CrearFiltrada/@si.Id" class="btn btn-xs btn-info" style="margin-left:4px;" title="Crear otra síntesis con las notas elegidas">
-                                                <i class="fa fa-filter"></i> Crear filtrada
-                                            </a>
                                         </td>
                                     </tr>
                                 }

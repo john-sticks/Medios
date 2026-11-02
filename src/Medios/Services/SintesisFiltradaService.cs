@@ -1,18 +1,28 @@
 using Medios.Entities;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 
 namespace Medios.Services;
 
 public partial class SintesisService
 {
+    public static bool PuedeCrearFiltrada([NotNullWhen(true)] Sintesis? origen) =>
+        origen is { DelegacionId: null, Estado: "Generada" };
+
+    public async Task<bool> TieneFiltradasAsync(int origenId)
+    {
+        using var db = _factory.Create();
+        return await db.Sintesis.AnyAsync(s => s.SintesisOrigenId == origenId);
+    }
+
     public async Task<(int Id, string? Error)> CrearFiltradaAsync(int origenId,
         IEnumerable<int> seleccionIds, string operador)
     {
         using var db = _factory.Create();
         var origen = await db.Sintesis.AsNoTracking().Include(s => s.NotasIncluidas)
             .SingleOrDefaultAsync(s => s.Id == origenId);
-        if (origen == null || origen.DelegacionId != null || origen.Estado != "Informada")
-            return (0, "Elegí una síntesis consolidada que ya esté informada.");
+        if (!PuedeCrearFiltrada(origen))
+            return (0, "Elegí una síntesis consolidada generada y pendiente de informar.");
         var ids = seleccionIds.ToHashSet();
         if (ids.Count == 0)
             return (0, "Seleccioná al menos una nota.");
@@ -31,7 +41,7 @@ public partial class SintesisService
                 NotaPrensaId = sn.NotaPrensaId, NotaVersionId = sn.NotaVersionId,
                 Orden = nueva.NotasIncluidas.Count
             });
-        // Las versiones se referencian tal como fueron informadas; no se copian ni se actualizan.
+        // Las versiones se referencian tal como quedaron en el origen; no se copian ni se actualizan.
         db.Sintesis.Add(nueva);
         await db.SaveChangesAsync();
         return (nueva.Id, null);

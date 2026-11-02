@@ -227,6 +227,7 @@ namespace Medios.Services
                 .FirstOrDefaultAsync(x => x.Id == sintesisId);
             if (s == null || s.DelegacionId != null) return false;
             if (s.Estado is "Informada" or "Informando") return false;
+            if (await db.Sintesis.AnyAsync(x => x.SintesisOrigenId == sintesisId)) return false;
 
             db.SintesisNotas.RemoveRange(s.NotasIncluidas);
             db.Sintesis.Remove(s);
@@ -890,6 +891,7 @@ namespace Medios.Services
                 .Include(x => x.NotasIncluidas)
                 .FirstOrDefaultAsync(x => x.Id == id);
             if (s == null || s.EsFiltrada || s.Estado == "Remitida") return -1;
+            if (await db.Sintesis.AnyAsync(x => x.SintesisOrigenId == id)) return -1;
 
             var notaIds = s.NotasIncluidas.Select(sn => sn.NotaPrensaId).ToList();
             var notas = await db.NotasPrensa.Where(n => notaIds.Contains(n.Id)).ToListAsync();

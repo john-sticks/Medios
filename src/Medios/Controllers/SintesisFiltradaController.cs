@@ -11,7 +11,7 @@ public partial class SintesisController
     {
         if (!PuedeConsolidar()) return Forbid();
         var origen = await _sintesisService.GetByIdAsync(id);
-        if (origen == null || origen.DelegacionId != null || origen.Estado != "Informada") return NotFound();
+        if (!Medios.Services.SintesisService.PuedeCrearFiltrada(origen)) return NotFound();
         ViewBag.DelegacionesFiltrada = (await _delegService.GetTodasAsync())
             .ToDictionary(d => d.Id, d => d.Nombre);
         return View(origen);
