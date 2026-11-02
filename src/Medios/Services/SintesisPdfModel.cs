@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using Medios.Entities;
 
 namespace Medios.Services;
@@ -91,17 +92,37 @@ public static class SintesisPdfModel
         return cuerpo.TrimEnd() + (fuente.Length > 0 ? $" ({fuente})" : "");
     }
 
-    public static int LongitudPartidoEnTitulo(NotaVersion nota)
+    private static string PalabraGeografica(string texto) => Normalizar(texto) switch
     {
-        var titulo = nota.Titulo.Trim().TrimEnd('.');
-        var dosPuntos = titulo.IndexOf(':');
-        var partido = nota.Partido?.Nombre.Trim();
-        if (dosPuntos <= 0 || string.IsNullOrEmpty(partido)) return 0;
-        var prefijo = titulo[..dosPuntos].TrimEnd();
-        var comparacion = System.Globalization.CultureInfo.GetCultureInfo("es-AR").CompareInfo;
-        return comparacion.Compare(prefijo, partido,
-            System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) == 0
-            ? prefijo.Length : 0;
+        "GRAL" => "GENERAL",
+        "CNEL" => "CORONEL",
+        var palabra => palabra
+    };
+
+    public static List<SegmentoTitulo> SegmentosTitulo(NotaVersion nota)
+    {
+        var titulo = nota.Titulo.Trim().TrimEnd('.').ToUpperInvariant();
+        var partido = Regex.Matches(nota.Partido?.Nombre ?? "", @"[\p{L}\p{M}\p{N}]+")
+            .Select(m => PalabraGeografica(m.Value)).ToArray();
+        var palabras = Regex.Matches(titulo, @"[\p{L}\p{M}\p{N}]+").ToArray();
+        var segmentos = new List<SegmentoTitulo>();
+        var desde = 0;
+        if (partido.Length > 0)
+        {
+            for (var i = 0; i <= palabras.Length - partido.Length; i++)
+            {
+                if (!partido.Select((p, j) => p == PalabraGeografica(palabras[i + j].Value)).All(igual => igual))
+                    continue;
+                var inicio = palabras[i].Index;
+                var fin = palabras[i + partido.Length - 1].Index + palabras[i + partido.Length - 1].Length;
+                if (inicio > desde) segmentos.Add(new(titulo[desde..inicio], false));
+                segmentos.Add(new(titulo[inicio..fin], true));
+                desde = fin;
+                i += partido.Length - 1;
+            }
+        }
+        if (desde < titulo.Length) segmentos.Add(new(titulo[desde..], false));
+        return segmentos;
     }
 
     public static string? LinkVisible(NotaVersion nota) => string.IsNullOrWhiteSpace(nota.Link) ? null : nota.Link.Trim();
@@ -109,3 +130,5 @@ public static class SintesisPdfModel
 
 public sealed record AmbitoPdf(string SectionId, string Titulo, List<CategoriaPdf> Categorias, bool SoloLocalidad = false);
 public sealed record CategoriaPdf(string SectionId, string? Titulo, List<NotaVersion> Notas);
+
+public sealed record SegmentoTitulo(string Texto, bool Subrayado);

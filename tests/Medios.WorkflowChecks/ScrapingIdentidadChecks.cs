@@ -6,14 +6,14 @@ static class ScrapingIdentidadChecks
     public static async Task<int> RunAsync()
     {
         int count = 0;
-        foreach (var dominio in new[] { "laopinion.com.ar", "www.laopinion.com.ar", "otro.ejemplo.invalid", "laopinion.com.ar.ejemplo.invalid" })
+        foreach (var dominio in new[] { "laopinion.com.ar", "www.laopinion.com.ar", "rumoresdepehuajo.com.ar", "www.rumoresdepehuajo.com.ar", "rumoresdepehuajo.com.ar.ejemplo.invalid", "otro.ejemplo.invalid", "laopinion.com.ar.ejemplo.invalid" })
         {
             using var handler = new Respuesta();
             using var http = new HttpClient(handler);
             var scraper = new ScraperService(http, new ScrapingReglaService(new MemoriaFactory()));
             var result = await scraper.ScrapearAsync("https://" + dominio + "/noticia/");
-            bool opinion = dominio is "laopinion.com.ar" or "www.laopinion.com.ar";
-            if (opinion != (handler.UserAgent == "Keryx/1.0")) throw new Exception("Identidad de scraping aplicada a otro portal");
+            bool identidadExplicita = dominio is "laopinion.com.ar" or "www.laopinion.com.ar" or "rumoresdepehuajo.com.ar" or "www.rumoresdepehuajo.com.ar";
+            if (identidadExplicita != (handler.UserAgent == "Keryx/1.0")) throw new Exception("Identidad de scraping aplicada a otro portal");
             count++;
             if (result.Error != null || result.Titulo != "Título de prueba") throw new Exception("La identidad no debe alterar la extracción");
             count++;

@@ -41,3 +41,9 @@ División Medios O.S.INT en Arial normal 8; página actual y total en Bookman no
 La nota final exclusiva de Vespertina usa Arial 8 cursiva, gris #606060, como la referencia reducida.
 
 El margen superior físico sigue la referencia de 1,3 cm. Los 36 pt anteriores a CONTENIDO se aplican únicamente en el índice, sin repetirse al comenzar las páginas de noticias. La reserva de espacio para encabezados es pequeña y el cuerpo puede continuar en la siguiente página.
+
+## Partido mencionado en el titular
+
+PDF y Word usan los mismos segmentos del titular. Si aparece el nombre completo del partido seleccionado, se subraya esa mención y se omite la línea de partido/localidad sobre el titular, sin exigir dos puntos ni una posición inicial. Se ignoran diferencias de mayúsculas y tildes y se reconocen Gral./General y Cnel./Coronel. No se admiten coincidencias parciales de palabras ni se infiere un partido no seleccionado.
+
+Sin localidad, el encabezado geográfico muestra solo el partido; si ya se menciona en el titular, se aplica la misma omisión. Los datos guardados no se modifican. El cambio se ve en exportaciones nuevas; no reemplaza PDF guardados ni cargados manualmente.

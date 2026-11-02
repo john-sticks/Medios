@@ -22,12 +22,12 @@ static class WordChecks
             {
                 var version = new NotaVersion
                 {
-                    NotaId = orden, Titulo = orden == 4 ? "La Plata: titular editable 4" : "Titular editable " + orden,
+                    NotaId = orden, Titulo = orden == 4 ? "La Plata: titular editable 4" : orden == 3 ? "Operativo en Gral. Villegas con detenciones" : "Titular editable " + orden,
                     ResumenCambio = "Recuperada de notas rechazadas",
                     Sintesis = string.Join(" ", Enumerable.Repeat("Una noticia ficticia permite verificar que el texto siga siendo editable y conserve los márgenes, el espaciado y las categorías del documento.", orden == 1 ? 30 : 2)),
                     Categoria = new CategoriaNoticia { Nombre = categoria },
-                    Partido = orden >= 3 ? new Partido { Nombre = "La Plata" } : null,
-                    Localidad = orden >= 3 ? new Localidad { Nombre = "TOLOSA (LA PLATA)" } : null,
+                    Partido = orden >= 3 ? new Partido { Nombre = orden == 3 ? "GENERAL VILLEGAS" : "La Plata" } : null,
+                    Localidad = orden == 4 ? new Localidad { Nombre = "TOLOSA (LA PLATA)" } : null,
                     Fuente = "Diario", OtrosMedios = "Otro medio",
                     Link = orden == 4 ? "https://ejemplo.invalid/noticias/la-plata-un-titulo-extenso-para-comprobar-el-salto-del-hipervinculo-en-varias-lineas-sin-perder-su-destino-original/" : "https://ejemplo.invalid/noticia", VideoUrl = "https://ejemplo.invalid/video"
                 };
@@ -56,7 +56,9 @@ static class WordChecks
             Check(texto.Contains("ÁMBITO LA PLATA") && texto.Contains("HECHOS DELICTUALES"), "Word agrupa por categoría y partido");
             Check(texto.IndexOf("ÁMBITO NACIONAL") < texto.IndexOf("ÁMBITO PROVINCIAL"), "Conservar orden del índice");
             Check(!texto.Contains("NOTICIA ORIGINAL") && !texto.Contains("Recuperada de notas rechazadas") && !texto.Contains("ACTUALIZACIÓN"), "Exportar snapshot incluido sin anotaciones del historial");
-            Check(texto.Contains("TITULAR EDITABLE 3"), "Conservar la versión capturada en la síntesis");
+            var tituloMedio = body.Elements<W.Paragraph>().Single(p => p.InnerText == "OPERATIVO EN GRAL. VILLEGAS CON DETENCIONES");
+            Check(tituloMedio.Elements<W.Run>().Where(r => r.RunProperties?.GetFirstChild<W.Underline>() != null).Single().InnerText == "GRAL. VILLEGAS", "Word subraya abreviatura en mitad del titular");
+            Check(tituloMedio.PreviousSibling<W.Paragraph>()!.InnerText != "GENERAL VILLEGAS", "Sin localidad y partido mencionado no agregar geografía sobre titular");
             var tituloPartido = body.Elements<W.Paragraph>().Single(p => p.InnerText == "LA PLATA: TITULAR EDITABLE 4");
             Check(tituloPartido.Elements<W.Run>().First().InnerText == "LA PLATA"
                 && tituloPartido.Elements<W.Run>().First().RunProperties!.GetFirstChild<W.Underline>() != null, "Subrayar solo partido al comienzo del título");

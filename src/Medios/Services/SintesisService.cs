@@ -651,9 +651,6 @@ namespace Medios.Services
                 return $"{partido.Nombre.ToUpper()} - {loc.ToUpper()}";
             }
 
-            // Sin punto final (el instructivo lo prohíbe en título y fuente)
-            static string SinPuntoFinal(string s) => s.TrimEnd().TrimEnd('.');
-
             // El índice y el cuerpo comparten exactamente la misma jerarquía y orden.
             var porAmbito = SintesisPdfModel.Agrupar(incluidas);
 
@@ -789,19 +786,20 @@ namespace Medios.Services
 
                                 catCol.Item().EnsureSpace(50).PaddingTop(4).PaddingBottom(12).Column(notaCol =>
                                 {
+                                    var segmentosTitulo = SintesisPdfModel.SegmentosTitulo(nota);
                                     var geo = amb.SoloLocalidad ? SintesisPdfModel.LocalidadDentroPartido(nota) : FormatGeo(nota.Partido, nota.Localidad);
-                                    if (geo.Length > 0 && SintesisPdfModel.LongitudPartidoEnTitulo(nota) == 0)
+                                    if (geo.Length > 0 && !segmentosTitulo.Any(s => s.Subrayado))
                                         notaCol.Item().Text(geo).FontSize(SintesisPdfModel.TamanoTitulo).Bold().FontFamily(SintesisFuentes.Bookman);
 
-                                    var titulo = SinPuntoFinal(nota.Titulo.Trim().ToUpper());
-                                    var prefijoPartido = SintesisPdfModel.LongitudPartidoEnTitulo(nota);
                                     notaCol.Item().ShowEntire().Text(t =>
                                     {
                                         t.DefaultTextStyle(x => x.Bold().FontSize(SintesisPdfModel.TamanoTitulo).FontFamily(SintesisFuentes.Bookman));
                                         t.Justify();
-                                        if (prefijoPartido > 0)
-                                            t.Span(titulo[..prefijoPartido]).Underline();
-                                        t.Span(titulo[prefijoPartido..]);
+                                        foreach (var segmento in segmentosTitulo)
+                                        {
+                                            var span = t.Span(segmento.Texto);
+                                            if (segmento.Subrayado) span.Underline();
+                                        }
                                     });
 
                                     notaCol.Item().Text(SintesisPdfModel.CuerpoConFuente(nota)).FontSize(14).FontFamily(SintesisFuentes.Bookman)

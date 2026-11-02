@@ -95,20 +95,19 @@ public static class SintesisWordDocument
                     }
                     foreach (var nota in categoria.Notas)
                     {
+                        var segmentosTitulo = SintesisPdfModel.SegmentosTitulo(nota);
                         var geo = grupo.SoloLocalidad ? SintesisPdfModel.LocalidadDentroPartido(nota) : Geografia(nota);
-                        if (geo.Length > 0 && SintesisPdfModel.LongitudPartidoEnTitulo(nota) == 0) body.Append(Parrafo(geo, 14, true, antes: 80, seguir: true));
-                        var titulo = Parrafo(nota.Titulo.Trim().TrimEnd('.').ToUpperInvariant(), 14, true, seguir: true, justificar: true);
-                        var prefijoPartido = SintesisPdfModel.LongitudPartidoEnTitulo(nota);
-                        if (prefijoPartido > 0)
+                        if (geo.Length > 0 && !segmentosTitulo.Any(s => s.Subrayado)) body.Append(Parrafo(geo, 14, true, antes: 80, seguir: true));
+                        var titulo = Parrafo("", 14, true, seguir: true, justificar: true);
+                        var plantilla = titulo.Elements<W.Run>().Single();
+                        foreach (var segmento in segmentosTitulo)
                         {
-                            var run = titulo.Elements<W.Run>().Single();
-                            var texto = run.InnerText;
-                            var prefijo = (W.Run)run.CloneNode(true);
-                            prefijo.GetFirstChild<W.Text>()!.Text = texto[..prefijoPartido];
-                            prefijo.RunProperties!.Append(new W.Underline { Val = W.UnderlineValues.Single });
-                            run.GetFirstChild<W.Text>()!.Text = texto[prefijoPartido..];
-                            titulo.InsertBefore(prefijo, run);
+                            var run = (W.Run)plantilla.CloneNode(true);
+                            run.GetFirstChild<W.Text>()!.Text = segmento.Texto;
+                            if (segmento.Subrayado) run.RunProperties!.Append(new W.Underline { Val = W.UnderlineValues.Single });
+                            titulo.Append(run);
                         }
+                        plantilla.Remove();
                         body.Append(titulo);
                         body.Append(Parrafo(SintesisPdfModel.CuerpoConFuente(nota), 14, justificar: true));
                         var link = SintesisPdfModel.LinkVisible(nota);

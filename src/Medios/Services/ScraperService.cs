@@ -38,8 +38,8 @@ public class ScraperService
                 return await ScrapearRedSocialAsync(url, dominio);
 
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            // La Opinión rechaza el identificador Chrome genérico; acepta identificar al importador.
-            if (dominio == "laopinion.com.ar")
+            // Estos portales rechazan el Chrome genérico y aceptan identificar al importador.
+            if (dominio is "laopinion.com.ar" or "rumoresdepehuajo.com.ar")
                 request.Headers.UserAgent.ParseAdd("Keryx/1.0");
             using var httpResp = await _http.SendAsync(request);
             httpResp.EnsureSuccessStatusCode();

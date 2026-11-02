@@ -79,11 +79,32 @@ static class SintesisMediosChecks
         Check(SintesisPdfModel.LinkVisible(conVideo) == conVideo.Link, "Conservar enlace a la noticia aunque incluya video");
         Check(SintesisPdfModel.CuerpoConFuente(conVideo) == "Resumen de prueba. (DIARIO, OTRO MEDIO)", "Fuente inmediatamente después del texto, sin salto de línea ni marca IA");
         var prefijo = new NotaVersion { Titulo = "San Nicolás: noticia", Partido = new Partido { Nombre = "SAN NICOLAS" } };
-        Check(SintesisPdfModel.LongitudPartidoEnTitulo(prefijo) == 11, "Detectar partido inicial sin depender de mayúsculas ni tildes");
+        Check(SintesisPdfModel.SegmentosTitulo(prefijo).Single(s => s.Subrayado).Texto == "SAN NICOLÁS", "Detectar partido inicial sin depender de mayúsculas ni tildes");
         prefijo.Titulo = "Un hecho en San Nicolás: noticia";
-        Check(SintesisPdfModel.LongitudPartidoEnTitulo(prefijo) == 0, "No ocultar geografía por coincidencia parcial");
+        Check(SintesisPdfModel.SegmentosTitulo(prefijo).Single(s => s.Subrayado).Texto == "SAN NICOLÁS", "Detectar partido en cualquier posición del título");
         prefijo.Titulo = "Otra localidad: noticia";
-        Check(SintesisPdfModel.LongitudPartidoEnTitulo(prefijo) == 0, "No confundir localidad con partido");
+        Check(!SintesisPdfModel.SegmentosTitulo(prefijo).Any(s => s.Subrayado), "No confundir localidad con partido");
+        foreach (var (partido, titulo, subrayado) in new[]
+        {
+            ("GENERAL VILLEGAS", "Gral. Villegas operativo policial", "GRAL. VILLEGAS"),
+            ("GENERAL VILLEGAS", "Operativo en gral Villegas", "GRAL VILLEGAS"),
+            ("GENERAL VILLEGAS", "Operativo en GENERAL VILLEGAS con detenciones", "GENERAL VILLEGAS"),
+            ("GENERAL RODRIGUEZ", "Buscan una joven en Gral. Rodríguez", "GRAL. RODRÍGUEZ"),
+            ("CORONEL BRANDSEN", "Procedimiento en Cnel. Brandsen", "CNEL. BRANDSEN"),
+            ("LA PLATA", "Un hecho en LA PLATANENSE", ""),
+            ("GENERAL VILLEGAS", "Operativo en Villegas", ""),
+            ("LA PLATA", "Avance en otra localidad", "")
+        })
+        {
+            var nota = new NotaVersion { Titulo = titulo, Partido = new Partido { Nombre = partido } };
+            var segmentos = SintesisPdfModel.SegmentosTitulo(nota);
+            Check(string.Concat(segmentos.Where(s => s.Subrayado).Select(s => s.Texto)) == subrayado, "Subrayado geográfico: " + titulo);
+            Check(string.Concat(segmentos.Select(s => s.Texto)) == titulo.ToUpperInvariant(), "No alterar el titular al dividir el subrayado");
+            Check(SintesisPdfModel.LocalidadDentroPartido(nota) == "", "Sin localidad no repetir el partido como localidad");
+        }
+        var repetida = SintesisPdfModel.SegmentosTitulo(new NotaVersion { Titulo = "La Plata y otra vez La Plata", Partido = new Partido { Nombre = "La Plata" } });
+        Check(repetida.Count(s => s.Subrayado) == 2, "Subrayar cada aparición completa del partido");
+        Check(!SintesisPdfModel.SegmentosTitulo(new NotaVersion { Titulo = "La Plata" }).Any(s => s.Subrayado), "Sin partido seleccionado no inferirlo del titular");
         return checks;
     }
 
@@ -136,7 +157,15 @@ static class SintesisMediosChecks
         using (var db = factory.Create())
         {
             var sintesis = new Sintesis { Fecha = new DateOnly(2026, 10, 8), Tipo = tipo, OperadorGenera = "Operador de prueba" };
-            foreach (var incluida in DatosModelo())
+            var muestras = DatosModelo();
+            var villegas = new Partido { IdPartido = 3, Nombre = "GENERAL VILLEGAS" };
+            foreach (var (indice, titular) in new[] { (4, "Operativo en Gral. Villegas con detenciones"), (1, "Otro procedimiento en General Villegas"), (7, "Actividad en otra ciudad") })
+            {
+                muestras[indice].NotaVersion.Partido = villegas;
+                muestras[indice].NotaVersion.Localidad = null;
+                muestras[indice].NotaVersion.Titulo = titular;
+            }
+            foreach (var incluida in muestras)
             {
                 if (incluida.NotaVersion.AmbitoNota == "Nacional")
                     incluida.NotaVersion.Sintesis = string.Join(" ", Enumerable.Repeat("Esta es una noticia ficticia utilizada para verificar el interlineado y el espaciado del documento. La información describe una actividad de prueba en la que participan distintas instituciones y permite comprobar la lectura de un párrafo extenso.", 12));
