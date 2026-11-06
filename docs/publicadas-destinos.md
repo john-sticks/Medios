@@ -1,7 +1,7 @@
-# Visibilidad de síntesis publicadas por delegación
+# Visibilidad de síntesis publicadas (regla revisada 06/11/2026)
 
-DELEGACIÓN solo lista y descarga una consolidada informada cuando `CanalTodasDelegaciones` está activo o existe un destino de su delegación en `sintesis_delegacion_destino`. `CanalTodosRoles` no omite esa condición. La misma política se usa en consulta y descarga directa por ID, también para las filtradas y para todos los usuarios de la delegación.
+MEDIOS/administrador y DESARROLLADOR consultan todas las publicaciones informadas, generales y filtradas, dentro del período buscado. La entrada a Publicadas conserva la búsqueda explícita por fechas.
 
-Se conserva el acceso general de los demás roles y el acceso a la síntesis propia de la delegación. El envío de correo no concede visibilidad en plataforma. No se modifica ni hereda la selección de la síntesis de origen: las filtradas tienen sus destinos independientes.
+DELEGACIÓN vuelve a la visibilidad anterior de las generales: Todos los Roles, Todas las delegaciones o destino específico. Las filtradas (`SintesisOrigenId` no nulo) no se muestran ni se descargan para DELEGACIÓN, aunque tengan esos canales o un destino asignado. Listado y descarga directa por ID comparten la misma política. Los usuarios de una misma delegación reciben el mismo acceso. El envío por correo no concede acceso en plataforma.
 
-No requiere migración ni reescritura de publicaciones existentes. Al desplegar, las publicaciones que solo tenían Todos los Roles y ningún destino dejan de ser visibles para DELEGACIÓN. Para habilitarlas hay que seleccionar expresamente la delegación o Todas las delegaciones al informar. No se borran PDF, notas, destinatarios ni registros de envío.
+No requiere migración ni reescritura de publicaciones existentes. No se borran destinos, PDF, notas ni historial. El acceso propio de delegación y la prohibición de Word/detalle consolidado para DELEGACIÓN se conservan.

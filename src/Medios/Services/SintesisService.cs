@@ -248,7 +248,7 @@ namespace Medios.Services
         }
 
         // Síntesis publicadas. El rol DELEGACION solo ve las informadas que le llegan
-        // (Todas las delegaciones o destino específico para la suya; Todos los Roles no otorga acceso a DELEGACION).
+        // (Todos los Roles, Todas las delegaciones o destino específico), excluyendo siempre las filtradas.
         // Cualquier otro rol (ANALISTA/SUPERVISOR/etc.) ve todas las informadas sin restricción
         // de canal: la restricción por delegación es exclusiva del rol DELEGACION.
         public const int MaxDiasPublicadas = 15;

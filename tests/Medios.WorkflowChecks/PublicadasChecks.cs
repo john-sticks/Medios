@@ -26,13 +26,19 @@ static class PublicadasChecks
                 new Sintesis { Fecha = fecha, Tipo = "Especial", Estado = "Informada", DelegacionesDestino = new List<SintesisDelegacionDestino> { new() { DelegacionId = 1 } } });
             await db.SaveChangesAsync();
         }
+        using(var db=factory.Create())
+        {
+            var origen=await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(db.Sintesis);
+            db.Sintesis.Add(new Sintesis{Fecha=fecha,Tipo="Matutina",Estado="Informada",SintesisOrigenId=origen.Id,CanalTodosRoles=true,CanalTodasDelegaciones=true});
+            await db.SaveChangesAsync();
+        }
         var todas = await service.GetPublicadasAsync(fecha.AddDays(-14), fecha);
-        Check(todas.Count == 4, "Solo consolidadas informadas dentro del período inclusivo");
+        Check(todas.Count == 5, "Solo consolidadas informadas dentro del período inclusivo");
         Check(todas.First().Fecha >= todas.Last().Fecha, "Ordena por fecha descendente");
-        Check((await service.GetPublicadasAsync(fecha, fecha, tipo: "Matutina")).Count == 1, "Filtro de tipo se combina con fecha");
+        Check((await service.GetPublicadasAsync(fecha, fecha, tipo: "Matutina")).Count == 2, "Filtro de tipo se combina con fecha");
         Check((await service.GetPublicadasAsync(fecha, fecha, tipo: "Especiales")).Count == 2, "Especiales incluye ampliaciones");
-        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 1)).Count == 2, "Respeta canales y destino de la delegación");
-        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 2)).Count == 1, "No filtra publicaciones de otro destino");
+        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 1)).Count == 3, "Respeta canales y destino de la delegación");
+        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 2)).Count == 2, "No filtra publicaciones de otro destino");
         Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, null)).Count == 0, "Sin delegación asignada no expone publicaciones");
         foreach (var inicio in new[] { fecha.AddDays(-15), fecha.AddDays(1) })
         {
@@ -53,7 +59,7 @@ static class PublicadasChecks
         }
         controller = Controller();
         var filtradas = (ViewResult)await controller.Publicadas("Matutina", fecha, fecha, true);
-        Check(controller.ModelState.IsValid && ((List<Sintesis>)filtradas.Model!).Count == 1, "Buscar aplica los filtros y devuelve resultados");
+        Check(controller.ModelState.IsValid && ((List<Sintesis>)filtradas.Model!).Count == 2, "Buscar aplica los filtros y devuelve resultados");
         controller = Controller();
         await controller.Publicadas("tipo inválido", fecha, fecha, true);
         Check(!controller.ModelState.IsValid, "Rechaza tipos inválidos por URL");
