@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Agente Keryx: genera un respaldo local y lo envía cifrado al NAS por HTTPS."""
-import argparse,contextlib,datetime,gzip,hashlib,hmac,json,os,pathlib,shutil,subprocess,sys,tarfile,tempfile,fcntl
+import argparse,contextlib,datetime,gzip,hashlib,hmac,json,os,pathlib,shutil,subprocess,sys,tarfile,tempfile,fcntl,time,re
 
 class ErrorReceptor(RuntimeError):
     """Diagnóstico seguro: nunca contiene tokens ni respuestas del servidor."""
@@ -78,14 +78,62 @@ def empaquetar(config,work):
         dst.write(tag.digest())
     return output
 
+def escuchar_conexion(config,ejecutar):
+    endpoint=config['receiver'].rstrip('/')+'/api/testbackup/escuchar'
+    token=config['token']
+    if not endpoint.startswith('https://') or any(c in token for c in ('\r','\n')):
+        raise ErrorReceptor('Escucha HTTPS inválida')
+    command=['curl','--disable','--config','-','--proto','=https','--noproxy','*',
+             '--silent','--fail','--no-buffer','--connect-timeout','15','--max-time','3600','--url',endpoint]
+    # Conexión saliente persistente, sin token en argumentos ni aperturas SSH.
+    process=subprocess.Popen(command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
+    try:
+        process.stdin.write('header = '+json.dumps('Authorization: Bearer '+token)+'\n')
+        process.stdin.close()
+        vistas=set()
+        for line in process.stdout:
+            if not line.startswith('data:'):continue
+            try:request=json.loads(line[5:]).get('requestId')
+            except (ValueError,AttributeError):continue
+            if not isinstance(request,str) or not re.fullmatch('[0-9a-f]{32}',request) or request in vistas:continue
+            vistas.add(request)
+            if ejecutar()!=0:raise ErrorReceptor('Falló el respaldo inmediato; se reintentará la conexión')
+        code=process.wait(timeout=10)
+        # Renovación periódica de una conexión sana; los cortes reales usan reconexión con espera.
+        if code not in (0,28):raise ErrorReceptor('Se interrumpió la escucha HTTPS')
+    finally:
+        if process.stdin and not process.stdin.closed:
+            with contextlib.suppress(BrokenPipeError):process.stdin.close()
+        if process.poll() is None:
+            process.terminate()
+            try:process.wait(timeout=5)
+            except subprocess.TimeoutExpired:process.kill();process.wait()
+        if process.stdout:process.stdout.close()
+
+
+def vigilar(config,config_path):
+    espera=5
+    while True:
+        try:
+            escuchar_conexion(config,lambda:subprocess.call([sys.executable,str(pathlib.Path(__file__).resolve()),'--config',str(config_path),'--once']))
+            espera=5
+        except (ErrorReceptor,OSError):
+            # Sin registrar credenciales, respuestas del proxy ni ciclos de servicio por minuto.
+            pass
+        time.sleep(espera)
+        espera=min(espera*2,300)
+
+
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--config',default='/etc/keryx-backup/agent.json');parser.add_argument('--once',action='store_true');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--config',default='/etc/keryx-backup/agent.json');parser.add_argument('--once',action='store_true');parser.add_argument('--watch',action='store_true');args=parser.parse_args()
     os.umask(0o077)
     if os.geteuid()!=0:raise RuntimeError('El agente debe ejecutarse con la cuenta operativa configurada para mysqldump')
     config_path=pathlib.Path(args.config)
     if config_path.stat().st_mode & 0o077:raise RuntimeError('La configuración del agente debe tener permisos 600')
     config=json.loads(config_path.read_text())
     root=pathlib.Path('/opt/medios/backups/agente');root.mkdir(parents=True,exist_ok=True)
+    if args.watch:
+        vigilar(config,config_path);return
     with (root/'agent.lock').open('w') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:return

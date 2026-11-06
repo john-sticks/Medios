@@ -10,6 +10,15 @@ public class RespaldoStore
     readonly IConfiguration config;
     readonly IDataProtector protector;
     readonly SemaphoreSlim mutex = new(1,1);
+    readonly object avisoLock = new();
+    TaskCompletionSource<bool> aviso = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    public Task AvisoAgente() { lock(avisoLock)return aviso.Task; }
+    public void AvisarAgente()
+    {
+        TaskCompletionSource<bool> pendiente;
+        lock(avisoLock){pendiente=aviso;aviso=new(TaskCreationOptions.RunContinuationsAsynchronously);}
+        pendiente.TrySetResult(true);
+    }
     public RespaldoStore(IConfiguration config, IDataProtectionProvider protection)
     { this.config=config; protector=protection.CreateProtector("Keryx.TestBackup.State.v1"); }
     public bool Habilitado => config.GetValue<bool>("TestBackup:Enabled") && config["Deployment:Environment"] == "Test";

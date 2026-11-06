@@ -40,7 +40,8 @@ public class RespaldosController(RespaldoStore store, DatosTestContext datos, Ac
     {
         if (!Disponible()) return NotFound();
         await store.Cambiar(s => { s.SolicitudPendiente ??= Guid.NewGuid().ToString("N"); s.SolicitadaUtc = DateTimeOffset.UtcNow; RespaldoStore.Evento(s, Actor, "Respaldo solicitado"); return true; });
-        TempData["Ok"] = "Solicitud registrada. El agente la recogerá en su próxima conexión."; return RedirectToAction(nameof(Index));
+        store.AvisarAgente();
+        TempData["Ok"] = "Solicitud registrada y notificada al agente HTTPS. Si la escucha inmediata no está instalada o está desconectada, se recogerá en la próxima conexión del temporizador."; return RedirectToAction(nameof(Index));
     }
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> Agente()
@@ -214,6 +215,37 @@ public class RespaldoAgenteController(RespaldoStore store, IConfiguration config
         if (!ok) return NotFound();
         Response.Headers.CacheControl = "no-store";
         return File(await AgenteInstalador.CrearAsync(store, config), "application/zip", "keryx-agente-privado.zip");
+    }
+    // Conexión saliente persistente: no requiere puertos ni credenciales SSH en producción.
+    [HttpGet("escuchar")]
+    public async Task<IActionResult> Escuchar(CancellationToken ct)
+    {
+        if(!Request.IsHttps||!await Autorizado())return NotFound();
+        Response.ContentType="text/event-stream";
+        Response.Headers.CacheControl="no-store";
+        Response.Headers["X-Accel-Buffering"]="no";
+        string? notificada=null;
+        try
+        {
+            while(!ct.IsCancellationRequested)
+            {
+                // Capturar el aviso antes de leer el estado evita perder solicitudes concurrentes.
+                var aviso=store.AvisoAgente();
+                if(!await Autorizado())break;
+                var pendiente=await store.Cambiar(s=>{s.UltimoAgenteUtc=DateTimeOffset.UtcNow;s.UltimaEscuchaUtc=s.UltimoAgenteUtc;return s.SolicitudPendiente;});
+                if(pendiente!=null&&pendiente!=notificada)
+                {
+                    await Response.WriteAsync("event: respaldo\ndata: "+JsonSerializer.Serialize(new{requestId=pendiente})+"\n\n",ct);
+                    notificada=pendiente;
+                }
+                else await Response.WriteAsync(": conectado\n\n",ct);
+                await Response.Body.FlushAsync(ct);
+                try{await aviso.WaitAsync(TimeSpan.FromSeconds(30),ct);}
+                catch(TimeoutException){/* Heartbeat de la misma conexión, sin consultar MySQL ni crear respaldos. */}
+            }
+        }
+        catch(OperationCanceledException) when(ct.IsCancellationRequested){}
+        return new EmptyResult();
     }
     [HttpGet("plan")]
     public async Task<IActionResult> Plan()

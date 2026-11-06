@@ -8,7 +8,7 @@ El modo Mantenimiento/Normal es independiente y puede desplegarse en ambos ambie
 ## Método recomendado
 
 - Respaldo completo diario a las 02:00 (Buenos Aires), retención de 14 días; configuración desde Monitor.
-- El agente de producción consulta el NAS cada minuto mediante HTTPS. Un timer systemd lo reinicia después del arranque.
+- El temporizador consulta la programación por HTTPS; en producción se conserva el ajuste horario existente. Una escucha HTTPS persistente independiente recibe las solicitudes manuales sin esperar ese temporizador.
 - Dump MySQL con `--single-transaction --quick --no-tablespaces`, más PDF e imágenes de los volúmenes persistentes.
 - Los datos productivos no se modifican ni se detiene el contenedor. Evitar cambios de esquema durante el dump.
 - El snapshot transaccional cubre tablas InnoDB. Los archivos se copian después: no es una instantánea atómica DB/archivos.
@@ -129,3 +129,19 @@ Solo tiene efecto con Deployment__Environment=Test. Se usa para generación de s
 clasificación y consulta de modelos, sin cambiar ia_ollama_url en ninguna base.
 Así las restauraciones conservan la configuración productiva, mientras test usa su red local.
 La opción se ignora en producción aunque quedara configurada accidentalmente.
+
+## Respaldo inmediato desde el botón (06/11/2026)
+
+El agente actualizado abre una conexión HTTPS saliente a `/api/testbackup/escuchar` (SSE, autenticada con el token existente). El botón guarda la solicitud durable y despierta la conexión. Se arranca el mismo trabajo `--once`, con el mismo bloqueo local que el timer, sin alterar la aplicación ni abrir puertos/SSH hacia el NAS. Los heartbeats de la conexión no generan dumps ni arrancan el servicio por minuto. Si la conexión se corta se reconecta con espera creciente; si el receptor reinicia, la solicitud pendiente se recupera al reconectar. El timer sigue funcionando como respaldo de la programación.
+
+Monitor muestra «Escucha inmediata: Conectada» solo cuando hay heartbeat reciente de ese canal; un agente antiguo que consulta por hora no activa ese indicador. Sin la escucha instalada, el botón sigue dejando la solicitud pendiente para la próxima consulta.
+
+Actualización una sola vez del agente instalado (cuando esta versión esté disponible en el checkout productivo):
+
+```bash
+cd /opt/medios/source
+sudo bash scripts/install-backup-listener.sh
+sudo systemctl status keryx-backup-listener.service --no-pager
+```
+
+El instalador conserva la configuración privada y el timer/drop-in horario. Respalda el script anterior e instala el listener con permisos restringidos. No ejecuta `docker stop`, `compose down`, `prune` ni reinicia Keryx. Los paquetes nuevos de instalación incluyen también este servicio. Para desactivar solo el disparo inmediato: `sudo systemctl disable --now keryx-backup-listener.service`; las solicitudes pendientes siguen siendo recogidas por el timer.

@@ -42,6 +42,7 @@ Persistent=true
 [Install]
 WantedBy=timers.target
 UNIT
+bash "$source_dir/install-backup-listener.sh"
 systemctl daemon-reload
 systemctl enable --now keryx-backup.timer
 systemctl start keryx-backup.service

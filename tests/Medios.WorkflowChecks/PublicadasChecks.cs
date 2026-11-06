@@ -31,8 +31,8 @@ static class PublicadasChecks
         Check(todas.First().Fecha >= todas.Last().Fecha, "Ordena por fecha descendente");
         Check((await service.GetPublicadasAsync(fecha, fecha, tipo: "Matutina")).Count == 1, "Filtro de tipo se combina con fecha");
         Check((await service.GetPublicadasAsync(fecha, fecha, tipo: "Especiales")).Count == 2, "Especiales incluye ampliaciones");
-        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 1)).Count == 3, "Respeta canales y destino de la delegación");
-        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 2)).Count == 2, "No filtra publicaciones de otro destino");
+        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 1)).Count == 2, "Respeta canales y destino de la delegación");
+        Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, 2)).Count == 1, "No filtra publicaciones de otro destino");
         Check((await service.GetPublicadasAsync(fecha.AddDays(-14), fecha, true, null)).Count == 0, "Sin delegación asignada no expone publicaciones");
         foreach (var inicio in new[] { fecha.AddDays(-15), fecha.AddDays(1) })
         {

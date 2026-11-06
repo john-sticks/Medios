@@ -16,6 +16,7 @@ public class RespaldoEstado
     public string Hora { get; set; } = "02:00";
     public int RetencionDias { get; set; } = 14;
     public DateTimeOffset? UltimoAgenteUtc { get; set; }
+    public DateTimeOffset? UltimaEscuchaUtc { get; set; }
     public string? InstalacionHash { get; set; }
     public DateTimeOffset? InstalacionHastaUtc { get; set; }
     public string? SolicitudPendiente { get; set; }

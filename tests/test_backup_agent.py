@@ -1,3 +1,4 @@
+import io
 import importlib.util
 import json
 import os
@@ -71,5 +72,33 @@ class TransportChecks(unittest.TestCase):
             with self.assertRaises(agent.ErrorReceptor) as error: agent.enviar(self.config, "plan")
             self.assertNotIn(self.config["token"], str(error.exception))
 
+
+class ListenerChecks(unittest.TestCase):
+    def test_only_valid_events_trigger_once_and_credentials_stay_private(self):
+        config=TransportChecks.config
+        request='a'*32
+        class Input(io.StringIO):
+            def close(self):self.saved=self.getvalue();super().close()
+        class Process:
+            def __init__(self):
+                self.stdin=Input()
+                self.stdout=io.StringIO(': conectado\n\nevent: respaldo\ndata: '+json.dumps({'requestId':request})+'\n\ndata: '+json.dumps({'requestId':request})+'\ndata: {"requestId":";comando"}\ndata: nojson\n')
+            def poll(self):return 0
+            def wait(self,**kw):return 0
+        process=Process();calls=[]
+        with patch.object(agent.subprocess,'Popen',return_value=process) as popen:
+            agent.escuchar_conexion(config,lambda:calls.append('respaldo') or 0)
+            args=popen.call_args.args[0]
+            self.assertNotIn(config['token'],' '.join(args))
+            self.assertNotIn('--insecure',args)
+            self.assertNotIn('--location',args)
+            self.assertIn('--no-buffer',args)
+            self.assertIn('Authorization: Bearer '+config['token'],process.stdin.saved)
+        self.assertEqual(calls,['respaldo'])
+    def test_listener_rejects_http_and_injected_headers(self):
+        for config in [{'receiver':'http://example.invalid','token':'fake'},dict(TransportChecks.config,token='bad\r\nheader')]:
+            with patch.object(agent.subprocess,'Popen') as popen:
+                with self.assertRaises(agent.ErrorReceptor):agent.escuchar_conexion(config,lambda:0)
+                popen.assert_not_called()
 
 if __name__ == "__main__": unittest.main()

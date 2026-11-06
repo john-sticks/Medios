@@ -46,7 +46,7 @@ static class AccesoPublicadasChecks
             using(var db=factory.Create())
             {
                 db.Delegaciones.AddRange(new Delegacion{Id=1,Nombre="Destino A",Activa=true},new Delegacion{Id=2,Nombre="Destino B",Activa=true},new Delegacion{Id=3,Nombre="Inactiva",Activa=false});
-                var publica=new Sintesis{Fecha=fecha,Estado="Informada",PDFPath=archivo,DelegacionesDestino=new List<SintesisDelegacionDestino>{new(){DelegacionId=1}}};
+                var publica=new Sintesis{Fecha=fecha,Estado="Informada",CanalTodosRoles=true,PDFPath=archivo,DelegacionesDestino=new List<SintesisDelegacionDestino>{new(){DelegacionId=1}}};
                 var privada=new Sintesis{Fecha=fecha,Estado="Generada",PDFPath=archivo,OperadorGenera="usuario-a"};
                 var propia=new Sintesis{Fecha=fecha,Estado="Remitida",DelegacionId=1,PDFPath=archivo,OperadorGenera="creador-distinto"};
                 var ajena=new Sintesis{Fecha=fecha,Estado="Remitida",DelegacionId=2,PDFPath=archivo,OperadorGenera="usuario-a"};
@@ -71,6 +71,8 @@ static class AccesoPublicadasChecks
                 Check(await controller.Detalle(publicaId) is ForbidResult,"Publicada no expone detalle a Delegación, ni por URL");
                 Check(await controller.DescargarWord(publicaId) is ForbidResult,"Delegación nunca obtiene Word por URL");
             }
+            var noSeleccionada=(ViewResult)await Controller(delegacion:2).Publicadas(desde:fecha,hasta:fecha,buscar:true);
+            Check(((List<Sintesis>)noSeleccionada.Model!).Count==0,"Todos los Roles no publica para una delegación no seleccionada");
             Check(await Controller(delegacion:2).DescargarPdf(publicaId) is ForbidResult,"No descargar destino de otra delegación cambiando ID");
             Check(await Controller().DescargarPdf(ajenaId) is ForbidResult,"Nombre de operador coincidente no permite descargar otra delegación");
             Check(await Controller().Detalle(ajenaId) is ForbidResult,"Nombre de operador coincidente tampoco permite detalle ajeno");
@@ -110,7 +112,7 @@ static class AccesoPublicadasChecks
             foreach(bool todos in new[]{false,true})foreach(bool todas in new[]{false,true})foreach(int? id in new int?[]{null,1,2})
             {
                 var s=new Sintesis{Estado="Informada",CanalTodosRoles=todos,CanalTodasDelegaciones=todas,DelegacionesDestino=new List<SintesisDelegacionDestino>{new(){DelegacionId=1}}};
-                Check(SintesisAccesoPolicy.PuedeDescargar(s,id)==(id.HasValue && (todos||todas||id==1)),"Matriz de canales por delegación");
+                Check(SintesisAccesoPolicy.PuedeDescargar(s,id)==(id.HasValue && (todas||id==1)),"Matriz de canales por delegación");
             }
         }
         finally{Directory.Delete(root,true);}

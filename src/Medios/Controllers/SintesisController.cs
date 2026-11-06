@@ -130,7 +130,7 @@ namespace Medios.Controllers
             User.IsInRole("MEDIOS");
 
         // Una delegación puede ver/descargar una síntesis si es la suya, si es una consolidada
-        // publicada para Todos los Roles, o si está entre los destinos in-app seleccionados
+        // publicada para su delegación entre los destinos in-app seleccionados
         // (CanalTodasDelegaciones o destino específico para su delegación).
         private async Task<bool> DelegacionPuedeVerAsync(Medios.Entities.Sintesis s)
         {

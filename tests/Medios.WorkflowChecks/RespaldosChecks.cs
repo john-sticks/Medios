@@ -40,6 +40,26 @@ static class RespaldosChecks
             await store.Cambiar(s => { s.InstalacionHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(new string('A',64)))); s.InstalacionHastaUtc = DateTimeOffset.UtcNow.AddSeconds(-1); return true; });
             Check(await api.Instalar() is Microsoft.AspNetCore.Mvc.NotFoundResult, "código vencido rechazado");
             var secrets=(await store.SecretosAsync(true))!;
+            Check(await api.Escuchar(CancellationToken.None) is Microsoft.AspNetCore.Mvc.NotFoundResult,"escucha sin token válido rechazada");
+            apiHttp.Request.Headers.Authorization="Bearer "+secrets.Token;
+            apiHttp.Request.Scheme="http";
+            Check(await api.Escuchar(CancellationToken.None) is Microsoft.AspNetCore.Mvc.NotFoundResult,"escucha exige HTTPS incluso con token válido");
+            apiHttp.Request.Scheme="https";
+            var inmediata=Guid.NewGuid().ToString("N");
+            using(var ct=new CancellationTokenSource())
+            {
+                var stream=new AvisoStream(inmediata);apiHttp.Response.Body=stream;
+                var escuchando=api.Escuchar(ct.Token);
+                await stream.Conectado.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                await store.Cambiar(s=>{s.SolicitudPendiente=inmediata;return true;});store.AvisarAgente();
+                await stream.Notificado.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                ct.Cancel();await escuchando;
+                var contenido=Encoding.UTF8.GetString(stream.ToArray());
+                Check(contenido.Contains(inmediata)&&!contenido.Contains(secrets.Token),"solicitud manual llega por la conexión abierta sin esperar timer ni revelar credenciales");
+                Check((await store.LeerAsync()).UltimoAgenteUtc!=null,"escucha mantiene el estado de conexión del agente");
+                stream.Dispose();
+            }
+            await store.Cambiar(s=>{s.SolicitudPendiente=null;return true;});
             Check(await store.TokenValidoAsync(secrets.Token),"token válido");Check(!await store.TokenValidoAsync("incorrecto"),"token incorrecto");
             Check(!(await File.ReadAllTextAsync(Path.Combine(store.Directorio,"agente.protegido"))).Contains(secrets.Clave),"secretos protegidos en disco");
             await store.Cambiar(s=>{s.Hora="03:30";s.CopiaLista=true;return true;});
@@ -107,6 +127,17 @@ static class RespaldosChecks
         }
         finally{Directory.Delete(root,true);}
         return count;
+    }
+    sealed class AvisoStream(string solicitud):MemoryStream
+    {
+        public TaskCompletionSource<bool> Conectado {get;}=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<bool> Notificado {get;}=new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public override Task FlushAsync(CancellationToken ct)
+        {
+            Conectado.TrySetResult(true);
+            if(Encoding.UTF8.GetString(ToArray()).Contains(solicitud))Notificado.TrySetResult(true);
+            return Task.CompletedTask;
+        }
     }
     sealed class FakeFactory(IConfiguration config,RespaldoStore store):MediosDbContextFactory(config,NullLogger<MediosDbContextFactory>.Instance,store)
     {

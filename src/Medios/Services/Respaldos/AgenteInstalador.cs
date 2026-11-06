@@ -15,7 +15,7 @@ public static class AgenteInstalador
         using (var zip = new ZipArchive(buffer, ZipArchiveMode.Create, true))
         {
             var entry = zip.CreateEntry("keryx-backup-agent.json"); using (var writer = new StreamWriter(entry.Open())) writer.Write(json);
-            foreach (var name in new[] { "keryx-backup-agent.py", "install-backup-agent.sh" })
+            foreach (var name in new[] { "keryx-backup-agent.py", "install-backup-agent.sh", "install-backup-listener.sh" })
             {
                 var script = zip.CreateEntry(name); using var writer = new StreamWriter(script.Open());
                 writer.Write(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "BackupAgent", name)).Replace("\r\n", "\n"));
