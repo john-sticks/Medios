@@ -340,7 +340,7 @@ namespace Medios.Controllers
         [HttpPost]
         public async Task<IActionResult> AgregarNota(
             int sesionId, int? categoriaId, int? partidoId, int? localidadId,
-            string titulo, string texto, string? fuente, string? link, bool esRepercusion = false,
+            string titulo, string texto, string? fuente, string? link,
             string? direccion = null, double? latitud = null, double? longitud = null,
             string? sintesis = null, string? fechaNoticia = null,
             int? caratulaQuironId = null, int? modalidadQuironId = null,
@@ -358,7 +358,7 @@ namespace Medios.Controllers
             var extrasJson = await _imagen.ProcesarVariasJsonAsync(imagenesExtra);
             DateTime? fn = DateTime.TryParse(fechaNoticia, out var fnParsed) ? fnParsed : null;
             var nuevaNotaId = await _notaService.AgregarAsync(sesionId, categoriaId, partidoId, localidadId,
-                titulo, texto, fuente, link, esRepercusion, GetNombre(),
+                titulo, texto, fuente, link, false, GetNombre(),
                 direccion, latitud, longitud, sintesis, fn,
                 caratulaQuironId, modalidadQuironId, ambitoNota, imagenLocal, videoUrl, extrasJson, otrosMedios);
             await _traza.RegistrarAsync(TrazaService.NotaCreada, GetNombre(), GetRol(),
@@ -706,7 +706,6 @@ namespace Medios.Controllers
         public async Task<IActionResult> AgregarNotaAnalista(
             int sesionId, int? categoriaId, int? partidoId, int? localidadId,
             string titulo, string texto, string? fuente, string? link,
-            bool esRepercusion = false,
             string? sintesis = null, string? fechaNoticia = null,
             int? caratulaQuironId = null, int? modalidadQuironId = null,
             string? direccion = null, double? latitud = null, double? longitud = null,
@@ -724,7 +723,7 @@ namespace Medios.Controllers
             DateTime? fn = DateTime.TryParse(fechaNoticia, out var fnP) ? fnP : null;
             var notaId = await _notaService.AgregarAnalistaAsync(
                 sesionId, categoriaId, partidoId, localidadId,
-                titulo, texto, fuente, link, esRepercusion, GetUsuario(),
+                titulo, texto, fuente, link, false, GetUsuario(),
                 sintesis, fn, caratulaQuironId, modalidadQuironId,
                 direccion, latitud, longitud, ambitoNota, imagenLocal, videoUrl, extrasJson, otrosMedios);
 

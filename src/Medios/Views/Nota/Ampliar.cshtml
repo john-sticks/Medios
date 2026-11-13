@@ -141,9 +141,6 @@
                                 <label>Otros medios <small class="text-muted">(repercusión periodística, separados por coma)</small></label>
                                 <input type="text" name="otrosMedios" class="form-control" value="@v?.OtrosMedios" maxlength="300" placeholder="Ej: LANACION,INFOBAE" />
                             </div>
-                            <div class="form-group">
-                                <label><input type="checkbox" name="esRepercusion" value="true" @(v?.EsRepercusion == true ? "checked" : "") /> Es repercusión periodística</label>
-                            </div>
                             @{ ViewData["ImagenUrl"] = v?.ImagenUrl; ViewData["VideoUrl"] = v?.VideoUrl; ViewData["ImagenesExtra"] = v?.ImagenesExtra; }
                             @await Html.PartialAsync("_ImagenVideoNota")
                             <div class="form-group">

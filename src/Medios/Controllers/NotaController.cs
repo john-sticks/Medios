@@ -82,7 +82,6 @@ namespace Medios.Controllers
         public async Task<IActionResult> AgregarLibre(
             int? categoriaId, int? partidoId, int? localidadId,
             string titulo, string texto, string? fuente, string? link,
-            bool esRepercusion = false,
             string? direccion = null, double? latitud = null, double? longitud = null,
             string? sintesis = null, string? fechaNoticia = null,
             int? caratulaQuironId = null, int? modalidadQuironId = null,
@@ -108,7 +107,7 @@ namespace Medios.Controllers
             DateTime? fn = DateTime.TryParse(fechaNoticia, out var fnParsed) ? fnParsed : null;
             var nuevaNotaId = await _notaService.AgregarLibreAsync(
                 categoriaId, partidoId, localidadId, titulo, texto,
-                fuente, link, esRepercusion, GetNombre(),
+                fuente, link, false, GetNombre(),
                 direccion, latitud, longitud, delegId, sintesis, fn,
                 caratulaQuironId, modalidadQuironId, ambitoNota, imagenLocal, videoUrl, extrasJson, otrosMedios,
                 aprobadaDirectamente: esMedios);
@@ -184,7 +183,6 @@ namespace Medios.Controllers
             int notaId,
             int? categoriaId, int? partidoId, int? localidadId,
             string titulo, string texto, string? fuente, string? link,
-            bool esRepercusion = false,
             string? direccion = null, double? latitud = null, double? longitud = null,
             string? sintesis = null, string? fechaNoticia = null,
             int? caratulaQuironId = null, int? modalidadQuironId = null,
@@ -210,7 +208,7 @@ namespace Medios.Controllers
             DateTime? fnEl = DateTime.TryParse(fechaNoticia, out var fnElP) ? fnElP : null;
             var ok = await _notaService.EditarLibreAsync(
                 notaId, GetNombre(), categoriaId, partidoId, localidadId,
-                titulo, texto, fuente, link, esRepercusion,
+                titulo, texto, fuente, link, false,
                 direccion, latitud, longitud, sintesis, userDelegacionId, fechaNoticia: fnEl,
                 caratulaQuironId: caratulaQuironId, modalidadQuironId: modalidadQuironId,
                 ambitoNota: ambitoNota, imagenUrl: imagenLocal, videoUrl: videoUrl,
@@ -294,7 +292,6 @@ namespace Medios.Controllers
             int notaId, int sesionId,
             int? categoriaId, int? partidoId, int? localidadId,
             string titulo, string texto, string? fuente, string? link,
-            bool esRepercusion = false,
             string? direccion = null, double? latitud = null, double? longitud = null,
             string? sintesis = null, string? fechaNoticia = null,
             int? caratulaQuironId = null, int? modalidadQuironId = null,
@@ -312,7 +309,7 @@ namespace Medios.Controllers
             DateTime? fn = DateTime.TryParse(fechaNoticia, out var fnP) ? fnP : null;
             await _notaService.ModificarYAprobarAsync(
                 notaId, GetNombre(), categoriaId, partidoId, localidadId,
-                titulo, texto, fuente, link, esRepercusion,
+                titulo, texto, fuente, link, false,
                 direccion, latitud, longitud, sintesis, fn,
                 caratulaQuironId, modalidadQuironId, ambitoNota, imagenLocal, videoUrl, extrasJson, otrosMedios);
 
@@ -359,7 +356,7 @@ namespace Medios.Controllers
             int notaId,
             int? categoriaId, int? partidoId, int? localidadId,
             string titulo, string texto, string? fuente, string? link,
-            bool esRepercusion, string resumenCambio,
+            string resumenCambio,
             string? direccion = null, double? latitud = null, double? longitud = null,
             string? sintesis = null, string? fechaNoticia = null,
             string? returnUrl = null,
@@ -385,7 +382,7 @@ namespace Medios.Controllers
             DateTime? fn = DateTime.TryParse(fechaNoticia, out var fnP) ? fnP : null;
             var ok = await _notaService.EditarVersionSinRemitirAsync(
                 notaId, GetNombre(), categoriaId, partidoId, localidadId,
-                titulo, texto, fuente, link, esRepercusion, resumenCambio,
+                titulo, texto, fuente, link, false, resumenCambio,
                 direccion, latitud, longitud, sintesis, fn,
                 caratulaQuironId, modalidadQuironId, ambitoNota, imagenLocal, videoUrl, extrasJson, otrosMedios);
 
@@ -450,7 +447,7 @@ namespace Medios.Controllers
             int notaId, int sesionId,
             int? categoriaId, int? partidoId, int? localidadId,
             string titulo, string texto, string? fuente, string? link,
-            bool esRepercusion, string resumenCambio,
+            string resumenCambio,
             string? direccion = null, double? latitud = null, double? longitud = null,
             string? sintesis = null, string? fechaNoticia = null,
             string? returnUrl = null,
@@ -475,7 +472,7 @@ namespace Medios.Controllers
             DateTime? fn = DateTime.TryParse(fechaNoticia, out var fnP) ? fnP : null;
             await _notaService.AmpliarAsync(
                 notaId, GetNombre(), categoriaId, partidoId, localidadId,
-                titulo, texto, fuente, link, esRepercusion, resumenCambio,
+                titulo, texto, fuente, link, false, resumenCambio,
                 direccion, latitud, longitud, sintesis, fn,
                 caratulaQuironId, modalidadQuironId, ambitoNota, imagenLocal, videoUrl, extrasJson, otrosMedios);
 
@@ -538,7 +535,6 @@ namespace Medios.Controllers
             int notaId, int sesionId,
             int? categoriaId, int? partidoId, int? localidadId,
             string titulo, string texto, string? fuente, string? link,
-            bool esRepercusion = false,
             string? direccion = null, double? latitud = null, double? longitud = null,
             string? sintesis = null, string? fechaNoticia = null,
             int? caratulaQuironId = null, int? modalidadQuironId = null,
@@ -564,7 +560,7 @@ namespace Medios.Controllers
             DateTime? fnEB = DateTime.TryParse(fechaNoticia, out var fnEBP) ? fnEBP : null;
             var ok = await _notaService.EditarBorradorAsync(
                 notaId, GetNombre(), categoriaId, partidoId, localidadId,
-                titulo, texto, fuente, link, esRepercusion,
+                titulo, texto, fuente, link, false,
                 direccion, latitud, longitud, sintesis,
                 userDelegacionId: delegIdEB, usuarioLogin: GetUsuario(),
                 fechaNoticia: fnEB,
@@ -601,7 +597,7 @@ namespace Medios.Controllers
         public async Task<IActionResult> Nueva(
             int? categoriaId, int? partidoId, int? localidadId,
             string titulo, string texto, string? fuente, string? link,
-            bool esRepercusion, string fecha, string turno,
+            string fecha, string turno,
             string? direccion = null, double? latitud = null, double? longitud = null,
             string? sintesis = null, string? fechaNoticia = null,
             int? caratulaQuironId = null, int? modalidadQuironId = null,
@@ -610,7 +606,7 @@ namespace Medios.Controllers
         {
             // Formularios abiertos antes del cambio también guardan una nota libre.
             return await AgregarLibre(categoriaId, partidoId, localidadId, titulo, texto, fuente, link,
-                esRepercusion, direccion, latitud, longitud, sintesis, fechaNoticia,
+                direccion, latitud, longitud, sintesis, fechaNoticia,
                 caratulaQuironId, modalidadQuironId, ambitoNota, imagenUrl, videoUrl, imagenesExtra, otrosMedios);
         }
 
