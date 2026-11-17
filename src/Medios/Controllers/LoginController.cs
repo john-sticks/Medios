@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Medios.Security;
 using Medios.Services;
+using Medios.Services.Respaldos;
 using Medios.Entities;
 using System.Security.Claims;
 
@@ -42,8 +43,14 @@ namespace Medios.Controllers
         }
 
         [HttpGet]
-        public IActionResult Index(string? msg = null)
+        public async Task<IActionResult> Index(string? msg = null)
         {
+            var control = _serviceProvider.GetService<ContencionProduccionService>();
+            if (control?.Habilitado == true)
+            {
+                var estado = await control.ConsultarAsync(HttpContext.RequestAborted);
+                ViewBag.ContencionActiva = estado.Activa || !estado.Conocido;
+            }
             if (msg == "expired") ViewBag.Error = "Sesión expirada";
             else if (msg == "desactivada") ViewBag.Error = "Tu acceso fue desactivado. Contactá al administrador.";
             else if (msg == "permisos_actualizados") ViewBag.Error = "Tus permisos cambiaron. Ingresá nuevamente.";
@@ -134,6 +141,16 @@ namespace Medios.Controllers
             var ambitoId = aprobada?.AmbitoId;
 
             var esDesarrollador = rolEfectivo == "DESARROLLADOR";
+            var controlContencion = _serviceProvider.GetService<ContencionProduccionService>();
+            if (controlContencion?.Habilitado == true && !esDesarrollador)
+            {
+                var estado = await controlContencion.ConsultarAsync(HttpContext.RequestAborted);
+                if (estado.Activa || !estado.Conocido)
+                {
+                    ViewBag.ContencionActiva = true;
+                    return View();
+                }
+            }
 
             var claims = new List<Claim>
             {

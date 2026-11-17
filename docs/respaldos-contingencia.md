@@ -100,27 +100,31 @@ Restaurar reemplaza los cambios de laboratorio del clon. No restaurar sobre una 
 Las consultas siguen disponibles y MEDIOS/DESARROLLADOR pueden trabajar. No implica congelar a todos los roles.
 La preparación de retorno, en cambio, cierra las escrituras del clon para **todos** los roles.
 
-El paquete de retorno contiene la línea base (claves y huellas), altas/modificaciones/eliminaciones y adjuntos.
-Está cifrado con el secreto privado del agente. **No existe importación automática a producción en esta versión.**
-No ejecutar un restore del clon sobre una producción que recibió otros cambios.
+1. Mantener cerrada la escritura productiva durante el retorno y respaldar ambos ambientes.
+2. Desde Contingencia, cerrar la escritura de la copia y descargar el paquete cifrado.
+3. En producción, con rol **DESARROLLADOR**, abrir **Administración → Monitor → Importar retorno de contingencia**.
+   Seleccionar el archivo `.kbk` y pulsar **Revisar paquete**. La vista previa muestra las altas, los adjuntos
+   referenciados y las posibles coincidencias con producción.
+4. Pulsar **Aplicar retorno en producción** cuando las coincidencias correspondan a registros distintos.
+   El sistema pausa las solicitudes productivas y exige un respaldo nuevo recibido y validado en el NAS
+   antes de aplicar cambios. Ese respaldo queda conservado como previo al retorno.
+   La aplicación asigna nuevos IDs, conserva los vínculos y registra el origen para evitar una segunda importación.
+5. Verificar notas, sesiones, publicaciones y adjuntos antes de desactivar contingencia y reabrir la carga productiva.
 
-Procedimiento para el retorno:
+La importación desde la pantalla admite altas realizadas sobre una copia limpia. Los cambios de configuración
+y los registros de actividad se omiten. Los duplicados confirmados, las diferencias de catálogo y los paquetes
+con modificaciones sobre actividad preexistente requieren conciliación antes de importarse.
+Si reabrís la copia antes de importar, generá un paquete nuevo al terminar la carga.
 
-1. Mantener cerrada la escritura productiva durante la conciliación y respaldar ambos ambientes.
-2. Preparar el paquete de retorno desde Contingencia; esperar que terminen las solicitudes activas.
-3. Comparar tres fuentes: respaldo original, copia de contingencia y producción actual.
-   - Cambió solo contingencia: candidato a aplicar.
-   - Cambió solo producción: conservar el dato productivo.
-   - Cambiaron ambas con valores distintos: conflicto que requiere decisión explícita.
-4. Altas con IDs repetidos requieren reasignar IDs y actualizar todas sus referencias, incluidos versiones,
-   padres de versiones, notas de origen, sesiones y síntesis. No insertar ciegamente por ID ni sustituir tablas completas.
-5. Resolver eliminaciones y archivos por referencia; conservar auditoría e historial. Validar permisos/delegaciones,
-   conteos, versiones, enlaces, publicaciones y PDF antes de habilitar el acceso productivo.
-6. Desactivar contingencia y volver a Normal únicamente después de validar y dirigir a todos a producción.
-7. Si se reabre el clon, el paquete anterior queda obsoleto: generar uno nuevo al cerrar otra vez.
+Para descifrar el paquete, usá la clave privada del agente (campo `secret` de
+`/etc/keryx-backup/agent.json`). Podés ingresarla en la pantalla por HTTPS. Si el acceso productivo
+es por HTTP, configurá `RETORNO_PRODUCCION_CLAVE` en el archivo privado `/opt/medios/.env`
+y recreá el contenedor. La instalación productiva también puede leer esa configuración mediante el montaje
+de solo lectura `/etc/keryx-backup:/run/keryx-backup:ro`. El formulario usa la clave del servidor cuando está configurada.
 
-La conciliación/importador de tres vías sigue siendo un paso operativo supervisado. El módulo entrega la evidencia
-para realizarlo y evita presentar una restauración destructiva como sincronización.
+Mientras la contención está activa en el NAS, producción muestra su enlace en el login y restringe
+el acceso operativo. DESARROLLADOR conserva el acceso para revisar el retorno. Un estado remoto desconocido
+mantiene la restricción. La desactivación de la contención sigue siendo manual.
 
 ## IA local al probar una copia productiva
 

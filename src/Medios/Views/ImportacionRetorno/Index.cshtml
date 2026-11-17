@@ -1,0 +1,92 @@
+@using Medios.Services.Respaldos
+@model ResumenRetorno?
+@inject ImportacionRetornoService ImportacionRetorno
+@inject ContencionProduccionService Contencion
+@{
+    ViewData["Title"] = "Importar retorno de contingencia";
+    var configurada = ImportacionRetorno.TieneClaveConfigurada || Contencion.TieneClaveConfigurada;
+    var pedirClave = !configurada && Context.Request.IsHttps;
+    var disponible = configurada || pedirClave;
+}
+<div class="box box-primary">
+    <div class="box-header"><h3 class="box-title">Importar retorno de contingencia</h3></div>
+    <div class="box-body">
+        <a class="btn btn-default" href="/Monitor">Volver al Monitor</a>
+        @if (ViewData["ErrorRetorno"] is string error)
+        {
+            <div class="alert alert-danger" role="alert">@error</div>
+        }
+        @if (Model?.Aplicado == true)
+        {
+            <div class="alert alert-success" role="status">Retorno aplicado. Verificá los registros y sus adjuntos antes de reabrir la carga.</div>
+        }
+        @if (Model != null)
+        {
+            <p>Paquete generado el @Model.Fecha.ToOffset(TimeSpan.FromHours(-3)).ToString("dd/MM/yyyy HH:mm") (Buenos Aires).</p>
+            <table class="table table-striped">
+                <thead><tr><th>Tabla</th><th>Altas</th></tr></thead>
+                <tbody>
+                    @foreach (var (tabla, cantidad) in Model.Altas)
+                    {
+                        <tr><td>@tabla</td><td>@cantidad</td></tr>
+                    }
+                </tbody>
+            </table>
+            <p>Adjuntos referenciados: @Model.Adjuntos. Cambios de configuración y registros de actividad omitidos: @Model.CambiosOmitidos.</p>
+            @if (ViewData["Revision"] is string revision)
+            {
+                @if (Model.Coincidencias.Count > 0)
+                {
+                    <div class="alert alert-warning">
+                        <p>Revisá estas posibles coincidencias antes de confirmar.</p>
+                        <ul>
+                            @foreach (var coincidencia in Model.Coincidencias)
+                            {
+                                <li>@coincidencia</li>
+                            }
+                        </ul>
+                    </div>
+                }
+                <form asp-action="Aplicar" method="post">
+                    <input type="hidden" name="revision" value="@revision">
+                    @if (pedirClave)
+                    {
+                        <div class="form-group">
+                            <label for="clave-aplicar">Clave de cifrado del paquete</label>
+                            <input id="clave-aplicar" class="form-control" name="clave" type="password" maxlength="512" autocomplete="off" required>
+                        </div>
+                    }
+                    @if (Model.Coincidencias.Count > 0)
+                    {
+                        <p><label><input type="checkbox" name="confirmarCoincidencias" value="true" required> Revisé las coincidencias y corresponden a registros distintos.</label></p>
+                    }
+                    <p>Al confirmar se pausa el acceso productivo y se solicita un respaldo al agente. La importación espera que el NAS lo reciba y verifique.</p>
+                    <p><label><input type="checkbox" name="confirmar" value="true" required> Confirmo que la carga en contingencia terminó y quiero respaldar producción e importar las altas revisadas.</label></p>
+                    <button class="btn btn-primary">Aplicar retorno en producción</button>
+                </form>
+            }
+        }
+        @if (!disponible)
+        {
+            <p>Para revisar un paquete, abrí esta pantalla por HTTPS o configurá la clave de cifrado en el servidor.</p>
+        }
+        else if (ViewData["Revision"] == null)
+        {
+            <p>Seleccioná el paquete cifrado descargado de Contingencia para obtener la vista previa.</p>
+            <form asp-action="Revisar" method="post" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="paquete-retorno">Paquete de retorno (.kbk)</label>
+                    <input id="paquete-retorno" name="paquete" type="file" accept=".kbk" required>
+                </div>
+                @if (pedirClave)
+                {
+                    <div class="form-group">
+                        <label for="clave-revisar">Clave de cifrado del paquete</label>
+                        <input id="clave-revisar" class="form-control" name="clave" type="password" maxlength="512" autocomplete="off" required>
+                    </div>
+                }
+                <button class="btn btn-primary">Revisar paquete</button>
+            </form>
+        }
+    </div>
+</div>

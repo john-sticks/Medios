@@ -17,6 +17,7 @@ services:
       Cerberus__ServiceApiKey: ${CERBERUS_SERVICE_API_KEY}
       ReverseProxy__KnownProxy: ${REVERSE_PROXY_KNOWN_PROXY:-}
       OpenRouter__ApiKey: ${OPENROUTER_API_KEY:-}
+      RetornoProduccion__Clave: ${RETORNO_PRODUCCION_CLAVE:-}
 
     volumes:
       # Fuentes licenciadas privadas, fuera de la imagen y de wwwroot
@@ -27,6 +28,7 @@ services:
       - ./pdfs:/app/wwwroot/pdf
       # Persistir las imágenes subidas de las notas (sobreviven a rebuild/redeploy)
       - ./uploads:/app/wwwroot/uploads
+      - /etc/keryx-backup:/run/keryx-backup:ro
 
     ports:
       - "${MEDIOS_BIND_ADDRESS:-127.0.0.1}:${MEDIOS_PORT:-5102}:8009"

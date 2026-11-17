@@ -103,6 +103,10 @@ namespace Medios
             // DB
             builder.Services.AddDataProtection();
             builder.Services.AddSingleton<RespaldoStore>();
+            builder.Services.AddScoped<ImportacionRetornoService>();
+            builder.Services.AddHttpClient<ContencionProduccionService>(client => client.Timeout = TimeSpan.FromSeconds(10))
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+            builder.Services.AddSingleton<RetornoProduccionUso>();
             builder.Services.AddSingleton<ModoOperativoStore>();
             builder.Services.AddSingleton<CopiaUso>();
             builder.Services.AddScoped<DatosTestContext>();
@@ -161,6 +165,7 @@ namespace Medios
 
             app.UseHttpsRedirection();
             app.UseAuthentication();
+            app.UseMiddleware<ContencionProduccionMiddleware>();
             app.UseMiddleware<ModoOperativoMiddleware>();
             app.UseMiddleware<RespaldoContextMiddleware>();
             app.UseMiddleware<PdfPrivadosMiddleware>();

@@ -165,6 +165,7 @@ Verificar(!SintesisWorkflowPolicy.PuedeFinalizar(incompleta), "Aprobar una nota 
 
 comprobaciones += await IARutaAmbienteChecks.RunAsync();
 comprobaciones += await RespaldosChecks.RunAsync();
+comprobaciones += await ContencionProduccionChecks.RunAsync();
 comprobaciones += await ScrapingTitulosChecks.RunAsync();
 comprobaciones += await ScrapingIdentidadChecks.RunAsync();
 comprobaciones += await MockLoginChecks.RunAsync();

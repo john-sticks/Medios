@@ -15,7 +15,7 @@ public record FilaReferencia(string Clave, string Hash);
 public record CambioRetorno(string Tabla, string Clave, string Operacion, string? HashEsperado, Dictionary<string, string?>? Datos);
 public class RetornoProduccionService(RespaldoStore store, MediosDbContextFactory factory, CopiaUso uso)
 {
-    static string Valor(object value) => value switch
+    internal static string Valor(object value) => value switch
     { DateTime d => d.ToString("yyyy-MM-dd HH:mm:ss.ffffff", CultureInfo.InvariantCulture), byte[] b => "base64:" + Convert.ToBase64String(b), _ => Convert.ToString(value, CultureInfo.InvariantCulture) ?? "" };
     public static string Huella(IReadOnlyDictionary<string, string?> row)
     {

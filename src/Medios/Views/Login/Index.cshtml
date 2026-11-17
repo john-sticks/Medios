@@ -1,6 +1,12 @@
 @inject Medios.Services.Respaldos.RespaldoStore RespaldosLogin
+@inject Medios.Services.Respaldos.ContencionProduccionService ControlContencion
 @{
     Layout = null;
+    if (ControlContencion.Habilitado && ViewBag.ContencionActiva == null)
+    {
+        var estado = await ControlContencion.ConsultarAsync(Context.RequestAborted);
+        ViewBag.ContencionActiva = estado.Activa || !estado.Conocido;
+    }
 }
 <!DOCTYPE html>
 <html>
@@ -49,6 +55,13 @@
             <span class="login-access-badge"><span class="restricted-access-dot" aria-hidden="true"></span>Acceso restringido</span>
         </div>
 
+        @if (ViewBag.ContencionActiva is true)
+        {
+            <div class="alert alert-warning">
+                Se encuentra activo el modo Contención. Debe ingresar a
+                <a href="https://medios.crmai.net.ar/">https://medios.crmai.net.ar/</a>
+            </div>
+        }
         <form method="post" asp-controller="Login" asp-action="Index">
             <div class="form-group">
                 <input name="Usuario" aria-label="Usuario" class="form-control" placeholder="Usuario" maxlength="50" required autofocus />
