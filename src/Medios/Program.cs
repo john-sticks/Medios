@@ -107,6 +107,7 @@ namespace Medios
             builder.Services.AddHttpClient<ContencionProduccionService>(client => client.Timeout = TimeSpan.FromSeconds(10))
                 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
             builder.Services.AddSingleton<RetornoProduccionUso>();
+            builder.Services.AddSingleton<EstadoContencionProduccionStore>();
             builder.Services.AddSingleton<ModoOperativoStore>();
             builder.Services.AddSingleton<CopiaUso>();
             builder.Services.AddScoped<DatosTestContext>();

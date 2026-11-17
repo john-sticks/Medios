@@ -49,7 +49,8 @@ namespace Medios.Controllers
             if (control?.Habilitado == true)
             {
                 var estado = await control.ConsultarAsync(HttpContext.RequestAborted);
-                ViewBag.ContencionActiva = estado.Activa || !estado.Conocido;
+                ViewBag.ContencionActiva = estado.Activa;
+                ViewBag.ContencionNoDisponible = !estado.Conocido;
             }
             if (msg == "expired") ViewBag.Error = "Sesión expirada";
             else if (msg == "desactivada") ViewBag.Error = "Tu acceso fue desactivado. Contactá al administrador.";
@@ -145,9 +146,10 @@ namespace Medios.Controllers
             if (controlContencion?.Habilitado == true && !esDesarrollador)
             {
                 var estado = await controlContencion.ConsultarAsync(HttpContext.RequestAborted);
-                if (estado.Activa || !estado.Conocido)
+                if (estado.Activa)
                 {
                     ViewBag.ContencionActiva = true;
+                    ViewBag.ContencionNoDisponible = !estado.Conocido;
                     return View();
                 }
             }

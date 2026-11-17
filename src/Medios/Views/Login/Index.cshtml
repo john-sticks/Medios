@@ -5,7 +5,8 @@
     if (ControlContencion.Habilitado && ViewBag.ContencionActiva == null)
     {
         var estado = await ControlContencion.ConsultarAsync(Context.RequestAborted);
-        ViewBag.ContencionActiva = estado.Activa || !estado.Conocido;
+        ViewBag.ContencionActiva = estado.Activa;
+        ViewBag.ContencionNoDisponible = !estado.Conocido;
     }
 }
 <!DOCTYPE html>
@@ -58,8 +59,15 @@
         @if (ViewBag.ContencionActiva is true)
         {
             <div class="alert alert-warning">
-                Se encuentra activo el modo Contención. Debe ingresar a
-                <a href="https://medios.crmai.net.ar/">https://medios.crmai.net.ar/</a>
+                @if (ViewBag.ContencionNoDisponible is true)
+                {
+                    <span>No se puede acceder al sistema de continuidad operativa. Contactar con el administrador.</span>
+                }
+                else
+                {
+                    <span>Se encuentra activo el modo Contención. Debe ingresar a </span>
+                    <a href="https://medios.crmai.net.ar/">https://medios.crmai.net.ar/</a>
+                }
             </div>
         }
         <form method="post" asp-controller="Login" asp-action="Index">

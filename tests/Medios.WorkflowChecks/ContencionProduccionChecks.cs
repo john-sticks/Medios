@@ -7,6 +7,7 @@ using Medios.Services.Respaldos;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.AspNetCore.DataProtection;
 
 internal static class ContencionProduccionChecks
 {
@@ -26,11 +27,14 @@ internal static class ContencionProduccionChecks
             { receiver = "https://medios.crmai.net.ar", token = new string('A',64), secret = "clave-prueba" }));
             var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?>
             {
-                ["Deployment:Environment"] = "Production", ["RetornoProduccion:AgenteConfig"] = file
+                ["Deployment:Environment"] = "Production", ["RetornoProduccion:AgenteConfig"] = file,
+                ["Operations:Directory"] = Path.Combine(root.FullName, "estado")
             }).Build();
             using var handler = new Handler();
             using var client = new HttpClient(handler);
-            var remoto = new ContencionProduccionService(client, config, NullLogger<ContencionProduccionService>.Instance);
+            var protection = new EphemeralDataProtectionProvider();
+            var memoria = new EstadoContencionProduccionStore(config, protection);
+            var remoto = new ContencionProduccionService(client, config, NullLogger<ContencionProduccionService>.Instance, memoria);
             Check((await remoto.ConsultarAsync(default)) is { Activa: true, Conocido: true }, "estado autenticado del NAS");
             var uso = new RetornoProduccionUso();
             var passed = false;
@@ -51,11 +55,26 @@ internal static class ContencionProduccionChecks
             await middleware.InvokeAsync(http,remoto,uso);
             Check(!passed && http.Response.StatusCode==302, "NAS no disponible bloquea la sesión operativa");
             Check(await remoto.ConsultarAsync(default) is { Conocido: false }, "fallo de red no equivale a contención desactivada");
+            Check((await remoto.ConsultarAsync(default)).MensajeAcceso.Contains("Contactar con el administrador"),
+                "contención activa sin test informa al usuario que contacte al administrador");
             handler.Fallar=false;
             handler.Activa=false;
             http = Contexto("DELEGACION", "/Nota/Listado", "GET");
             await middleware.InvokeAsync(http,remoto,uso);
             Check(passed, "se recupera el acceso al desactivar contención");
+            handler.Fallar = true;
+            var despuesDeReinicio = new ContencionProduccionService(client,config,
+                NullLogger<ContencionProduccionService>.Instance, new EstadoContencionProduccionStore(config,protection));
+            Check(await despuesDeReinicio.ConsultarAsync(default) is { Activa: false, Conocido: false },
+                "recuerda modo normal al reiniciar producción con test fuera de línea");
+            foreach (var method in new[] { "GET", "POST" })
+            {
+                passed = false;
+                http = Contexto("DELEGACION", "/Nota/Listado", method);
+                await middleware.InvokeAsync(http,despuesDeReinicio,uso);
+                Check(passed, "modo normal permite trabajar aunque test no responda: " + method);
+            }
+            handler.Fallar = false;
 
             passed=false;
             uso.Bloquear();
@@ -65,6 +84,13 @@ internal static class ContencionProduccionChecks
             uso.Liberar();
 
             handler.Activa=true;
+            await remoto.ConsultarAsync(default);
+            handler.Fallar=true;
+            var reinicioEnContencion = new ContencionProduccionService(client,config,
+                NullLogger<ContencionProduccionService>.Instance, new EstadoContencionProduccionStore(config,protection));
+            Check(await reinicioEnContencion.ConsultarAsync(default) is { Activa: true, Conocido: false },
+                "recuerda contención activa al reiniciar sin test");
+            handler.Fallar=false;
             var origin = Guid.NewGuid().ToString("N");
             handler.Origen=origin;
             var backup = await remoto.CrearRespaldoPrevioAsync(origin,default);

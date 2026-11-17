@@ -5,10 +5,15 @@ using System.Text.Json;
 namespace Medios.Services.Respaldos;
 
 public sealed record EstadoContencionRemota(bool Activa, bool SoloLectura, bool Conocido,
-    string? OrigenRespaldo = null, string? RespaldoPrevioId = null, string? RespaldoPrevioSha256 = null, string? ErrorRespaldo = null);
+    string? OrigenRespaldo = null, string? RespaldoPrevioId = null, string? RespaldoPrevioSha256 = null, string? ErrorRespaldo = null)
+{
+    public string MensajeAcceso => Conocido
+        ? "Se encuentra activo el modo Contención. Debe ingresar a https://medios.crmai.net.ar/"
+        : "No se puede acceder al sistema de continuidad operativa. Contactar con el administrador.";
+}
 
 public sealed class ContencionProduccionService(HttpClient client, IConfiguration configuration,
-    ILogger<ContencionProduccionService> logger)
+    ILogger<ContencionProduccionService> logger, EstadoContencionProduccionStore memoria)
 {
     public bool Habilitado => configuration["Deployment:Environment"] == "Production";
     private sealed record Agente(string receiver, string token, string secret);
@@ -39,6 +44,7 @@ public sealed class ContencionProduccionService(HttpClient client, IConfiguratio
     public async Task<EstadoContencionRemota> ConsultarAsync(CancellationToken ct, string? solicitud = null)
     {
         if (!Habilitado) return new(false, false, true);
+        await memoria.Consulta.WaitAsync(ct);
         try
         {
             var agente = LeerAgente();
@@ -47,14 +53,23 @@ public sealed class ContencionProduccionService(HttpClient client, IConfiguratio
             using var response = await client.SendAsync(request, ct);
             response.EnsureSuccessStatusCode();
             var estado = await response.Content.ReadFromJsonAsync<EstadoContencionRemota>(ct);
-            return estado is { Conocido: true } ? estado : new(true, false, false);
+            if (estado is not { Conocido: true })
+                throw new InvalidOperationException("El estado remoto no está confirmado.");
+            await memoria.GuardarAsync(estado.Activa, ct);
+            return estado;
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception e) when (e is HttpRequestException or IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or OperationCanceledException)
         {
             logger.LogWarning("No se pudo consultar la contención ({Tipo}).", e.GetType().Name);
-            return new(true, false, false);
+            try { return new(memoria.UltimoEstado() ?? true, false, false); }
+            catch (Exception fallo) when (fallo is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException or JsonException)
+            {
+                logger.LogWarning("No se pudo leer el último estado de contención ({Tipo}).", fallo.GetType().Name);
+                return new(true, false, false);
+            }
         }
+        finally { memoria.Consulta.Release(); }
     }
 
     public async Task<EstadoContencionRemota> CrearRespaldoPrevioAsync(string origen, CancellationToken ct)

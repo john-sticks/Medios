@@ -38,13 +38,13 @@ public sealed class ContencionProduccionMiddleware(RequestDelegate next)
         if (!login && !developer && http.User.Identity?.IsAuthenticated == true)
         {
             var estado = await remoto.ConsultarAsync(http.RequestAborted);
-            if (estado.Activa || !estado.Conocido)
+            if (estado.Activa)
             {
                 if (HttpMethods.IsGet(http.Request.Method)) http.Response.Redirect("/Login");
                 else
                 {
                     http.Response.StatusCode = StatusCodes.Status423Locked;
-                    await http.Response.WriteAsJsonAsync(new { message = "Se encuentra activo el modo Contención. Debe ingresar a https://medios.crmai.net.ar/" });
+                    await http.Response.WriteAsJsonAsync(new { message = estado.MensajeAcceso });
                 }
                 return;
             }

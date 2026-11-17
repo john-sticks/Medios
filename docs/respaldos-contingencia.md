@@ -123,8 +123,10 @@ y recreá el contenedor. La instalación productiva también puede leer esa conf
 de solo lectura `/etc/keryx-backup:/run/keryx-backup:ro`. El formulario usa la clave del servidor cuando está configurada.
 
 Mientras la contención está activa en el NAS, producción muestra su enlace en el login y restringe
-el acceso operativo. DESARROLLADOR conserva el acceso para revisar el retorno. Un estado remoto desconocido
-mantiene la restricción. La desactivación de la contención sigue siendo manual.
+el acceso operativo. DESARROLLADOR conserva el acceso para revisar el retorno. Ante una caída de test,
+se conserva el último estado confirmado y protegido en producción. El modo normal permite continuar;
+la contención activa mantiene la restricción y muestra «Contactar con el administrador».
+La desactivación de la contención sigue siendo manual.
 
 ## IA local al probar una copia productiva
 

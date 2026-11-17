@@ -36,8 +36,11 @@ más el protocolo autenticado de contención y respaldo previo agregado para est
 9. Desactivar manualmente la contención en test. Producción recupera su acceso operativo
    en la siguiente solicitud que consulte el estado.
 
-Si no se puede consultar el NAS, producción conserva el bloqueo operativo. Un fallo del respaldo
-previo detiene la importación. El retorno no desactiva por sí mismo la contención.
+Producción conserva el último estado confirmado en un archivo protegido, persistente entre reinicios.
+Si el NAS deja de responder después de confirmar modo normal, producción permite el acceso operativo.
+Si el último estado era contención activa, mantiene el bloqueo e informa «Contactar con el administrador».
+Sin un estado confirmado previo, el acceso operativo requiere que el administrador verifique el estado.
+Un fallo del respaldo previo detiene la importación. El retorno no desactiva por sí mismo la contención.
 
 ## Protección de datos y despliegue
 
