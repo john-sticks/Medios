@@ -105,7 +105,7 @@ namespace Medios
             builder.Services.AddSingleton<RespaldoStore>();
             builder.Services.AddScoped<ImportacionRetornoService>();
             builder.Services.AddHttpClient<ContencionProduccionService>(client => client.Timeout = TimeSpan.FromSeconds(10))
-                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+                .ConfigurePrimaryHttpMessageHandler(() => new ContencionCurlHandler());
             builder.Services.AddSingleton<RetornoProduccionUso>();
             builder.Services.AddSingleton<EstadoContencionProduccionStore>();
             builder.Services.AddSingleton<ModoOperativoStore>();

@@ -22,6 +22,8 @@ más el protocolo autenticado de contención y respaldo previo agregado para est
    `/etc/keryx-backup/agent.json`. El agente y su escucha inmediata deben estar instalados.
 3. Desplegar el candidato productivo. Lee la configuración del agente mediante un montaje
    de solo lectura y consulta el estado del NAS por HTTPS con su token.
+   Las consultas usan curl con conexión directa, igual que el agente de respaldos.
+   El token se entrega por stdin y se mantienen las verificaciones de certificado HTTPS.
 4. Mientras test está en contención, producción informa en el login el enlace de continuidad.
    Se rechazan nuevos accesos operativos y solicitudes de sesiones operativas ya abiertas.
    El rol DESARROLLADOR conserva acceso con su autenticación productiva habitual.
