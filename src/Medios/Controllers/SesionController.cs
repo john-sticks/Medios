@@ -441,7 +441,7 @@ namespace Medios.Controllers
                     TempData["Ok"] = "Síntesis finalizada. Ya está disponible para consolidar.";
                     return Redirect("/Sesion/Bandeja#finalizadas");
                 }
-                TempData["Ok"] = "Síntesis creada. En Bandeja podés generar el PDF y luego remitirla.";
+                TempData["Ok"] = "Síntesis creada. Ya podés remitirla desde Bandeja; descargar el PDF es opcional.";
                 return Redirect("/Sintesis/Listado#generadas");
             }
             catch (Exception ex)
@@ -494,12 +494,17 @@ namespace Medios.Controllers
                 var deleg = await _sesionService.GetDelegacionEfectivaAsync(User);
                 if (deleg == null || sesion.DelegacionId != deleg.Id) return Forbid();
             }
-            if (sesion.PDFPath == null) return NotFound();
-            var filePath = Path.Combine(_env.WebRootPath, sesion.PDFPath.TrimStart('/'));
-            if (!System.IO.File.Exists(filePath)) return NotFound();
-            var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-            var nombre = $"sesion_{sesion.Turno}_{sesion.Fecha:ddMMyyyy}.pdf";
-            return File(bytes, "application/pdf", nombre);
+            var nombre = $"sintesis_{sesion.Turno}_{sesion.Fecha:ddMMyyyy}.pdf";
+            if (_sesionService.PdfEnMemoria(sesion))
+            {
+                using var pdf = new MemoryStream();
+                await _sesionService.GenerarPdfAsync(id, pdf);
+                return File(pdf.ToArray(), "application/pdf", nombre);
+            }
+            if (string.IsNullOrEmpty(sesion.PDFPath)) return NotFound();
+            var ruta = Path.Combine(_env.WebRootPath, sesion.PDFPath.TrimStart('/'));
+            if (!System.IO.File.Exists(ruta)) return NotFound();
+            return File(await System.IO.File.ReadAllBytesAsync(ruta), "application/pdf", nombre);
         }
 
         [HasPermission("REVISAR_SESION")]

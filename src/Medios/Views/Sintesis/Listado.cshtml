@@ -6,7 +6,7 @@
     Layout = "~/Views/Shared/_Layout.cshtml";
     var puedeCrear = User.IsInRole("MEDIOS");
     var puedeModificar = puedeCrear || User.IsInRole("DELEGACION");
-    var puedeRemitir = puedeCrear || User.IsInRole("DELEGACION");
+    var puedeRemitir = puedeCrear || User.IsInRole("DELEGACION") || User.IsInRole("DESARROLLADOR");
     var puedeGenerar = puedeCrear || User.IsInRole("DELEGACION");
     var esDelegacion = User.IsInRole("DELEGACION");
     var borradoresRechazadas = ViewBag.BorradoresRechazadas as List<SesionPrensa> ?? new List<SesionPrensa>();
@@ -134,19 +134,19 @@
                                             @if (!esDelegacion && actualizadas > 0){ <span class="badge bg-orange" title="@actualizadas con nueva versión">@actualizadas act.</span> }
                                         }
                                     </td>
-                                    <td>@s.FechaGeneracion?.ToString("dd/MM HH:mm")</td>
+                                    <td>@((s.FechaGeneracion ?? s.FechaCreacion).ToString("dd/MM HH:mm"))</td>
                                     <td><small>@s.OperadorGenera</small></td>
                                     <td>
                                         <a href="/Sintesis/Detalle/@s.Id" class="btn btn-default btn-xs">
                                             <i class="fa fa-eye"></i> Ver
                                         </a>
-                                        @if (!string.IsNullOrEmpty(s.PDFPath))
+                                        @if (s.DelegacionId.HasValue || !string.IsNullOrEmpty(s.PDFPath))
                                         {
                                             <a href="/Sintesis/DescargarPdf/@s.Id" class="btn btn-danger btn-xs">
                                                 <i class="fa fa-file-pdf-o"></i> PDF
                                             </a>
                                         }
-                                        @if (puedeGenerar && (s.Estado is "Borrador" or "Generada") && string.IsNullOrEmpty(s.PDFPath))
+                                        @if (puedeGenerar && (s.Estado is "Borrador" or "Generada") && !s.DelegacionId.HasValue && string.IsNullOrEmpty(s.PDFPath))
                                         {
                                             <form method="post" action="/Sintesis/GenerarPdf" style="display:inline">
                                                 <input type="hidden" name="id" value="@s.Id" />
@@ -155,7 +155,7 @@
                                                 </button>
                                             </form>
                                         }
-                                        @if (puedeRemitir && s.Estado == "Generada")
+                                        @if (puedeRemitir && Medios.Services.SintesisService.PuedeRemitir(s))
                                         {
                                             <form method="post" action="/Sintesis/Remitir" style="display:inline"
                                                   onsubmit="return confirm('¿Remitir síntesis? Esta acción no puede deshacerse.')">

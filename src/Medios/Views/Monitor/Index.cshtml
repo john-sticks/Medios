@@ -1,9 +1,6 @@
-@await Html.PartialAsync("_MonitorTabs")
-@await Html.PartialAsync("_ModoOperativo")
 @model Medios.Models.MonitorEspacioModel
 @using Medios.Models
 @using System.Globalization
-@inject Medios.Services.Respaldos.ImportacionRetornoService ImportacionRetorno
 @{
     var cultura = CultureInfo.GetCultureInfo("es-AR");
     var lectura = Model.Resultado.Lectura;
@@ -23,10 +20,6 @@
         <div>
             <p class="monitor-eyebrow">Administración / Capacidad</p>
             <p class="text-muted">Capacidad disponible, carga de noticias y evolución del almacenamiento.</p>
-            @if (ImportacionRetorno.Habilitado && User.HasClaim("RolReal", "DESARROLLADOR"))
-            {
-                <a asp-controller="ImportacionRetorno" asp-action="Index" class="btn btn-primary btn-sm">Importar retorno de contingencia</a>
-            }
         </div>
         <div class="monitor-stamp">
             <strong><i class="fa fa-clock-o" aria-hidden="true"></i> @MonitorEspacioModel.HoraLocal(actual.FechaUtc).ToString("dd/MM/yyyy HH:mm")</strong>

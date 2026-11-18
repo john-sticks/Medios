@@ -584,6 +584,7 @@ namespace Medios.Controllers
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null) return NotFound();
             if (EsDelegacion() && (sintesis.DelegacionId == null || !await DelegacionPuedeVerAsync(sintesis) || !string.Equals(sintesis.OperadorGenera, GetUsuario(), StringComparison.OrdinalIgnoreCase))) return Forbid();
+            if (sintesis.DelegacionId.HasValue) return RedirectToAction(nameof(DescargarPdf), new { id });
             if (sintesis.Estado == "Remitida")
             {
                 TempData["Error"] = "No se puede regenerar el PDF de una síntesis ya remitida.";
@@ -615,11 +616,11 @@ namespace Medios.Controllers
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null) return NotFound();
             if (EsDelegacion() && (sintesis.DelegacionId == null || !await DelegacionPuedeVerAsync(sintesis) || !string.Equals(sintesis.OperadorGenera, GetUsuario(), StringComparison.OrdinalIgnoreCase))) return Forbid();
-            if (sintesis.Estado != "Generada")
+            if (!SintesisService.PuedeRemitir(sintesis))
             {
                 TempData["Error"] = sintesis.Estado == "Remitida"
                     ? "La síntesis ya fue remitida."
-                    : "Primero generá el PDF antes de remitir.";
+                    : "La síntesis no está disponible para remitir.";
                 return RedirectToAction(nameof(Detalle), new { id });
             }
             var ok = await _sintesisService.RemitirAsync(id);
@@ -633,7 +634,7 @@ namespace Medios.Controllers
             }
             else
             {
-                TempData["Error"] = "No se puede remitir: primero generá el PDF de la síntesis.";
+                TempData["Error"] = "No se puede remitir la síntesis en su estado actual.";
             }
             return RedirectToAction(nameof(Detalle), new { id });
         }
@@ -675,14 +676,17 @@ namespace Medios.Controllers
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null) return NotFound();
             if (EsDelegacion() && !await DelegacionPuedeVerAsync(sintesis)) return Forbid();
-            if (sintesis.PDFPath == null) return NotFound();
-
-            var filePath = Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/'));
-            if (!System.IO.File.Exists(filePath)) return NotFound();
-
-            var bytes = await System.IO.File.ReadAllBytesAsync(filePath);
-            var nombreDescarga = $"sintesis_{sintesis.Tipo}_{sintesis.Fecha:ddMMyyyy}.pdf";
-            return File(bytes, "application/pdf", nombreDescarga);
+            var nombre = $"sintesis_{sintesis.Tipo}_{sintesis.Fecha:ddMMyyyy}.pdf";
+            if (_sintesisService.PdfEnMemoria(sintesis))
+            {
+                using var pdf = new MemoryStream();
+                await _sintesisService.GenerarPdfAsync(id, pdf);
+                return File(pdf.ToArray(), "application/pdf", nombre);
+            }
+            if (string.IsNullOrEmpty(sintesis.PDFPath)) return NotFound();
+            var ruta = Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/'));
+            if (!System.IO.File.Exists(ruta)) return NotFound();
+            return File(await System.IO.File.ReadAllBytesAsync(ruta), "application/pdf", nombre);
         }
 
         [HasPermission("VER_SINTESIS")]
@@ -692,11 +696,11 @@ namespace Medios.Controllers
             if (EsDelegacion()) return Forbid();
             var sintesis = await _sintesisService.GetByIdAsync(id);
             if (sintesis == null) return NotFound();
-            if (string.IsNullOrEmpty(sintesis.PDFPath)) return NotFound();
+            if (!sintesis.DelegacionId.HasValue && string.IsNullOrEmpty(sintesis.PDFPath)) return NotFound();
             if (ArchivoPdfService.FechaCargaUtc(sintesis.PDFPath).HasValue)
                 return Conflict("Este PDF fue modificado y subido manualmente. El Word del sistema no incluye esas modificaciones; descargá el PDF vigente.");
-            var filePath = Path.Combine(_env.WebRootPath, sintesis.PDFPath.TrimStart('/'));
-            if (!System.IO.File.Exists(filePath)) return NotFound();
+            var filePath = Path.Combine(_env.WebRootPath, (sintesis.PDFPath ?? "").TrimStart('/'));
+            if (!_sintesisService.PdfEnMemoria(sintesis) && !System.IO.File.Exists(filePath)) return NotFound();
 
             var bytes = await _sintesisService.GenerarWordAsync(id);
             return File(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

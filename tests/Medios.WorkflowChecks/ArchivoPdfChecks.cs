@@ -67,7 +67,7 @@ static class ArchivoPdfChecks
             Check(lista.Count(d => d.Consolidado) == 1 && lista.Count(d => !d.Consolidado) == 3, "Separa consolidados de documentos de delegaciones");
             Check(lista.Where(d => !d.Consolidado).All(d => d.Delegacion == "Delegación de prueba"), "Conserva la delegación para agrupar");
             Check(lista.Single(d => d.Consolidado).Origen == "Generado por el sistema", "PDF anterior se identifica como generado");
-            Check(lista.Count(d => !d.Disponible) == 1, "Evidencia archivos faltantes sin ofrecer una descarga rota");
+            Check(lista.All(d => d.Disponible), "Los PDF normales faltantes pueden regenerarse desde DB");
             Check((await service.ListarAsync(fecha, fecha, filtroDelegacionId)).Count == 2, "Filtro por fecha de síntesis");
             Check((await service.ListarAsync(fecha.AddDays(-14), fecha, consolidados: true)).Count == 1, "Permite exactamente quince días inclusivos en consolidados");
             Check(!(await service.ListarAsync(fecha.AddDays(-14), fecha, filtroDelegacionId)).Any(d => d.Consolidado), "La consulta de delegación excluye consolidados");

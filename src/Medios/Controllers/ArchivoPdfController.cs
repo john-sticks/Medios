@@ -45,6 +45,8 @@ public class ArchivoPdfController(ArchivoPdfService archivos, AuditoriaService a
     public async Task<IActionResult> Descargar(int id, bool sesion = false)
     {
         if (!EsMedios) return Forbid();
+        if (await archivos.PuedeRegenerarAsync(id, sesion))
+            return RedirectToAction("DescargarPdf", sesion ? "Sesion" : "Sintesis", new { id });
         var ruta = await archivos.ObtenerRutaAsync(id, sesion);
         if (ruta == null || !System.IO.File.Exists(ruta)) return NotFound();
         return PhysicalFile(ruta, "application/pdf", Path.GetFileName(ruta));

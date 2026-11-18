@@ -629,10 +629,19 @@ namespace Medios.Services
             return SintesisWordDocument.Crear(sintesis, incluidas, _env.WebRootPath);
         }
 
-        public async Task<string> GenerarPdfAsync(int sintesisId)
+        public bool PdfEnMemoria(Sintesis valor) => valor.DelegacionId.HasValue;
+
+        public static bool PuedeRemitir(Sintesis valor) => !valor.EsFiltrada && valor.NotasIncluidas.Count > 0
+            && (valor.DelegacionId.HasValue
+                ? valor.Estado is "Borrador" or "Generada"
+                : valor.Estado == "Generada" && !string.IsNullOrEmpty(valor.PDFPath));
+
+        public async Task<string> GenerarPdfAsync(int sintesisId, Stream? salida = null)
         {
             var sintesis = await GetByIdAsync(sintesisId);
             if (sintesis == null) throw new InvalidOperationException("Síntesis no encontrada");
+            if (sintesis.DelegacionId.HasValue && salida == null)
+                return $"/Sintesis/DescargarPdf/{sintesisId}";
 
             var incluidas = SintesisContenido.NotasVisibles(sintesis);
 
@@ -656,7 +665,6 @@ namespace Medios.Services
 
             var nombreArchivo = $"sintesis_{sintesis.Tipo.ToLower()}_{sintesis.Fecha:yyyyMMdd}_{sintesisId}.pdf";
             var pdfDir = Path.Combine(_env.WebRootPath, "pdf");
-            Directory.CreateDirectory(pdfDir);
             var pdfPath = Path.Combine(pdfDir, nombreArchivo);
 
             var meses = new[] { "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -675,7 +683,7 @@ namespace Medios.Services
             var tipoImgPath = Path.Combine(_env.WebRootPath, "img", $"sintesis_{tipoBanner.ToLower()}.png");
             var tieneBanner = File.Exists(tipoImgPath);
 
-            Document.Create(container =>
+            var documento = Document.Create(container =>
             {
                 container.Page(page =>
                 {
@@ -838,7 +846,15 @@ namespace Medios.Services
                         txt.TotalPages().FontSize(14).FontFamily(SintesisFuentes.Bookman);
                     });
                 });
-            }).GeneratePdf(pdfPath);
+            });
+            if (salida != null) documento.GeneratePdf(salida);
+            else
+            {
+                Directory.CreateDirectory(pdfDir);
+                documento.GeneratePdf(pdfPath);
+            }
+
+            if (salida != null) return $"/Sintesis/DescargarPdf/{sintesisId}";
 
             using var db = _factory.Create();
             var s = await db.Sintesis.FindAsync(sintesisId);
@@ -862,7 +878,7 @@ namespace Medios.Services
             using var db = _factory.Create();
             var s = await db.Sintesis.Include(x => x.NotasIncluidas)
                 .FirstOrDefaultAsync(x => x.Id == id);
-            if (s == null || s.EsFiltrada || s.Estado != "Generada" || string.IsNullOrEmpty(s.PDFPath)) return false;
+            if (s == null || !PuedeRemitir(s)) return false;
             s.Estado = "Remitida";
 
             // Marcar notas de la síntesis como "Remitida"

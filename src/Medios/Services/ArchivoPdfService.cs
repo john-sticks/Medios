@@ -49,13 +49,13 @@ public class ArchivoPdfService(IMediosDbContextFactory factory, IWebHostEnvironm
         if (!consolidados && (!delegacionId.HasValue || delegacionId.Value <= 0))
             throw new ArgumentException("Seleccioná una delegación para consultar sus PDF.");
         using var db = factory.Create();
-        var sintesis = db.Sintesis.AsNoTracking().Where(s => s.PDFPath != null && s.PDFPath != ""
+        var sintesis = db.Sintesis.AsNoTracking().Where(s => (s.DelegacionId != null || (s.PDFPath != null && s.PDFPath != ""))
             && s.Fecha >= desde && s.Fecha <= hasta);
         sintesis = consolidados ? sintesis.Where(s => s.DelegacionId == null)
             : sintesis.Where(s => s.DelegacionId == delegacionId);
         var documentos = await sintesis.Select(s => new ArchivoPdf(s.Id, false, s.DelegacionId,
             s.Delegacion != null ? s.Delegacion.Nombre : "Consolidados", s.Fecha, s.SintesisOrigenId.HasValue ? s.Tipo + " (filtrada)" : s.Tipo, s.Estado,
-            s.PDFPath!, s.FechaGeneracion, false)).ToListAsync();
+            s.PDFPath ?? ("/Sintesis/DescargarPdf/" + s.Id), s.FechaGeneracion ?? s.FechaCreacion, false)).ToListAsync();
         if (!consolidados)
         {
             documentos.AddRange(await db.SesionesPrensas.AsNoTracking()
@@ -66,7 +66,7 @@ public class ArchivoPdfService(IMediosDbContextFactory factory, IWebHostEnvironm
                     s.PDFPath!, s.FechaGeneracionPdf, false)).ToListAsync());
         }
         return documentos.DistinctBy(d => d.Ruta).Select(d => d with
-            { Disponible = File.Exists(RutaFisica(d.Ruta)) })
+            { Disponible = File.Exists(RutaFisica(d.Ruta)) || !d.Consolidado })
             .OrderByDescending(d => d.Fecha).ThenByDescending(d => d.FechaArchivo).ThenByDescending(d => d.Id).ToList();
     }
 
@@ -105,6 +105,18 @@ public class ArchivoPdfService(IMediosDbContextFactory factory, IWebHostEnvironm
             catch (FileNotFoundException) { }
         }
         return new(bytes, cantidad, desde, hasta);
+    }
+
+    public async Task<bool> PuedeRegenerarAsync(int id, bool sesion)
+    {
+        using var db = factory.Create();
+        if (sesion)
+        {
+            var registro = await db.SesionesPrensas.FindAsync(id);
+            return registro != null;
+        }
+        var sintesis = await db.Sintesis.FindAsync(id);
+        return sintesis?.DelegacionId != null;
     }
 
     public async Task<string?> ObtenerRutaAsync(int id, bool sesion)

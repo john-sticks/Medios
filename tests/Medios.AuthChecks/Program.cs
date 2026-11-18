@@ -105,6 +105,41 @@ foreach (var caso in new[] { (HttpStatusCode.OK, "{\"rol\":\"Supervisor\"}", "SU
     Verificar(await auth.ObtenerRolCerberusAsync("token-de-prueba") == caso.Item3, "Rol obtenido del servidor y fallo sin elevación");
     Verificar(manejador.Solicitudes == 1, "Una consulta acotada del perfil");
 }
+var configuracionPanel = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["Deployment:Environment"] = "Production", ["TestBackup:Enabled"] = "false"
+}).Build();
+var almacenPanel = new Medios.Services.Respaldos.RespaldoStore(configuracionPanel,
+    new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider());
+var importacionPanel = new Medios.Services.Respaldos.ImportacionRetornoService(null!, null!, configuracionPanel);
+Microsoft.AspNetCore.Mvc.IActionResult AbrirPanel(ClaimsPrincipal usuario)
+{
+    var panel = new Medios.Controllers.BackupsContingenciaController(importacionPanel, almacenPanel)
+    {
+        ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+        {
+            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = usuario }
+        }
+    };
+    return panel.Index();
+}
+Verificar(AbrirPanel(Sesion("DESARROLLADOR")) is Microsoft.AspNetCore.Mvc.ViewResult,
+    "El desarrollador real accede al panel productivo sin consultar bases ni modificar estado");
+foreach (var rol in new[] { "MEDIOS", "DELEGACION" })
+    Verificar(AbrirPanel(Sesion(rol)) is Microsoft.AspNetCore.Mvc.ForbidResult,
+        "El panel de backups no admite el rol " + rol);
+var rolSimulado = new ClaimsPrincipal(new ClaimsIdentity(new[]
+{
+    new Claim(ClaimTypes.Role, "DESARROLLADOR"), new Claim("RolReal", "MEDIOS")
+}, "Cookies"));
+Verificar(AbrirPanel(rolSimulado) is Microsoft.AspNetCore.Mvc.ForbidResult,
+    "Un rol simulado de desarrollador no habilita el panel productivo");
+var menu = System.Xml.Linq.XDocument.Load("src/Medios/Config/Permisos/permisos_10.xml");
+Verificar(!menu.Root!.Element("navigation")!.Descendants("group").Any(g => (string?)g.Attribute("title") == "Sincronización"),
+    "Sincronización ya no aparece en el menú");
+Verificar(menu.Root.Element("navigation")!.Descendants("page").Any(p => (string?)p.Attribute("href") == "~/backupscontingencia"),
+    "El menú del desarrollador contiene Backups y Contingencia");
+
 Console.WriteLine($"OK: {comprobaciones} comprobaciones de autenticación y autorización local.");
 
 sealed class RespuestaToken(HttpStatusCode estado, string cuerpo) : HttpMessageHandler

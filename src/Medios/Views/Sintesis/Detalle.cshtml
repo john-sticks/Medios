@@ -5,7 +5,7 @@
     ViewData["Title"] = $"Síntesis {Model.Tipo} — {Model.Fecha:dd/MM/yyyy}";
     Layout = "~/Views/Shared/_Layout.cshtml";
     var puedeGenerar = User.IsInRole("MEDIOS") || User.IsInRole("DELEGACION");
-    var puedeRemitir = User.IsInRole("MEDIOS") || User.IsInRole("DELEGACION");
+    var puedeRemitir = User.IsInRole("MEDIOS") || User.IsInRole("DELEGACION") || User.IsInRole("DESARROLLADOR");
     // Síntesis consolidada (sin delegación): MEDIOS la revierte e informa
     var esConsolidada = Model.DelegacionId == null;
     var esMedios      = User.IsInRole("MEDIOS");
@@ -158,7 +158,7 @@
                     {
                         @* ── Síntesis de delegación (flujo normal) ── *@
                         @* Solo generación inicial cuando aún no hay PDF (sin "Regenerar") *@
-                        @if (puedeGenerar && Model.Estado != "Remitida" && string.IsNullOrEmpty(Model.PDFPath))
+                        @if (puedeGenerar && Model.Estado != "Remitida" && !Model.DelegacionId.HasValue && string.IsNullOrEmpty(Model.PDFPath))
                         {
                             <form method="post" asp-controller="Sintesis" asp-action="GenerarPdf" style="display:inline">
                                 <input type="hidden" name="id" value="@Model.Id" />
@@ -167,10 +167,10 @@
                                 </button>
                             </form>
                         }
-                        @if (!string.IsNullOrEmpty(Model.PDFPath))
+                        @if (Model.DelegacionId.HasValue || !string.IsNullOrEmpty(Model.PDFPath))
                         {
                             <partial name="_Descargas" model="Model" />
-                            @if (Model.Estado == "Generada" && puedeRemitir)
+                            @if (Medios.Services.SintesisService.PuedeRemitir(Model) && puedeRemitir)
                             {
                                 <form method="post" asp-controller="Sintesis" asp-action="Remitir" style="display:inline"
                                       onsubmit="return confirm(@(esPropiaDeMedios

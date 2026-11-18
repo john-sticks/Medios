@@ -251,7 +251,6 @@ namespace Medios.Services
             if (sesion.UsuarioCarga != usuarioCarga) return false;
             if (sesion.Estado != "Borrador") return false;
             if (!sesion.Notas.Any()) return false;
-            if (string.IsNullOrEmpty(sesion.PDFPath)) return false;
 
             sesion.Estado = "Remitida";
             sesion.FechaRemision = DateTime.Now;
@@ -397,7 +396,7 @@ namespace Medios.Services
             {
                 Fecha = sesion.Fecha,
                 Tipo = sesion.Turno,
-                Estado = "Borrador",
+                Estado = "Generada",
                 FechaCreacion = DateTime.Now,
                 OperadorGenera = operador,
                 DelegacionId = sesion.DelegacionId
@@ -756,10 +755,13 @@ namespace Medios.Services
 
         // ── Generar PDF de sesión borrador ────────────────────────────
 
-        public async Task<string> GenerarPdfAsync(int sesionId)
+        public bool PdfEnMemoria(SesionPrensa _) => true;
+
+        public async Task<string> GenerarPdfAsync(int sesionId, Stream? salida = null)
         {
             var sesion = await GetByIdAsync(sesionId);
             if (sesion == null) throw new InvalidOperationException("Sesión no encontrada");
+            if (salida == null) return $"/Sesion/DescargarPdf/{sesionId}";
 
             var notas = sesion.Notas
                 .OrderBy(n => n.VersionActual?.Categoria?.Orden ?? 99)
@@ -776,10 +778,6 @@ namespace Medios.Services
                 .ToDictionary(n => n.Id, n => n.VersionActual!);
             var lineas = await _notaService.GetLineasTiempoAsync(versionPorNota);
 
-            var nombreArchivo = $"sesion_{sesion.Turno.ToLower()}_{sesion.Fecha:yyyyMMdd}_{sesionId}.pdf";
-            var pdfDir = Path.Combine(_env.WebRootPath, "pdf");
-            Directory.CreateDirectory(pdfDir);
-            var pdfPath = Path.Combine(pdfDir, nombreArchivo);
 
             var meses = new[] { "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
                                 "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre" };
@@ -800,7 +798,7 @@ namespace Medios.Services
                 return $"{partido.Nombre.ToUpper()} - {loc.ToUpper()}";
             }
 
-            Document.Create(container =>
+            var documento = Document.Create(container =>
             {
                 container.Page(page =>
                 {
@@ -894,18 +892,10 @@ namespace Medios.Services
                         txt.TotalPages().FontSize(8);
                     });
                 });
-            }).GeneratePdf(pdfPath);
+            });
+            documento.GeneratePdf(salida);
 
-            using var db = _factory.Create();
-            var s = await db.SesionesPrensas.FindAsync(sesionId);
-            if (s != null)
-            {
-                s.PDFPath = $"/pdf/{nombreArchivo}";
-                s.FechaGeneracionPdf = DateTime.Now;
-                await db.SaveChangesAsync();
-            }
-
-            return $"/pdf/{nombreArchivo}";
+            return $"/Sesion/DescargarPdf/{sesionId}";
         }
 
         // Métricas para el dashboard

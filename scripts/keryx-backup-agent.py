@@ -37,7 +37,7 @@ def enviar(config,path,data=None,content_type='application/json',headers=None):
         return json.loads(respuesta.read_text(encoding='utf-8') or '{}')
 
 
-def empaquetar(config,work):
+def preparar_archivos(config,work):
     source=pathlib.Path(config.get('source','/opt/medios')).resolve()
     if source!=pathlib.Path('/opt/medios'):raise RuntimeError('Directorio de origen no permitido')
     if config.get('database')!='medios':raise RuntimeError('Base de origen no permitida')
@@ -51,20 +51,26 @@ def empaquetar(config,work):
     if result.returncode or dump.stat().st_size==0:raise RuntimeError('No se pudo generar el dump MySQL')
     manifest={'format':1,'database':'medios','startedUtc':start.isoformat(),'finishedUtc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'includes':['database.sql','pdf','uploads']}
     (work/'manifest.json').write_text(json.dumps(manifest))
+    files={'database.sql':dump,'manifest.json':work/'manifest.json'}
+    mounted=subprocess.run(['docker','inspect','medios','--format','{{json .Mounts}}'],capture_output=True,text=True,check=True,timeout=30)
+    mounts={m['Destination']:pathlib.Path(m['Source']).resolve() for m in json.loads(mounted.stdout) if m.get('Source')}
+    for name,destination in [('pdf','/app/wwwroot/pdf'),('uploads','/app/wwwroot/uploads')]:
+        base=mounts.get(destination)
+        if base is None or not base.is_dir() or not base.is_relative_to(source):raise RuntimeError('No se encontró el volumen persistente de Keryx: '+name)
+        for current,dirs,names in os.walk(base,followlinks=False):
+            dirs[:]=[d for d in dirs if not (pathlib.Path(current)/d).is_symlink()]
+            for filename in names:
+                item=pathlib.Path(current)/filename
+                if item.is_symlink() or not item.is_file():continue
+                files[name+'/'+item.relative_to(base).as_posix()]=item
+    return files
+
+
+def empaquetar(config,work):
+    files=preparar_archivos(config,work)
     archive=work/'backup.tar.gz'
     with tarfile.open(archive,'w:gz',compresslevel=6) as tar:
-        tar.add(dump,arcname='database.sql',recursive=False);tar.add(work/'manifest.json',arcname='manifest.json',recursive=False)
-        mounted=subprocess.run(['docker','inspect','medios','--format','{{json .Mounts}}'],capture_output=True,text=True,check=True,timeout=30)
-        mounts={m['Destination']:pathlib.Path(m['Source']).resolve() for m in json.loads(mounted.stdout) if m.get('Source')}
-        for name,destination in [('pdf','/app/wwwroot/pdf'),('uploads','/app/wwwroot/uploads')]:
-            base=mounts.get(destination)
-            if base is None or not base.is_dir() or not base.is_relative_to(source):raise RuntimeError('No se encontró el volumen persistente de Keryx: '+name)
-            for current,dirs,files in os.walk(base,followlinks=False):
-                dirs[:]=[d for d in dirs if not (pathlib.Path(current)/d).is_symlink()]
-                for filename in files:
-                    item=pathlib.Path(current)/filename
-                    if item.is_symlink() or not item.is_file():continue
-                    tar.add(item,arcname=name+'/'+item.relative_to(base).as_posix(),recursive=False)
+        for name,item in sorted(files.items()):tar.add(item,arcname=name,recursive=False)
     secret=work/'secret';secret.write_text(config['secret']);os.chmod(secret,0o600)
     encrypted=work/'ciphertext'
     subprocess.run(['openssl','enc',*(['-saltlen','8'] if b'-saltlen' in subprocess.run(['openssl','enc','-help'],capture_output=True).stderr else []),'-aes-256-cbc','-salt','-pbkdf2','-iter','200000','-md','sha256','-pass','file:'+str(secret),'-in',str(archive),'-out',str(encrypted)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=1200)
@@ -77,6 +83,60 @@ def empaquetar(config,work):
         while chunk:=src.read(1024*1024):tag.update(chunk);dst.write(chunk)
         dst.write(tag.digest())
     return output
+
+MAX_BLOQUE=1024*1024
+GEAR=[int.from_bytes(hashlib.sha256(bytes([i])).digest()[:8],'little') for i in range(256)]
+
+
+def bloques(path,sql=False):
+    with pathlib.Path(path).open('rb') as src:
+        if not sql:
+            while data:=src.read(MAX_BLOQUE):yield data
+            return
+        actual=bytearray();huella=0
+        while data:=src.read(81920):
+            for value in data:
+                actual.append(value);huella=((huella<<1)+GEAR[value])&0xffffffffffffffff
+                if len(actual)>=65536 and ((huella&262143)==0 or len(actual)==MAX_BLOQUE):
+                    yield bytes(actual);actual.clear();huella=0
+        if actual:yield bytes(actual)
+
+
+def esperar_incremental(config,request):
+    limite=time.monotonic()+1500
+    while time.monotonic()<limite:
+        result=enviar(config,'incremental/resultado/'+request)
+        if result.get('status')=='confirmed':return result
+        if result.get('status')=='error':raise ErrorReceptor('El incremental no superó la reconstrucción o validación. El respaldo anterior se conserva')
+        time.sleep(5)
+    raise ErrorReceptor('El NAS todavía está validando el incremental; revisar su estado antes de reintentar')
+
+
+def transferir_incremental(config,work,request,plan):
+    if plan.get('processing'):return esperar_incremental(config,request)
+    base=enviar(config,'incremental/base/'+request)
+    if not isinstance(base.get('baseId'),str) or not re.fullmatch('[0-9a-f]{64}',base['baseId']):raise ErrorReceptor('Base incremental inválida')
+    hashes=base.get('hashes')
+    if not isinstance(hashes,list) or len(hashes)>200000 or any(not isinstance(h,str) or not re.fullmatch('[0-9a-f]{64}',h) for h in hashes):raise ErrorReceptor('Índice incremental inválido')
+    conocidos=set(hashes);enviados=set();files=[];total=0;transferidos=0
+    for name,path in sorted(preparar_archivos(config,work).items()):
+        previo=path.stat();chunks=[]
+        for data in bloques(path,name=='database.sql'):
+            digest=hashlib.sha256(data).hexdigest();chunks.append({'hash':digest,'bytes':len(data)})
+            if digest not in conocidos and digest not in enviados:
+                transferidos+=len(data)
+                if transferidos>plan['maxBytes']:raise ErrorReceptor('El incremental excede el límite de transferencia')
+                enviar(config,'incremental/'+request+'/object/'+digest,data,'application/octet-stream');enviados.add(digest)
+        posterior=path.stat()
+        if (previo.st_size,previo.st_mtime_ns)!=(posterior.st_size,posterior.st_mtime_ns):raise ErrorReceptor('Un archivo cambió durante el respaldo; se debe reintentar')
+        files.append({'path':name,'bytes':previo.st_size,'chunks':chunks});total+=previo.st_size
+        if len(files)>100000 or total>10*1024*1024*1024:raise ErrorReceptor('El respaldo excede los límites del receptor')
+    # La lista es autoritativa: la ausencia de un archivo representa su eliminación.
+    manifest=json.dumps({'format':2,'baseId':base['baseId'],'files':files},separators=(',',':')).encode()
+    if len(manifest)>16*1024*1024:raise ErrorReceptor('El manifiesto incremental excede el límite')
+    enviar(config,'incremental/'+request+'/finalizar',manifest)
+    return esperar_incremental(config,request)
+
 
 def escuchar_conexion(config,ejecutar):
     endpoint=config['receiver'].rstrip('/')+'/api/testbackup/escuchar'
@@ -137,20 +197,24 @@ def main():
     with (root/'agent.lock').open('w') as lock:
         try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError:return
-        plan=enviar(config,'plan');request=plan.get('requestId')
+        plan=enviar(config,'plan?protocol=incremental-v1');request=plan.get('requestId')
         if not request:return
         if not isinstance(request,str) or len(request)!=32 or any(c not in '0123456789abcdef' for c in request):raise RuntimeError('Solicitud inválida')
         try:
             with tempfile.TemporaryDirectory(prefix='job-',dir=root) as temp:
+                if plan.get('mode')=='incremental':
+                    transferir_incremental(config,pathlib.Path(temp),request,plan)
+                    print('Transferencia incremental confirmada tras validar la restauración en el NAS.')
+                    return
                 backup=empaquetar(config,pathlib.Path(temp))
                 if backup.stat().st_size>plan['maxBytes']:raise RuntimeError('El respaldo excede el límite del receptor')
                 chunk_size=8*1024*1024;parts=(backup.stat().st_size+chunk_size-1)//chunk_size
                 with backup.open('rb') as src:
                     for index in range(parts):
                         enviar(config,f'chunk/{request}/{index}',src.read(chunk_size),'application/octet-stream',{'X-Backup-Parts':str(parts)})
-            print('Respaldo enviado y validado por el NAS.')
+            print('Respaldo completo recibido por el NAS; la validación de restauración se informa en el panel.')
         except Exception:
-            with contextlib.suppress(Exception):enviar(config,'error',b'{}')
+            with contextlib.suppress(Exception):enviar(config,'error',json.dumps({'requestId':request}).encode())
             raise
 if __name__=='__main__':
     try:main()

@@ -1,0 +1,33 @@
+@{
+    var contingencia = Context.Request.Query["seccion"] == "contingencia";
+}
+<div class="nav-tabs-custom">
+    <ul class="nav nav-tabs">
+        <li class="@(!contingencia ? "active" : "")"><a href="/BackupsContingencia"><i class="fa fa-database"></i> Respaldos productivos</a></li>
+        <li class="@(contingencia ? "active" : "")"><a href="/BackupsContingencia?seccion=contingencia"><i class="fa fa-life-ring"></i> Contingencia</a></li>
+    </ul>
+    <div class="tab-content">
+        @if (contingencia)
+        {
+            @await Html.PartialAsync("_ModoOperativo")
+            <section class="box box-primary">
+                <div class="box-header with-border"><h3 class="box-title">Retorno de contingencia</h3></div>
+                <div class="box-body">
+                    <p>Revisá el paquete de contingencia e importalo después de cerrar la carga. Antes de aplicar los datos, el sistema solicita y verifica el respaldo productivo previo.</p>
+                    <a asp-controller="ImportacionRetorno" asp-action="Index" class="btn btn-primary">Importar retorno de contingencia</a>
+                    <a href="https://medios.crmai.net.ar/Respaldos?seccion=contingencia" class="btn btn-default" target="_blank" rel="noopener noreferrer">Administrar contingencia en test</a>
+                </div>
+            </section>
+        }
+        else
+        {
+            <section class="box box-primary">
+                <div class="box-header with-border"><h3 class="box-title">Respaldos productivos</h3></div>
+                <div class="box-body">
+                    <p>La creación, programación y verificación de los respaldos se administra desde test. El agente productivo envía las copias al NAS.</p>
+                    <a href="https://medios.crmai.net.ar/Respaldos" class="btn btn-primary" target="_blank" rel="noopener noreferrer">Administrar respaldos en test</a>
+                </div>
+            </section>
+        }
+    </div>
+</div>

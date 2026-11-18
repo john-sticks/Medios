@@ -33,6 +33,6 @@ public class MonitorController(MonitorEspacioService monitor, ModoOperativoStore
     {
         if(!User.IsInRole("DESARROLLADOR") || modo==null)return Forbid();
         await modo.GuardarAsync(activar,User.FindFirst("UsuarioReal")?.Value??User.Identity?.Name??"");
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction("Index", "BackupsContingencia", new { seccion = "contingencia" });
     }
 }
