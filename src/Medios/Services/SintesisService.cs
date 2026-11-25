@@ -753,9 +753,9 @@ namespace Medios.Services
                         // Fila de índice con leader de puntos (imitando el punteado de Word) del
                         // título al número de página — ClampLines corta la tira de puntos al ancho
                         // disponible, sin desbordar sobre el número de página.
-                        void FilaIndice(string texto, string sectionId, bool negrita = false)
+                        void FilaIndice(string texto, string sectionId, bool negrita = false, float sangria = 0)
                         {
-                            col.Item().PaddingTop(2).Row(row =>
+                            col.Item().PaddingTop(2).PaddingLeft(sangria).Row(row =>
                             {
                                 var titulo = row.AutoItem().AlignMiddle().Text(texto).FontSize(10);
                                 if (negrita) titulo.Bold();
@@ -768,12 +768,13 @@ namespace Medios.Services
                             });
                         }
 
+                        var sangriaGrupo = porAmbito.Any(a => a.Bloque != null) ? 12f : 0f;
                         foreach (var amb in porAmbito)
                         {
                             if (amb.Bloque != null) FilaIndice(amb.Bloque, "bloque-" + amb.SectionId, true);
-                            FilaIndice(amb.Titulo, amb.SectionId);
+                            FilaIndice(amb.Titulo, amb.SectionId, sangria: sangriaGrupo);
                             foreach (var cat in amb.Categorias)
-                                if (cat.Titulo != null) FilaIndice(cat.Titulo, cat.SectionId);
+                                if (cat.Titulo != null) FilaIndice(cat.Titulo, cat.SectionId, sangria: sangriaGrupo * 2);
                         }
 
                         // El cuerpo de las notas arranca en una página nueva, separado del índice.
