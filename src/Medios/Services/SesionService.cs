@@ -570,7 +570,7 @@ namespace Medios.Services
             // sus notas/síntesis propias reutilicen toda la lógica de Delegación (límite de
             // Matutina/Vespertina por día, "Mis Borradores", "Generadas", etc.) en vez de
             // compartir el mismo DelegacionId=NULL que usa la síntesis consolidada real.
-            if (deleg == null && user.IsInRole("MEDIOS"))
+            if (deleg == null && (user.IsInRole("MEDIOS") || user.IsInRole("DESARROLLADOR")))
                 deleg = await GetDelegacionDivisionMediosAsync();
 
             return deleg;

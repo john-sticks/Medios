@@ -4,6 +4,8 @@
 @{
     ViewData["Title"] = "Notas";
     Layout = "~/Views/Shared/_Layout.cshtml";
+    var compartidas = User.IsInRole("MEDIOS") || User.IsInRole("DESARROLLADOR");
+    var nombreActual = User.Identity?.Name ?? "";
     var categorias = ViewBag.Categorias as List<CategoriaNoticia>;
     var partidos = ViewBag.Partidos as List<Partido>;
 }
@@ -151,7 +153,11 @@
     <div class="col-md-12">
         <div class="box box-primary">
             <div class="box-header with-border">
-                <h3 class="box-title">Mis Notas (@Model.Count)</h3>
+                <h3 class="box-title">@(compartidas ? "Notas libres de División Medios" : "Mis Notas") (@Model.Count)</h3>
+                @if (compartidas)
+                {
+                    <a href="/Sesion/Nueva" class="btn btn-primary btn-sm pull-right"><i class="fa fa-plus"></i> Crear borrador de síntesis</a>
+                }
             </div>
             <div class="box-body no-padding">
                 @if (!Model.Any())
@@ -185,13 +191,16 @@
                                         <small class="text-muted">(@v.Fuente)</small>
                                     }
                                     <small class="text-muted" style="margin-left:8px;"><i class="fa fa-clock-o"></i> @nota.FechaRegistro.ToString("dd/MM/yyyy HH:mm")</small>
+                                    @if (compartidas) { <small class="text-muted" style="margin-left:8px;">Cargada por: @v?.Usuario</small> }
                                 </div>
                             </div>
                             <div class="col-md-3 text-right">
+                                @if (v?.Usuario == nombreActual)
+                                {
                                 <a href="/Nota/EditarLibre?id=@nota.Id" class="btn btn-info btn-xs" title="Editar">
                                     <i class="fa fa-pencil"></i>
                                 </a>
-                                &nbsp;
+                                <span>&nbsp;</span>
                                 <form method="post" asp-controller="Nota" asp-action="EliminarLibre"
                                       onsubmit="return confirm('¿Eliminar esta nota?')" style="display:inline">
                                     <input type="hidden" name="notaId" value="@nota.Id" />
@@ -199,6 +208,11 @@
                                         <i class="fa fa-trash"></i>
                                     </button>
                                 </form>
+                                }
+                                else
+                                {
+                                    <a href="/NotaBuscador/Detalle/@nota.Id" class="btn btn-default btn-xs"><i class="fa fa-eye"></i> Ver</a>
+                                }
                             </div>
                         </div>
                     </div>
@@ -259,7 +273,7 @@
                                     <a href="/NotaBuscador/Detalle/@nota.Id" class="btn btn-default btn-xs" title="Ver detalle">
                                         <i class="fa fa-eye"></i>
                                     </a>
-                                    &nbsp;
+                                    <span>&nbsp;</span>
                                     <form method="post" asp-controller="Sesion" asp-action="EliminarNotaSinRemitir"
                                           onsubmit="return confirm('¿Eliminar esta nota? Esta acción no puede deshacerse.')" style="display:inline">
                                         <input type="hidden" name="notaId" value="@nota.Id" />

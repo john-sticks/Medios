@@ -304,7 +304,9 @@ namespace Medios.Controllers
             if (esPropietario && sesion.Estado == "Borrador")
             {
                 // 1. Notas libres (sin sesión)
-                var libres = await _notaService.GetNotasLibresAsync(GetNombre());
+                var compartir = User.IsInRole("MEDIOS") || User.IsInRole("DESARROLLADOR");
+                var divisionMedios = compartir ? await _sesionService.GetDelegacionDivisionMediosAsync() : null;
+                var libres = await _notaService.GetNotasLibresAsync(GetNombre(), divisionMedios?.Id);
 
                 // 2. Notas "Sin Remitir" en sesiones de la delegación
                 //    (ampliaciones pendientes de envío, no vinculadas a ningún borrador activo)

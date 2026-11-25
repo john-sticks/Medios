@@ -1056,7 +1056,7 @@ namespace Medios.Services
 
         // ── Notas libres (sin sesión) ──────────────────────────────────
 
-        public async Task<List<NotaPrensa>> GetNotasLibresAsync(string usuario)
+        public async Task<List<NotaPrensa>> GetNotasLibresAsync(string usuario, int? delegacionCompartida = null)
         {
             using var db = _factory.Create();
             return await db.NotasPrensa
@@ -1064,7 +1064,9 @@ namespace Medios.Services
                     .ThenInclude(v => v.Categoria)
                 .Include(n => n.VersionActual!)
                     .ThenInclude(v => v.Partido)
-                .Where(n => n.SesionPrensaId == null && n.VersionActual!.Usuario == usuario)
+                .Where(n => n.SesionPrensaId == null && n.VersionActual != null
+                    && (n.VersionActual.Usuario == usuario
+                        || (delegacionCompartida.HasValue && n.DelegacionId == delegacionCompartida.Value)))
                 .OrderByDescending(n => n.FechaRegistro)
                 .ToListAsync();
         }

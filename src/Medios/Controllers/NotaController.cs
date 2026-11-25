@@ -64,7 +64,9 @@ namespace Medios.Controllers
 
             ViewBag.Partidos  = partidos;
             ViewBag.Caratulas = await _notaService.GetCaratulasAsync();
-            var notas = await _notaService.GetNotasLibresAsync(GetNombre());
+            var compartir = User.IsInRole("MEDIOS") || User.IsInRole("DESARROLLADOR");
+            var divisionMedios = compartir ? await _sesionService.GetDelegacionDivisionMediosAsync() : null;
+            var notas = await _notaService.GetNotasLibresAsync(GetNombre(), divisionMedios?.Id);
 
             if (User.IsInRole("DELEGACION"))
             {
@@ -96,7 +98,7 @@ namespace Medios.Controllers
             }
 
             int? delegId = null;
-            var esMedios = User.IsInRole("MEDIOS");
+            var esMedios = User.IsInRole("MEDIOS") || User.IsInRole("DESARROLLADOR");
             if (esMedios)
                 delegId = (await _sesionService.GetDelegacionEfectivaAsync(User))?.Id;
             else if (int.TryParse(User.FindFirst("DelegacionId")?.Value, out var dId))

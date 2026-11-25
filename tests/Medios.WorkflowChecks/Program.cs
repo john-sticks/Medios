@@ -179,6 +179,7 @@ comprobaciones += await CategoriaChecks.RunAsync();
 comprobaciones += await ArchivoPdfChecks.RunAsync();
 comprobaciones += await PdfOpcionalChecks.RunAsync();
 comprobaciones += await OperativoSolChecks.RunAsync();
+comprobaciones += await NotasCompartidasChecks.RunAsync();
 comprobaciones += await MonitorChecks.RunAsync();
 comprobaciones += await PublicadasChecks.RunAsync();
 comprobaciones += await AccesoPublicadasChecks.RunAsync();
