@@ -28,7 +28,7 @@
                     <div class="col-md-4 sol-partido"><label style="font-weight:normal"><input type="checkbox" name="Formulario.PartidoIds" value="@partido.IdPartido" checked="@(Model.Formulario.PartidoIds.Contains(partido.IdPartido))" /> @partido.Nombre</label></div>
                 }
             </div>
-            <div style="margin-top:15px"><button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> @(editando ? "Actualizar operativo" : "Guardar operativo")</button> <a asp-action="Index" class="btn btn-default">Cancelar</a></div>
+            <div style="margin-top:15px"><button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> @(editando ? "Actualizar operativo" : "Guardar operativo")</button> <a asp-controller="OperativosSol" asp-action="Index" asp-route-id="" class="btn btn-default">Cancelar</a></div>
         </form>
     </div>
 </div>
