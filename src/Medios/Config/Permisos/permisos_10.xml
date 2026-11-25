@@ -18,6 +18,7 @@
       <page title="Análisis" icon="fa fa-bar-chart" href="~/analisis" />
     </group>
     <group title="Administración" icon="fa fa-cogs">
+      <page title="Operativos SOL" icon="fa fa-sun-o" href="~/operativossol" />
       <page title="Monitor" icon="fa fa-hdd-o" href="~/monitor" />
       <page title="Backups y Contingencia" icon="fa fa-database" href="~/backupscontingencia" />
       <group title="Estructura" icon="fa fa-sitemap">
@@ -36,6 +37,8 @@
     <page title="Portales" icon="fa fa-globe" href="~/portales/listado" />
   </navigation>
   <notnavigation>
+    <page href="~/operativossol/index" />
+    <page href="~/operativossol/guardar" />
     <page href="~/sincronizacion" />
     <page href="~/sincronizacion/capturar" />
     <page href="~/respaldos" />

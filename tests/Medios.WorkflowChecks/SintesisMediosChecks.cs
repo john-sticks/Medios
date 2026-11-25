@@ -140,7 +140,7 @@ static class SintesisMediosChecks
         }).ToList();
     }
 
-    public static async Task GenerarMuestraPdfAsync(string directorio, string tipo = "Especial")
+    public static async Task GenerarMuestraPdfAsync(string directorio, string tipo = "Especial", bool operativoSol = false)
     {
         QuestPDF.Settings.License = LicenseType.Community;
         Directory.CreateDirectory(directorio);
@@ -179,6 +179,12 @@ static class SintesisMediosChecks
             await db.SaveChangesAsync();
             id = sintesis.Id;
         }
+        if (operativoSol)
+            await new OperativoSolService(factory).GuardarAsync(new Medios.Models.OperativoSolModel
+            {
+                Descripcion = "OPERATIVO SOL DE PRUEBA", FechaDesde = new DateOnly(2026, 10, 1),
+                PartidoIds = new() { 3 }
+            });
         var servicio = new SintesisService(factory, env, new NotaService(factory));
         Console.WriteLine("PDF de muestra: " + await servicio.GenerarPdfAsync(id));
     }

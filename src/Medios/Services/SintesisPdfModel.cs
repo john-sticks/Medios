@@ -71,6 +71,23 @@ public static class SintesisPdfModel
                     grupo.Select(sn => sn.NotaVersion).ToList()) }, grupo.Key.SoloLocalidad))
             .ToList();
 
+    public static List<AmbitoPdf> AgruparConOperativo(IEnumerable<SintesisNota> incluidas, IReadOnlySet<int> partidos)
+    {
+        var notas = incluidas.ToList();
+        var sol = notas.Where(n => n.NotaVersion.PartidoId is int id && partidos.Contains(id)).ToList();
+        if (sol.Count == 0) return Agrupar(notas);
+        var general = notas.Except(sol).ToList();
+        List<AmbitoPdf> Bloque(List<SintesisNota> contenido, string prefijo, string titulo) =>
+            Agrupar(contenido).Select((grupo, i) => grupo with
+            {
+                SectionId = prefijo + grupo.SectionId,
+                Bloque = i == 0 ? titulo : null,
+                Categorias = grupo.Categorias.Select(c => c with { SectionId = prefijo + c.SectionId }).ToList()
+            }).ToList();
+        return Bloque(sol, "sol-", "OPERATIVO SOL")
+            .Concat(Bloque(general, "general-", "SÍNTESIS DE PRENSA GENERAL")).ToList();
+    }
+
     public static string LocalidadDentroPartido(NotaVersion nota)
     {
         var localidad = nota.Localidad?.Nombre ?? "";
@@ -128,7 +145,7 @@ public static class SintesisPdfModel
     public static string? LinkVisible(NotaVersion nota) => string.IsNullOrWhiteSpace(nota.Link) ? null : nota.Link.Trim();
 }
 
-public sealed record AmbitoPdf(string SectionId, string Titulo, List<CategoriaPdf> Categorias, bool SoloLocalidad = false);
+public sealed record AmbitoPdf(string SectionId, string Titulo, List<CategoriaPdf> Categorias, bool SoloLocalidad = false, string? Bloque = null);
 public sealed record CategoriaPdf(string SectionId, string? Titulo, List<NotaVersion> Notas);
 
 public sealed record SegmentoTitulo(string Texto, bool Subrayado);

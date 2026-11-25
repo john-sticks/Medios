@@ -17,7 +17,7 @@ public static class SintesisWordDocument
     private const int AnchoContenido = 9808; // A4 menos márgenes de 2,5 y 1,2 cm.
 
     public static byte[] Crear(Sintesis sintesis, IReadOnlyList<SintesisNota> incluidas,
-        string webRoot)
+        string webRoot, List<AmbitoPdf>? gruposOperativo = null)
     {
         using var stream = new MemoryStream();
         using (var doc = WordprocessingDocument.Create(stream, WordprocessingDocumentType.Document, true))
@@ -54,10 +54,10 @@ public static class SintesisWordDocument
             body.Append(Parrafo(fecha + (ampliacion ? " - AMPLIACIÓN" : ""), 20, true, centrado: true, antes: 200));
             body.Append(Parrafo("CONTENIDO", 16, true, Marron, "Arial", antes: 720, despues: 400));
 
-            var grupos = SintesisPdfModel.Agrupar(incluidas);
-            void AgregarIndice(string titulo, string marcador)
+            var grupos = gruposOperativo ?? SintesisPdfModel.Agrupar(incluidas);
+            void AgregarIndice(string titulo, string marcador, bool negrita = false)
             {
-                var indice = Parrafo(titulo, 10, fuente: "Arial", antes: 40);
+                var indice = Parrafo(titulo, 10, negrita, fuente: "Arial", antes: 40);
                 indice.ParagraphProperties!.InsertBefore(new W.Tabs(new W.TabStop
                     { Val = W.TabStopValues.Right, Leader = W.TabStopLeaderCharValues.Dot, Position = AnchoContenido }), indice.ParagraphProperties.GetFirstChild<W.SpacingBetweenLines>());
                 indice.Append(new W.Run(new W.TabChar()));
@@ -68,6 +68,7 @@ public static class SintesisWordDocument
             }
             for (var i = 0; i < grupos.Count; i++)
             {
+                if (grupos[i].Bloque is { } bloque) AgregarIndice(bloque, $"bloque_{i}", true);
                 AgregarIndice(grupos[i].Titulo, $"ambito_{i}");
                 for (var j = 0; j < grupos[i].Categorias.Count; j++)
                     if (grupos[i].Categorias[j].Titulo is { } titulo)
@@ -79,6 +80,13 @@ public static class SintesisWordDocument
             for (var i = 0; i < grupos.Count; i++)
             {
                 var grupo = grupos[i];
+                if (grupo.Bloque is { } bloque)
+                {
+                    var tituloBloque = Parrafo(bloque, 16, true, antes: 280, seguir: true);
+                    tituloBloque.InsertAfter(new W.BookmarkStart { Id = bookmarkId.ToString(), Name = $"bloque_{i}" }, tituloBloque.ParagraphProperties);
+                    tituloBloque.Append(new W.BookmarkEnd { Id = (bookmarkId++).ToString() });
+                    body.Append(tituloBloque);
+                }
                 var encabezado = Parrafo(grupo.Titulo, 14, true, Marron, antes: 200, despues: 200, seguir: true);
                 encabezado.InsertAfter(new W.BookmarkStart { Id = bookmarkId.ToString(), Name = $"ambito_{i}" }, encabezado.ParagraphProperties);
                 encabezado.Append(new W.BookmarkEnd { Id = (bookmarkId++).ToString() });

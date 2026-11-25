@@ -19,6 +19,7 @@
       <page title="Análisis" icon="fa fa-bar-chart" href="~/analisis" />
     </group>
     <group title="Administración" icon="fa fa-cogs">
+      <page title="Operativos SOL" icon="fa fa-sun-o" href="~/operativossol" />
       <group title="Estructura" icon="fa fa-sitemap">
         <page title="Delegaciones" icon="fa fa-building" href="~/delegacion/listado" />
         <page title="Carátulas y Modalidades" icon="fa fa-gavel" href="~/caratula/listado" />
@@ -33,6 +34,8 @@
     <page title="Portales" icon="fa fa-globe" href="~/portales/listado" />
   </navigation>
   <notnavigation>
+    <page href="~/operativossol/index" />
+    <page href="~/operativossol/guardar" />
     <page href="~/gruposcorreo/index" />
     <page href="~/gruposcorreo/nuevo" />
     <page href="~/gruposcorreo/editar" />

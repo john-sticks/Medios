@@ -626,7 +626,15 @@ namespace Medios.Services
             var sintesis = await GetByIdAsync(sintesisId)
                 ?? throw new InvalidOperationException("Síntesis no encontrada");
             var incluidas = SintesisContenido.NotasVisibles(sintesis);
-            return SintesisWordDocument.Crear(sintesis, incluidas, _env.WebRootPath);
+            var grupos = await AgruparOperativosAsync(sintesis, incluidas);
+            return SintesisWordDocument.Crear(sintesis, incluidas, _env.WebRootPath, grupos);
+        }
+
+        private async Task<List<AmbitoPdf>> AgruparOperativosAsync(Sintesis sintesis, IReadOnlyList<SintesisNota> notas)
+        {
+            if (sintesis.DelegacionId.HasValue) return SintesisPdfModel.Agrupar(notas);
+            var partidos = await new OperativoSolService(_factory).PartidosVigentesAsync(sintesis.Fecha);
+            return SintesisPdfModel.AgruparConOperativo(notas, partidos);
         }
 
         public bool PdfEnMemoria(Sintesis valor) => valor.DelegacionId.HasValue;
@@ -661,7 +669,7 @@ namespace Medios.Services
             }
 
             // El índice y el cuerpo comparten exactamente la misma jerarquía y orden.
-            var porAmbito = SintesisPdfModel.Agrupar(incluidas);
+            var porAmbito = await AgruparOperativosAsync(sintesis, incluidas);
 
             var nombreArchivo = $"sintesis_{sintesis.Tipo.ToLower()}_{sintesis.Fecha:yyyyMMdd}_{sintesisId}.pdf";
             var pdfDir = Path.Combine(_env.WebRootPath, "pdf");
@@ -745,11 +753,12 @@ namespace Medios.Services
                         // Fila de índice con leader de puntos (imitando el punteado de Word) del
                         // título al número de página — ClampLines corta la tira de puntos al ancho
                         // disponible, sin desbordar sobre el número de página.
-                        void FilaIndice(string texto, string sectionId)
+                        void FilaIndice(string texto, string sectionId, bool negrita = false)
                         {
                             col.Item().PaddingTop(2).Row(row =>
                             {
-                                row.AutoItem().AlignMiddle().Text(texto).FontSize(10);
+                                var titulo = row.AutoItem().AlignMiddle().Text(texto).FontSize(10);
+                                if (negrita) titulo.Bold();
                                 row.RelativeItem().AlignMiddle().PaddingLeft(3).PaddingRight(2)
                                     .Text(new string('.', 300))
                                     .FontSize(14).FontFamily(SintesisFuentes.Bookman).FontColor(Colors.Black)
@@ -761,6 +770,7 @@ namespace Medios.Services
 
                         foreach (var amb in porAmbito)
                         {
+                            if (amb.Bloque != null) FilaIndice(amb.Bloque, "bloque-" + amb.SectionId, true);
                             FilaIndice(amb.Titulo, amb.SectionId);
                             foreach (var cat in amb.Categorias)
                                 if (cat.Titulo != null) FilaIndice(cat.Titulo, cat.SectionId);
@@ -771,6 +781,8 @@ namespace Medios.Services
 
                         foreach (var amb in porAmbito)
                         {
+                          if (amb.Bloque != null)
+                              col.Item().Section("bloque-" + amb.SectionId).EnsureSpace(130).PaddingTop(14).Text(amb.Bloque).FontSize(16).Bold().FontFamily(SintesisFuentes.Bookman);
                           col.Item().EnsureSpace(95).Column(ambCol =>
                           {
                             // ── Encabezado de ÁMBITO (un solo titular) ── (marcado como Section

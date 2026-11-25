@@ -1,0 +1,59 @@
+@model Medios.Models.OperativosSolViewModel
+@{
+    ViewData["Title"] = "Operativos SOL";
+    var editando = Model.Formulario.Id != Guid.Empty;
+}
+@if (TempData["Ok"] != null) { <div class="alert alert-success">@TempData["Ok"]</div> }
+<div class="box box-success @(Model.Expandido ? "" : "collapsed-box")">
+    <div class="box-header with-border" data-widget="collapse" style="cursor:pointer">
+        <h3 class="box-title"><i class="fa fa-sun-o"></i> @(editando ? "Modificar Operativo SOL" : "Nuevo Operativo SOL")</h3>
+        <div class="box-tools pull-right"><button type="button" class="btn btn-box-tool" aria-label="Mostrar u ocultar formulario"><i class="fa @(Model.Expandido ? "fa-minus" : "fa-plus")"></i></button></div>
+    </div>
+    <div class="box-body" style="@(Model.Expandido ? "" : "display:none")">
+        <form asp-action="Guardar" method="post">
+            <div asp-validation-summary="All" class="text-danger"></div>
+            <input asp-for="Formulario.Id" type="hidden" />
+            <div class="row">
+                <div class="col-md-5 form-group"><label asp-for="Formulario.Descripcion">Descripción</label><input asp-for="Formulario.Descripcion" class="form-control" maxlength="150" required /></div>
+                <div class="col-md-3 form-group"><label asp-for="Formulario.FechaDesde">Fecha desde</label><input asp-for="Formulario.FechaDesde" type="date" class="form-control" required /></div>
+                <div class="col-md-3 form-group"><label asp-for="Formulario.FechaHasta">Fecha hasta (opcional)</label><input asp-for="Formulario.FechaHasta" type="date" class="form-control" /></div>
+            </div>
+            <div class="checkbox"><label><input asp-for="Formulario.Activo" /> Activo</label></div>
+            <p>Se incluyen ambas fechas. Sin fecha hasta, el operativo continúa vigente mientras esté activo.</p>
+            <label for="filtroPartidosSol">Partidos incluidos</label>
+            <input id="filtroPartidosSol" type="search" class="form-control" placeholder="Buscar partido…" />
+            <div class="row" style="max-height:300px;overflow:auto;margin-top:10px" id="partidosSol">
+                @foreach (var partido in Model.Partidos)
+                {
+                    <div class="col-md-4 sol-partido"><label style="font-weight:normal"><input type="checkbox" name="Formulario.PartidoIds" value="@partido.IdPartido" checked="@(Model.Formulario.PartidoIds.Contains(partido.IdPartido))" /> @partido.Nombre</label></div>
+                }
+            </div>
+            <div style="margin-top:15px"><button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> @(editando ? "Actualizar operativo" : "Guardar operativo")</button> <a asp-action="Index" class="btn btn-default">Cancelar</a></div>
+        </form>
+    </div>
+</div>
+<div class="box box-primary">
+    <div class="box-header with-border"><h3 class="box-title">Operativos SOL <span class="badge">@Model.Operativos.Count</span></h3></div>
+    <div class="box-body table-responsive">
+        <table class="table table-striped"><thead><tr><th>Descripción</th><th>Fecha desde</th><th>Fecha hasta</th><th>Estado</th><th>Partidos</th><th></th></tr></thead><tbody>
+        @foreach (var operativo in Model.Operativos)
+        {
+            var incluidos = Model.Partidos.Where(p => operativo.PartidoIds.Contains(p.IdPartido)).ToList();
+            var detalleId = "partidos-" + operativo.Id.ToString("N");
+            <tr><td>@operativo.Descripcion</td><td>@operativo.FechaDesde?.ToString("dd/MM/yyyy")</td><td>@(operativo.FechaHasta?.ToString("dd/MM/yyyy") ?? "Sin fecha final")</td><td><span class="label @(operativo.Activo ? "label-success" : "label-default")">@(operativo.Activo ? "Activo" : "Desactivo")</span></td>
+                <td><button class="btn btn-default btn-sm" type="button" data-toggle="collapse" data-target="#@detalleId" aria-expanded="false" aria-controls="@detalleId"><i class="fa fa-info-circle"></i> Partidos (@incluidos.Count)</button></td>
+                <td><a asp-action="Index" asp-route-id="@operativo.Id" class="btn btn-default btn-sm" title="Modificar operativo" aria-label="Modificar @operativo.Descripcion"><i class="fa fa-pencil"></i></a></td></tr>
+            <tr class="collapse" id="@detalleId"><td colspan="6"><ul>@foreach (var partido in incluidos) { <li>@partido.Nombre</li> }</ul></td></tr>
+        }
+        @if (Model.Operativos.Count == 0) { <tr><td colspan="6">Todavía no hay operativos SOL registrados.</td></tr> }
+        </tbody></table>
+    </div>
+</div>
+@section Scripts {
+<script>
+document.getElementById('filtroPartidosSol').addEventListener('input', function () {
+    const texto = this.value.toLocaleLowerCase('es-AR');
+    document.querySelectorAll('.sol-partido').forEach(function (item) { item.hidden = !item.textContent.toLocaleLowerCase('es-AR').includes(texto); });
+});
+</script>
+}

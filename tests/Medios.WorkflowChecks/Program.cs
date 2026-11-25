@@ -178,6 +178,7 @@ comprobaciones += await BorradorUnicidadChecks.RunAsync();
 comprobaciones += await CategoriaChecks.RunAsync();
 comprobaciones += await ArchivoPdfChecks.RunAsync();
 comprobaciones += await PdfOpcionalChecks.RunAsync();
+comprobaciones += await OperativoSolChecks.RunAsync();
 comprobaciones += await MonitorChecks.RunAsync();
 comprobaciones += await PublicadasChecks.RunAsync();
 comprobaciones += await AccesoPublicadasChecks.RunAsync();
@@ -192,6 +193,8 @@ comprobaciones += await FiltradasChecks.RunAsync();
 comprobaciones += await SesionWordChecks.RunAsync();
 comprobaciones += await ReabrirRevisionChecks.RunAsync();
 comprobaciones += WordChecks.Run(args.Length >= 2 && args[0] == "--word-samples" ? args[1] : null);
+if (args.Length == 2 && args[0] == "--sol-pdf-sample")
+    await SintesisMediosChecks.GenerarMuestraPdfAsync(args[1], "Vespertina", true);
 if (args.Length >= 2 && args[0] == "--pdf-sample")
     await SintesisMediosChecks.GenerarMuestraPdfAsync(args[1], args.Length > 2 ? args[2] : "Especial");
 if (args.Length == 2 && args[0] == "--scraping-samples") await ScrapingTitulosChecks.SamplesAsync(args[1]);
