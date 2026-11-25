@@ -783,15 +783,17 @@ namespace Medios.Services
 
                         foreach (var amb in porAmbito)
                         {
+                          var colorGrupo = amb.SectionId.StartsWith("sol-", StringComparison.Ordinal)
+                              ? colorEncabezado : Color.FromHex("#8B4513");
                           if (amb.Bloque != null)
                               col.Item().Section("bloque-" + amb.SectionId).EnsureSpace(130).PaddingTop(14).Text(amb.Bloque).FontSize(16).Bold().FontFamily(SintesisFuentes.Bookman)
-                                  .FontColor(amb.Bloque == "OPERATIVO SOL" ? colorEncabezado : Colors.Black);
+                                  .FontColor(colorGrupo);
                           col.Item().EnsureSpace(95).Column(ambCol =>
                           {
                             // ── Encabezado de ÁMBITO (un solo titular) ── (marcado como Section
                             // para que el índice pueda referenciar la página donde arranca)
                             ambCol.Item().Section(amb.SectionId).ShowEntire().PaddingTop(10).PaddingBottom(10).Text(amb.Titulo)
-                                .FontSize(14).Bold().FontFamily(SintesisFuentes.Bookman).FontColor(colorEncabezado);
+                                .FontSize(14).Bold().FontFamily(SintesisFuentes.Bookman).FontColor(colorGrupo);
 
                           foreach (var grupo in amb.Categorias)
                           {
@@ -801,7 +803,7 @@ namespace Medios.Services
                             if (grupo.Titulo != null)
                             {
                                 catCol.Item().Section(grupo.SectionId).PaddingTop(6).Text(grupo.Titulo)
-                                    .FontSize(14).Bold().FontFamily(SintesisFuentes.Bookman).FontColor(colorEncabezado);
+                                    .FontSize(14).Bold().FontFamily(SintesisFuentes.Bookman).FontColor(colorGrupo);
                             }
 
                             foreach (var nota in grupo.Notas)
